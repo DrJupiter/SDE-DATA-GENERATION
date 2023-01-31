@@ -1,0 +1,4 @@
+setup:
+        project: test-project
+        entity: ai-dtu
+
