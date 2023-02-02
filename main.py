@@ -6,6 +6,8 @@ os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 
 import jax
 
+# Data
+from data.dataload import dataload 
 
 
 ## Weights and biases
@@ -25,7 +27,10 @@ def run_experiment(cfg):
             )
 
     run = wandb.init(entity=cfg.wandb.setup.entity, project=cfg.wandb.setup.project)
-    wandb.log({"loss": 0})
+
+    dataset = dataload(cfg) 
+
+    #wandb.log({"loss": 0})
 
 if __name__ == "__main__":
     run_experiment()
