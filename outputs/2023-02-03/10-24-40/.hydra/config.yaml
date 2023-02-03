@@ -1,9 +1,0 @@
-wandb:
-  setup:
-    project: test-project
-    entity: ai-dtu
-dataset:
-  name: mnist
-  path: ./datasets/
-training:
-  batchsize: 4
