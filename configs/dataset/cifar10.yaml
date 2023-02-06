@@ -1,2 +1,13 @@
 name: cifar10
 path: ./datasets/
+classes:
+  - plane
+  - car
+  - bird
+  - cat
+  - deer
+  - dog
+  - frog
+  - horse
+  - ship
+  - truck
