@@ -2,3 +2,4 @@ defaults:
         - wandb : defaults
         - dataset: mnist
         - training: train
+        - model : dummy
