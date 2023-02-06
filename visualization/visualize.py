@@ -28,6 +28,7 @@ def display_images(cfg, images, titles, rows = None, columns = 2, figsize= (7,7)
 
     Takes the config, so we know how to plot the image in accordance with the dataset
     """
+    
     if rows is None:
         rows = len(images)
 

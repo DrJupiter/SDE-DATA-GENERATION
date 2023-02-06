@@ -21,12 +21,12 @@ from omegaconf import DictConfig, OmegaConf
 @hydra.main(config_path="configs/", config_name="defaults", version_base='1.3')
 def run_experiment(cfg):
 
-    print(cfg) 
-    wandb.config = OmegaConf.to_container(
-            cfg, resolve=True, throw_on_missing=True
-            )
+#    print(cfg) 
+#    wandb.config = OmegaConf.to_container(
+#            cfg, resolve=True, throw_on_missing=True
+#            )
 
-    run = wandb.init(entity=cfg.wandb.setup.entity, project=cfg.wandb.setup.project)
+    wandb.init(entity=cfg.wandb.setup.entity, project=cfg.wandb.setup.project)
 
     dataset = dataload(cfg) 
     if cfg.wandb.log.loss:
