@@ -29,8 +29,9 @@ def run_experiment(cfg):
     run = wandb.init(entity=cfg.wandb.setup.entity, project=cfg.wandb.setup.project)
 
     dataset = dataload(cfg) 
-    if cfg.wandb.setup.log:
+    if cfg.wandb.log.loss:
         wandb.log({"loss": 0})
+        
 
 if __name__ == "__main__":
     run_experiment()

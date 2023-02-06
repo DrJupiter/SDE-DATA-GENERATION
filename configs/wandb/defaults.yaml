@@ -1,5 +1,6 @@
 setup:
         project: test-project
         entity: ai-dtu
-        log: false
-
+log:
+        loss: false
+        img: false
