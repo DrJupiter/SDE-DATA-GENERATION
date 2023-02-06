@@ -2,18 +2,26 @@
 #BSUB -J bsc_test
 #BSUB -o bsc_test_%J.out
 #BSUB -e bsc_test_%J.err
-#BSUB -q hpc
+#BSUB -q gpuv100
 #BSUB -gpu "num=1:mode=exclusive_process"
 #BSUB -n 1
 #BSUB -R "rusage[mem=5G]"
 #BSUB -R "span[hosts=1]"
-#BSUB -W 10
+#BSUB -W 24:00
 # end of BSUB options
 
 echo "starts working"
 
-source /zhome/59/e/156513/test-env/bin/activate 
 
-python main.py
+module swap cuda/11.5
+module load cudnn/v8.3.2.44-prod-cuda-11.5 
+
+source /zhome/59/e/156513/BSCvenv/bin/activate
+
+module load python3/3.11.1
+
+python3 main.py
 
 echo "finished working"
+
+
