@@ -56,6 +56,7 @@ if __name__ == "__main__":
 
 
     from utils.utils import get_hydra_config
+    
     cfg = get_hydra_config()
     mnist_dataset = MNIST(DATA_PATH, download=True, transform=FlattenAndCast())
     training_generator = NumpyLoader(mnist_dataset, batch_size=10, num_workers=mp.cpu_count())
@@ -63,10 +64,9 @@ if __name__ == "__main__":
     data_points, labels = next(data_samples)
     display_images(cfg, data_points, labels)
 
-    cfg = get_hydra_config(overrides=['dataset.name=cifar10'])
-    print(cfg)
+    cfg = get_hydra_config(overrides=['dataset=cifar10'])
     cifar10_dataset = CIFAR10(DATA_PATH, download=True, transform=FlattenAndCast())
     training_generator = NumpyLoader(cifar10_dataset, batch_size=10, num_workers=mp.cpu_count())
     data_samples = iter(training_generator)
     data_points, labels = next(data_samples)
-    display_images(cfg, data_points, [cfg.dataset.classes[idx] for idx in labels])
+    display_images(cfg, data_points, [cfg.dataset.classes[int(idx)] for idx in labels])
