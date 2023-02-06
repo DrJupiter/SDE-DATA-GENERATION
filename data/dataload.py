@@ -10,6 +10,10 @@ os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 import jax.numpy as jnp
 
 def numpy_collate(batch):
+  """
+  Collation function for getting samples
+  from `NumpyLoader`
+  """
   if isinstance(batch[0], np.ndarray):
     return np.stack(batch)
   elif isinstance(batch[0], (tuple,list)):
@@ -19,6 +23,9 @@ def numpy_collate(batch):
     return np.array(batch)
 
 class NumpyLoader(data.DataLoader):
+  """
+  The dataloader used for our image datasets
+  """
   def __init__(self, dataset, batch_size=1,
                 shuffle=False, sampler=None,
                 batch_sampler=None, num_workers=0,
@@ -37,11 +44,19 @@ class NumpyLoader(data.DataLoader):
         worker_init_fn=worker_init_fn)
       
 class FlattenAndCast(object):
+  """
+  Flattens an image and converts the datatype to be 
+  jax numpy's float32 type
+  """
   def __call__(self, pic):
     return np.ravel(np.array(pic, dtype=jnp.float32))
 
 # ASK PAUL, CAN THIS ALL BE DONE IN THE HYDRA CONF?
 def dataload(cfg):
+    """ 
+    Returns the dataset specified in the config
+    in the form of a pytorch dataloader
+    """
     name = cfg.dataset.name
     if name == 'mnist':
         mnist_dataset = MNIST(cfg.dataset.path, download=True, transform=FlattenAndCast())
