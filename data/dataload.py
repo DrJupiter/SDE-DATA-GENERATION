@@ -60,13 +60,13 @@ def dataload(cfg):
     name = cfg.dataset.name
     if name == 'mnist':
         mnist_dataset = MNIST(cfg.dataset.path, download=True, transform=FlattenAndCast())
-        training_generator = NumpyLoader(mnist_dataset, batch_size=cfg.training.batchsize, num_workers=mp.cpu_count())
+        training_generator = NumpyLoader(mnist_dataset, batch_size=cfg.training.batchsize, shuffle=cfg.training.shuffle, num_workers=mp.cpu_count())
         return training_generator
 
     elif name == 'cifar10':
         mnist_dataset = CIFAR10(cfg.dataset.path, download=True, transform=FlattenAndCast())
 
-        training_generator = NumpyLoader(mnist_dataset, batch_size=cfg.training.batchsize, num_workers=mp.cpu_count())
+        training_generator = NumpyLoader(mnist_dataset, batch_size=cfg.training.batchsize, shuffle=cfg.training.shuffle, num_workers=mp.cpu_count())
 
         return training_generator
     
@@ -84,6 +84,7 @@ if __name__ == "__main__":
     training_generator = NumpyLoader(mnist_dataset, batch_size=1, num_workers=mp.cpu_count())
     data_samples = iter(training_generator)
     data_point, label = next(data_samples)
+    print(label)
     # print(jnp.dot(data_point.T, data_point).device()) 
 
     cifar10_dataset = CIFAR10('./tmp/cifar10/', download=True, transform=FlattenAndCast())

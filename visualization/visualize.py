@@ -22,7 +22,7 @@ def setup_plot():
     print("Plot settings applied")
 
 
-def display_images(cfg, images, titles, rows = None, columns = 2, figsize= (7,7), pad=0.2):
+def display_images(cfg, images, titles = [], rows = None, columns = 2, figsize= (7,7), pad=0.2):
     """
     Takes a list of images and plots them
 
