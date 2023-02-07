@@ -56,17 +56,17 @@ def run_experiment(cfg):
     # TODO: GET TRAIN, TEST, AND VALIDATION SPLITS
 
     for epoch in range(cfg.training.epochs): 
-        for t, data, labels in enumerate(dataset):
+        for t, (data, labels) in enumerate(dataset):
 
             # TODO: REMOVE
-            t_data = one_hot(labels, 10) 
+            t_data = one_hot(labels, 10).T 
             optim_parameters, model_parameters = optim_alg(optim_parameters, model_parameters, t_data, labels)
             
-            if t % 1000:
+            if t % cfg.wandb.log.frequency == 0:
                 if cfg.wandb.log.loss:
-                    wandb.log({"loss": loss_fn(model_parameters, t_data, data)})
+                    wandb.log({"loss": loss_fn(model_parameters, t_data, data.T)})
                 if cfg.wandb.log.img:
-                    display_images(cfg, model_call(t_data, model_parameters), labels)
+                    display_images(cfg, model_call(t_data, model_parameters).T, labels)
 
 
         

@@ -52,8 +52,8 @@ def display_images(cfg, images, titles = [], rows = None, columns = 2, figsize= 
             run = wandb.init(entity=cfg.wandb.setup.entity, project=cfg.wandb.setup.project)
 
         wandb.log({f"plot {cfg.dataset.name}": fig})
-
-    plt.show()
+    if cfg.visualization.visualize_img:
+        plt.show()
     plt.close()
 
 if __name__ == "__main__":

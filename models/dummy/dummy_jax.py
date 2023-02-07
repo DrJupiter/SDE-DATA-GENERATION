@@ -30,6 +30,7 @@ def model_call(data, parameters):
     x = data
 
     for parameter in parameters:
+        # TODO: Reconsider ORDER in terms of shape representation
         x = jnp.matmul(parameter, x)
         x = nn.sigmoid(x)
     
@@ -51,7 +52,7 @@ def optim_alg(optim_parameters, parameters, data, gt):
     gradients = grad_fn(parameters, data, gt)
     new_parameters = []
     for i in range(len(parameters)):
-        new_parameters.append(parameters[i] - optim_parameters * gradients[i])
+        new_parameters.append(parameters[i] - optim_parameters[0] * gradients[i])
     
     new_optim_parameters = optim_parameters
     return new_optim_parameters, new_parameters

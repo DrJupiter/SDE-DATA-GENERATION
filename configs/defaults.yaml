@@ -3,3 +3,4 @@ defaults:
         - dataset: mnist
         - training: train
         - model : dummy
+        - visualization: visualize
