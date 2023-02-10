@@ -54,21 +54,28 @@ class FlattenAndCast(object):
 # ASK PAUL, CAN THIS ALL BE DONE IN THE HYDRA CONF?
 def dataload(cfg):
     """ 
-    Returns the dataset specified in the config
+    Returns the train and test dataset specified in the config
     in the form of a pytorch dataloader
     """
     name = cfg.dataset.name
     if name == 'mnist':
-        mnist_dataset = MNIST(cfg.dataset.path, download=True, transform=FlattenAndCast())
-        training_generator = NumpyLoader(mnist_dataset, batch_size=cfg.training.batchsize, num_workers=mp.cpu_count())
-        return training_generator
+
+        mnist_dataset_train = MNIST(cfg.dataset.path, download=True, transform=FlattenAndCast())
+        training_generator = NumpyLoader(mnist_dataset_train, batch_size=cfg.train_and_test.train.batchsize, shuffle=cfg.train_and_test.train.shuffle, num_workers=mp.cpu_count())
+
+        mnist_dataset_test = MNIST(cfg.dataset.path, train=False, download=True, transform=FlattenAndCast())
+        test_generator = NumpyLoader(mnist_dataset_test, batch_size=cfg.train_and_test.test.batchsize, shuffle=cfg.train_and_test.test.shuffle, num_workers=mp.cpu_count())
+
+        return training_generator, test_generator 
 
     elif name == 'cifar10':
-        mnist_dataset = CIFAR10(cfg.dataset.path, download=True, transform=FlattenAndCast())
+        cifar10_dataset_train = CIFAR10(cfg.dataset.path, download=True, transform=FlattenAndCast())
+        training_generator = NumpyLoader(cifar10_dataset_train, batch_size=cfg.train_and_test.train.batchsize, shuffle=cfg.train_and_test.train.shuffle, num_workers=mp.cpu_count())
 
-        training_generator = NumpyLoader(mnist_dataset, batch_size=cfg.training.batchsize, num_workers=mp.cpu_count())
+        cifar10_dataset_test = CIFAR10(cfg.dataset.path, train=False, download=True, transform=FlattenAndCast())
+        training_generator = NumpyLoader(cifar10_dataset_test, batch_size=cfg.train_and_test.test.batchsize, shuffle=cfg.train_and_test.test.shuffle, num_workers=mp.cpu_count())
 
-        return training_generator
+        return training_generator, test_generator
     
     # TODO: ASK PAUL how to do this in a hydra friendly way
     raise ValueError(f"The dataset with name {name} doesn't exist")
@@ -84,6 +91,7 @@ if __name__ == "__main__":
     training_generator = NumpyLoader(mnist_dataset, batch_size=1, num_workers=mp.cpu_count())
     data_samples = iter(training_generator)
     data_point, label = next(data_samples)
+    print(label)
     # print(jnp.dot(data_point.T, data_point).device()) 
 
     cifar10_dataset = CIFAR10('./tmp/cifar10/', download=True, transform=FlattenAndCast())

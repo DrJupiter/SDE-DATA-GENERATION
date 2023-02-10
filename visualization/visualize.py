@@ -2,6 +2,7 @@ import matplotlib as mpl
 import matplotlib.pylab as plt
 import matplotlib.dates as mdates
 import seaborn as sns
+import wandb
 
 def setup_plot():
     mpl.rcParams['lines.linewidth'] = 1
@@ -21,12 +22,13 @@ def setup_plot():
     print("Plot settings applied")
 
 
-def display_images(cfg, images, titles, rows = None, columns = 2, figsize= (10,7), pad=1.08):
+def display_images(cfg, images, titles = [], rows = None, columns = 2, figsize= (7,7), pad=0.2):
     """
     Takes a list of images and plots them
 
     Takes the config, so we know how to plot the image in accordance with the dataset
     """
+    
     if rows is None:
         rows = len(images)
 
@@ -43,9 +45,15 @@ def display_images(cfg, images, titles, rows = None, columns = 2, figsize= (10,7
             plt.title(titles[idx])
         else:
             plt.title(str(idx+1))
-
     plt.tight_layout(pad=pad) 
-    plt.show()
+
+    if cfg.wandb.log.img:
+        if wandb.run is None:
+            run = wandb.init(entity=cfg.wandb.setup.entity, project=cfg.wandb.setup.project)
+
+        wandb.log({f"plot {cfg.dataset.name}": fig})
+    if cfg.visualization.visualize_img:
+        plt.show()
     plt.close()
 
 if __name__ == "__main__":
@@ -56,7 +64,7 @@ if __name__ == "__main__":
 
 
     from utils.utils import get_hydra_config
-    
+
     cfg = get_hydra_config()
     mnist_dataset = MNIST(DATA_PATH, download=True, transform=FlattenAndCast())
     training_generator = NumpyLoader(mnist_dataset, batch_size=10, num_workers=mp.cpu_count())

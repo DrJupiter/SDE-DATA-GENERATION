@@ -1,5 +1,7 @@
 setup:
         project: test-project
         entity: ai-dtu
-        log: false
-
+log:
+        loss: true
+        img: true
+        frequency: 1000

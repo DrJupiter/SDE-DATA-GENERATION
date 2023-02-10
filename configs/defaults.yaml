@@ -1,4 +1,6 @@
 defaults:
         - wandb : defaults
         - dataset: mnist
-        - training: train
+        - train_and_test: default
+        - model : dummy
+        - visualization: visualize
