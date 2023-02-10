@@ -43,7 +43,8 @@ def loss_fn(parameters, data, gt):
     return loss
 
 def get_optim_parameters(cfg):
-    return [jnp.array([cfg.training.step_size], dtype=jnp.float32), grad(loss_fn, 0)]
+    # TODO: CONVERT TO OPTIMIMZER CONFIG
+    return [jnp.array([cfg.train_and_test.train.step_size], dtype=jnp.float32), grad(loss_fn, 0)]
 
 def optim_alg(optim_parameters, parameters, data, gt):
 #    for parameter, gradient in zip(parameters, gradients):

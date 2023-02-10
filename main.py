@@ -45,7 +45,7 @@ def run_experiment(cfg):
     print(cfg)
     wandb.init(entity=cfg.wandb.setup.entity, project=cfg.wandb.setup.project)
 
-    dataset = dataload(cfg) 
+    train_dataset, test_dataset = dataload(cfg) 
 
     model_parameters, model_call = get_model(cfg)
 
@@ -55,8 +55,8 @@ def run_experiment(cfg):
 
     # TODO: GET TRAIN, TEST, AND VALIDATION SPLITS
 
-    for epoch in range(cfg.training.epochs): 
-        for t, (data, labels) in enumerate(dataset):
+    for epoch in range(cfg.train_and_test.train.epochs): 
+        for t, (data, labels) in enumerate(train_dataset):
 
             # TODO: REMOVE
             t_data = one_hot(labels, 10).T 
