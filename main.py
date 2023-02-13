@@ -73,7 +73,7 @@ def run_experiment(cfg):
                 if cfg.wandb.log.img:
                     display_images(cfg, model_call(t_data, model_parameters).T, labels)
 
-        if wandb.log.epoch_frequency % epoch == 0:
+        if epoch % cfg.wandb.log.epoch_frequency == 0:
             if cfg.wandb.log.FID: 
                 # generate pictures before this can be run
 

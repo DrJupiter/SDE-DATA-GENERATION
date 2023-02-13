@@ -1,5 +1,5 @@
 import torch
-from inception_model_help import inceptionv3
+from validation.inception_model_help import inceptionv3
 
 
 def FID_score(x1,x2):
