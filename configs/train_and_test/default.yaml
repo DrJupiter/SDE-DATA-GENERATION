@@ -7,3 +7,5 @@ train:
 test:
    batch_size: 1000
    shuffle: true
+   img_save_loc: "gen_imgs/"
+   
