@@ -133,6 +133,4 @@ wandb/*
 outputs/*
 
 imgs
-# imgs/*
-# imgs/gen
-# imgs/real
+data

@@ -1,8 +1,8 @@
 import torch
 from inception_model_help import inceptionv3
 
-out1 = inceptionv3("./validation/imgs/real/*.jpg")
-out2 = inceptionv3("./validation/imgs/gen/*.jpg")
+out1 = inceptionv3(x = None,path_to_imgs ="./validation/imgs/real/*.jpg")
+out2 = inceptionv3(x = None,path_to_imgs ="./validation/imgs/gen/*.jpg")
 
 mu1 = out1.mean(dim=0)
 sigma1 = out1.cov(correction=0)

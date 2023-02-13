@@ -4,23 +4,30 @@ from torch import nn
 import numpy as np
 from PIL import Image
 import glob
+from torchvision import transforms
 
+class Identity(nn.Module):
+    def __init__(self):
+        super(Identity, self).__init__()
+        
+    def forward(self, x):
+        return x
 
-
-def inceptionv3(path_to_imgs: str = "./validation/imgs/*.jpg") -> torch.Tensor:
+def inceptionv3(x = None,path_to_imgs = None) -> torch.Tensor:
     """
     This function loads the inceptionv3 model from pytorch's library as fully pretrained.\\
     Additionally this model take image(s) converts them to correct size for this model (look into if other models dont need to reshape).\\
     Finally it passes the image(s) through the model and\\
         outputs: [N,2048] as desired.\\
-    OPS: stuff needs changing in the inception.py file for this to work. MAKE THIS NOT NEEDED.
+        Input: if path_to_imgs = str, then images from the given path is used.\\
+        Else input from x (images of shape [N,3,D1,D2]) where N and D1 and D2 can be whatever.\\
     """
+
     model = torch.hub.load('pytorch/vision:v0.10.0', 'inception_v3', pretrained=True)
+    model.fc = Identity()
     model.eval()
-    from torchvision import transforms
-
-
     
+
     # for img in path_to_imgs:
     # input_image = Image.open(path_to_imgs)
     preprocess = transforms.Compose([
@@ -30,18 +37,32 @@ def inceptionv3(path_to_imgs: str = "./validation/imgs/*.jpg") -> torch.Tensor:
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ])
     
-    input_batch = []
-    images = glob.glob(path_to_imgs)
-    for image in images:
-        with open(image, 'rb') as file:
-            img = Image.open(file)
-            # img.show()
-            input_tensor = preprocess(img)
-            input_batch.append(input_tensor.unsqueeze(0))
+
+    if path_to_imgs == None:
+        if type(x) == torch.Tensor:
+            to_pil = transforms.ToPILImage()
+            input_batch = []
+            for xi in x:
+                img = to_pil(xi)
+                input_tensor = preprocess(img)
+                input_batch.append(input_tensor.unsqueeze(0))
+            input = torch.vstack(input_batch)
+        else:
+            input = x
+
+    else:
+        input_batch = []
+        images = glob.glob(path_to_imgs)
+        for image in images:
+            with open(image, 'rb') as file:
+                img = Image.open(file)
+                # img.show()
+                input_tensor = preprocess(img)
+                input_batch.append(input_tensor.unsqueeze(0))
+        input = torch.vstack(input_batch)
 
     # input_tensor = preprocess(input_image)
     # input_batch = input_tensor.unsqueeze(0) # create a mini-batch as expected by the model
-    input = torch.vstack(input_batch)
     # print(input.shape)
 
     print("input shape",input.shape)
@@ -53,12 +74,20 @@ def inceptionv3(path_to_imgs: str = "./validation/imgs/*.jpg") -> torch.Tensor:
 
     with torch.no_grad():
         output = model(input)
-    # Tensor of shape 1000, with confidence scores over Imagenet's 1000 classes
-    # print(output[0].shape,output[0].flatten().sum())
-    # The output has unnormalized scores. To get probabilities, you can run a softmax on it.
-    # probabilities = torch.nn.functional.softmax(output[0], dim=1)
-    # print(probabilities.shape,probabilities.flatten().sum())
+
     return output
 
 if __name__ == "__main__":
-    print(inceptionv3(path_to_imgs = "./validation/imgs/gen/*.jpg"))
+    import torchvision.datasets as datasets
+    from time import perf_counter
+    
+    # mnist_trainset = datasets.CIFAR10(root='./datasets', train=False, download=True, transform=preprocess)
+    cifar10_testset = datasets.CIFAR10(root='./datasets', train=False, download=True, transform=transforms.Compose([transforms.ToTensor()]))
+
+    # extract only imgs not class
+    x_test = torch.stack([cifar10_testset[i][0] for i in range(1000)])
+
+    # print(inceptionv3(path_to_imgs = "./validation/imgs/gen/*.jpg"))
+    start1 = perf_counter()
+    print(inceptionv3(x = x_test, path_to_imgs = None).shape)
+    print("time",perf_counter()-start1)
