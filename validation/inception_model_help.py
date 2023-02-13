@@ -16,7 +16,7 @@ def inceptionv3(path_to_imgs: str = "./validation/imgs/*.jpg") -> torch.Tensor:
     OPS: stuff needs changing in the inception.py file for this to work. MAKE THIS NOT NEEDED.
     """
     model = torch.hub.load('pytorch/vision:v0.10.0', 'inception_v3', pretrained=True)
-
+    model.eval()
     from torchvision import transforms
 
 
@@ -42,7 +42,9 @@ def inceptionv3(path_to_imgs: str = "./validation/imgs/*.jpg") -> torch.Tensor:
     # input_tensor = preprocess(input_image)
     # input_batch = input_tensor.unsqueeze(0) # create a mini-batch as expected by the model
     input = torch.vstack(input_batch)
-    print(input.shape)
+    # print(input.shape)
+
+    print("input shape",input.shape)
 
     # move the input and model to GPU for speed if available
     if torch.cuda.is_available():
@@ -56,7 +58,7 @@ def inceptionv3(path_to_imgs: str = "./validation/imgs/*.jpg") -> torch.Tensor:
     # The output has unnormalized scores. To get probabilities, you can run a softmax on it.
     # probabilities = torch.nn.functional.softmax(output[0], dim=1)
     # print(probabilities.shape,probabilities.flatten().sum())
-    return output[0]
+    return output
 
 if __name__ == "__main__":
-    print(inceptionv3(path_to_imgs = "./validation/imgs/*.jpg"))
+    print(inceptionv3(path_to_imgs = "./validation/imgs/gen/*.jpg"))

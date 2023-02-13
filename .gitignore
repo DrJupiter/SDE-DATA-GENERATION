@@ -132,4 +132,7 @@ datasets/*
 wandb/*
 outputs/*
 
-imgs/*
+imgs
+# imgs/*
+# imgs/gen
+# imgs/real
