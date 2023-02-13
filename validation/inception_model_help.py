@@ -87,8 +87,10 @@ def inceptionv3(x = None,path_to_imgs = None, pre_transformed = False) -> torch.
 if __name__ == "__main__":
     import torchvision.datasets as datasets
     # from time import perf_counter
-    
-    cifar10_testset = datasets.CIFAR10(root='./datasets', train=False, download=True, transform=preprocess)
+    from utils.utils import get_hydra_config
+    cfg = get_hydra_config()
+
+    cifar10_testset = datasets.CIFAR10(root=cfg.dataset.path, train=False, download=True, transform=preprocess)
     # cifar10_testset = datasets.CIFAR10(root='./datasets', train=False, download=True, transform=transforms.Compose([transforms.ToTensor()]))
 
     # extract only imgs not class

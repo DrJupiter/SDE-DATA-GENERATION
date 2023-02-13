@@ -6,4 +6,4 @@ log:
         img: true
         frequency: 1000
         FID: true
-        epochfrequency: 1
+        epoch_frequency: 1
