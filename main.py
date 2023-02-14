@@ -62,23 +62,29 @@ def run_experiment(cfg):
 
     for epoch in range(cfg.train_and_test.train.epochs): 
         for t, (data, labels) in enumerate(train_dataset):
-
-            # TODO: REMOVE
-            t_data = one_hot(labels, 10).T 
-            optim_parameters, model_parameters = optim_alg(optim_parameters, model_parameters, t_data, labels)
-            
-            if t % cfg.wandb.log.frequency == 0:
-                if cfg.wandb.log.loss:
-                    wandb.log({"loss": loss_fn(model_parameters, t_data, data.T)})
-                if cfg.wandb.log.img:
-                    display_images(cfg, model_call(t_data, model_parameters).T, labels)
+			
+           # TODO: REMOVE
+           t_data = one_hot(labels, 10).T 
+           optim_parameters, model_parameters = optim_alg(optim_parameters, model_parameters, t_data, labels)
+           
+           if t % cfg.wandb.log.frequency == 0:
+               if cfg.wandb.log.loss:
+                   wandb.log({"loss": loss_fn(model_parameters, t_data, data.T)})
+               if cfg.wandb.log.img:
+                   display_images(cfg, model_call(t_data, model_parameters).T, labels)
 
         if epoch % cfg.wandb.log.epoch_frequency == 0:
             if cfg.wandb.log.FID: 
                 # generate pictures before this can be run
 
-                # extract imgs from dataset:
-                x_test = torch.stack([test_dataset[i][0] for i in range(100)])
+                # extract imgs from dataset
+                for (data,label) in test_dataset:
+                    print("DATASHAPE!!!!!!!!",data.shape)
+                    break
+                x_test = [torch.tensor(data.reshape(cfg.train_and_test.test.batch_size,3,32,32)) for (data,labels) in test_dataset][:1]
+                # print("DATA",x_test)
+                
+                x_test = torch.vstack(x_test)
 
                 # get saved imgs
                 path_to_imgs = f"{cfg.train_and_test.test.img_save_loc}*jpg" # or whatever extension they will end up with

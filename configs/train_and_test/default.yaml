@@ -5,7 +5,7 @@ train:
    epochs: 1
    shuffle: true
 test:
-   batch_size: 1000
+   batch_size: 100
    shuffle: true
    img_save_loc: "gen_imgs/"
    
