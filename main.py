@@ -1,3 +1,6 @@
+# convret to torch for FID
+import torch
+
 ## Jax
 
 # Stop jax from taking up 90% of GPU vram
@@ -16,8 +19,10 @@ from data.dataload import dataload
 from models.model import get_model, get_optim, get_loss
 
 # Visualization
-
 from visualization.visualize import display_images
+
+# Validation (FID)
+from validation.FID import FID_score
 
 ## Weights and biases
 import wandb
@@ -68,10 +73,18 @@ def run_experiment(cfg):
                 if cfg.wandb.log.img:
                     display_images(cfg, model_call(t_data, model_parameters).T, labels)
 
-        if wandb.log.epoch_frequency % epoch == 0:
-            None
+        if epoch % cfg.wandb.log.epoch_frequency == 0:
+            if cfg.wandb.log.FID: 
+                # generate pictures before this can be run
 
-        
+                # extract imgs from dataset:
+                x_test = torch.stack([test_dataset[i][0] for i in range(100)])
+
+                # get saved imgs
+                path_to_imgs = f"{cfg.train_and_test.test.img_save_loc}*jpg" # or whatever extension they will end up with
+
+                # calculate and log fid score
+                wandb.log({"fid_score": FID_score(x1=x_test,x2=x_test)})
 
 if __name__ == "__main__":
     run_experiment()
