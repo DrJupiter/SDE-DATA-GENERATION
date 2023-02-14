@@ -5,5 +5,5 @@ log:
         loss: true
         img: true
         frequency: 1000
-        FID: false
+        FID: true
         epoch_frequency: 1
