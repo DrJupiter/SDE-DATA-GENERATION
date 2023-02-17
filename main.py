@@ -30,7 +30,6 @@ import wandb
 #wandb.init(project="test-project", entity="ai-dtu")
 
 import hydra
-from omegaconf import DictConfig, OmegaConf
 
 ### TODO: REMOVE
 
@@ -43,10 +42,6 @@ def one_hot(x, k, dtype=jnp.float32):
 @hydra.main(config_path="configs/", config_name="defaults", version_base='1.3')
 def run_experiment(cfg):
 
-#    print(cfg) 
-#    wandb.config = OmegaConf.to_container(
-#            cfg, resolve=True, throw_on_missing=True
-#            )
     print(cfg)
     wandb.init(entity=cfg.wandb.setup.entity, project=cfg.wandb.setup.project)
 
@@ -57,8 +52,6 @@ def run_experiment(cfg):
     optim_parameters, optim_alg = get_optim(cfg)
 
     loss_fn = get_loss(cfg)
-
-    # TODO: GET TRAIN, TEST, AND VALIDATION SPLITS
 
     for epoch in range(cfg.train_and_test.train.epochs): 
         for t, (data, labels) in enumerate(train_dataset):
@@ -78,11 +71,7 @@ def run_experiment(cfg):
                 # generate pictures before this can be run
 
                 # extract imgs from dataset
-                for (data,label) in test_dataset:
-                    print("DATASHAPE!!!!!!!!",data.shape)
-                    break
                 x_test = [torch.tensor(data.reshape(cfg.train_and_test.test.batch_size,3,32,32)) for (data,labels) in test_dataset][:1]
-                # print("DATA",x_test)
                 
                 x_test = torch.vstack(x_test)
 
