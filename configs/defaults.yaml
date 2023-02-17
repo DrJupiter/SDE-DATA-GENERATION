@@ -4,3 +4,4 @@ defaults:
         - train_and_test: default
         - model : dummy
         - visualization: visualize
+        - optimizer: gradient_descent

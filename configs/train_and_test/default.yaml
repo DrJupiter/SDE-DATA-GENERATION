@@ -1,7 +1,6 @@
 train:
    batch_size: 4
    mode: train # eval
-   step_size: 0.001
    epochs: 1
    shuffle: true
 test:
