@@ -2,6 +2,6 @@ defaults:
         - wandb : defaults
         - dataset: mnist
         - train_and_test: default
-        - model : dummy
+        - model : unet
         - visualization: visualize
         - optimizer: gradient_descent

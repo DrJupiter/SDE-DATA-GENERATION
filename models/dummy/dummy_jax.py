@@ -7,7 +7,6 @@ from jax import grad, jit, vmap
 from jax import random
 from jax import nn
 
-
 # %%
 # TODO: Specify the dynamic arguments for jit
 
@@ -43,7 +42,8 @@ def loss_fn(parameters, data, gt):
     return loss
 
 def get_optim_parameters(cfg):
-    return [jnp.array([cfg.optimizer.step_size], dtype=jnp.float32), grad(loss_fn, 0)]
+    # TODO: CONVERT TO OPTIMIMZER CONFIG
+    return [jnp.array([cfg.train_and_test.train.step_size], dtype=jnp.float32), grad(loss_fn, 0)]
 
 def optim_alg(optim_parameters, parameters, data, gt):
 #    for parameter, gradient in zip(parameters, gradients):
@@ -60,22 +60,23 @@ def optim_alg(optim_parameters, parameters, data, gt):
 def get_shapes(array):
     return [x.shape for x in array]
 
-
-
 if __name__ == "__main__":
+    # Andreas needs this to see utils.utils etc. (also in linux)
+    # import sys
+    # sys.path.append("/media/sf_Bsc-Diffusion")
+    # end
+
     from utils.utils import get_hydra_config
-    cfg = get_hydra_config(overrides=['optimizer.step_size=100'])
+    cfg = get_hydra_config()
     print(cfg)
     parameters = get_parameters(cfg)
     data = jnp.ones((10, 1), dtype=jnp.float32)
     imgs = model_call(data, parameters)
     key = random.PRNGKey(69)
     gt = random.normal(key, imgs.shape, dtype=jnp.float32)
-    optim_parameters = get_optim_parameters(cfg)
-
-    loss_grad_fn = optim_parameters[-1]
-    loss_grad = loss_grad_fn(parameters, data, gt)
-
+    grads = grad(loss_fn,0)
+    loss_grad = grads(parameters, data, gt)
+    print(type(loss_grad))
     assert len(loss_grad) == len(parameters)
     for g, p in zip(loss_grad, parameters):
         print(g.shape, p.shape)
@@ -83,8 +84,7 @@ if __name__ == "__main__":
     c_parameters = [jnp.ones_like(p) for p in parameters]
 
     print(sum([(p-c).sum() for p,c in zip(parameters, c_parameters)]))
-    optim_parameters, parameters = optim_alg(optim_parameters, parameters, data, gt)
-
+    parameters = optim_alg(cfg, parameters, loss_grad,gt)
     print(get_shapes(parameters))
     print(get_shapes(c_parameters))
 
@@ -95,3 +95,4 @@ if __name__ == "__main__":
     print(sum([(p-c).sum() for p,c in zip(parameters, c_parameters)]))
     from visualization.visualize import display_images
     display_images(cfg,imgs.T)
+# %%
