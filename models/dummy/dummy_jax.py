@@ -64,16 +64,18 @@ def get_shapes(array):
 
 if __name__ == "__main__":
     from utils.utils import get_hydra_config
-    cfg = get_hydra_config()
+    cfg = get_hydra_config(overrides=['optimizer.step_size=100'])
     print(cfg)
     parameters = get_parameters(cfg)
     data = jnp.ones((10, 1), dtype=jnp.float32)
     imgs = model_call(data, parameters)
     key = random.PRNGKey(69)
     gt = random.normal(key, imgs.shape, dtype=jnp.float32)
-    grads = grad(loss_fn,0)
-    loss_grad = grads(parameters, data, gt)
-    print(type(loss_grad))
+    optim_parameters = get_optim_parameters(cfg)
+
+    loss_grad_fn = optim_parameters[-1]
+    loss_grad = loss_grad_fn(parameters, data, gt)
+
     assert len(loss_grad) == len(parameters)
     for g, p in zip(loss_grad, parameters):
         print(g.shape, p.shape)
@@ -81,7 +83,8 @@ if __name__ == "__main__":
     c_parameters = [jnp.ones_like(p) for p in parameters]
 
     print(sum([(p-c).sum() for p,c in zip(parameters, c_parameters)]))
-    parameters = optim_alg(cfg, parameters, loss_grad)
+    optim_parameters, parameters = optim_alg(optim_parameters, parameters, data, gt)
+
     print(get_shapes(parameters))
     print(get_shapes(c_parameters))
 

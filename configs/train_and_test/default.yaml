@@ -1,7 +1,7 @@
 train:
    batch_size: 4
    mode: train # eval
-   epochs: 1
+   epochs: 20
    shuffle: true
 test:
    batch_size: 100
