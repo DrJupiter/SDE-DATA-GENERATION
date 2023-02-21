@@ -9,7 +9,6 @@ from jax import nn
 from jax import lax
 
 import equinox as eqx
-
 # %%
 
 # Jax input denotions
@@ -28,60 +27,70 @@ import equinox as eqx
 # Relu - nn.relu(x)
 
 
+class down():
+    def __init__(self,cfg) -> None:
+        self.maxpool2d = eqx.nn.MaxPool2d(2,2) # add to config
+        self.batchnorm1bn = eqx.experimental.BatchNorm(  # Make 1 for each needed, as they have differetent input shapes
+                input_size=cfg.parameters.channels[1][1], #takes in-channels as input_size
+                axis_name="batch",
+                momentum=0.99,
+                eps=1e-05,
+                # channelwise_affine=True
+                ) 
+        self.strides = cfg.parameters.kernel_stride
 
-# INI
-def model_init(cfg):
-    maxpool2d = eqx.nn.MaxPool2d(2,2) # add to config
-    batchnorm1bn = eqx.experimental.BatchNorm(  # Make 1 for each needed, as they have differetent input shapes
-                            input_size=cfg.parameters.channels[1][1], #takes in-channels as input_size
-                            axis_name="batch",
-                            momentum=0.99,
-                            eps=1e-05,
-                            # channelwise_affine=True
-                            ) 
+    def forward(self, input_x, parameters):
+        conv10 = lax.conv( # vmap on these as well? or are they already? I assume they already are
+                lhs = input_x,    # lhs = NCHW image tensor
+                rhs = parameters[0], # rhs = OIHW conv kernel tensor
+                window_strides = self.strides[0],  # window strides
+                padding = 'same'
+                )
+        conv10r = nn.relu(conv10)
+        conv11 = lax.conv(
+                lhs = conv10r,    
+                rhs = parameters[1], 
+                window_strides = self.strides[1],  
+                padding = 'same'
+                )
+        conv11r = nn.relu(conv11)
+        # print(conv11r.shape)
+        conv1bn = vmap(self.batchnorm1bn,axis_name="batch")(conv11r) 
+        conv1mp = vmap(self.maxpool2d,axis_name="batch")(conv1bn)
 
-def get_parameters(cfg):
-    key = random.PRNGKey(cfg.model.key)
+        return conv1mp
 
-    channels = cfg.model.parameters.channels
-    kernel_sizes = cfg.model.parameters.kernel_sizes
 
-    key, *subkey = random.split(key,cfg.model.parameters.N_channels+1)
-    parameters = []
-    for i,((in_channel,out_channel),(kernel_size_h,kernel_size_w)) in enumerate(zip(channels,kernel_sizes)): 
-        parameters.append(random.normal(subkey[i], ((out_channel,in_channel,kernel_size_h,kernel_size_w)), dtype=jnp.float32))
-    return parameters
 
-# function
-def model_call(input_img,parameters, stride=(1,1)):
-    """
-    input_img.shape == NCHW\\
-    Parameters.shape == POIHW
-    """
+class unet():
+    def __init__(self,cfg) -> None:
+        print(cfg)
+        self.down1 = down(cfg)
 
-    # 
-    conv10 = lax.conv( # vmap on these as well? or are they already? I assume they already are
-            lhs = input_img,    # lhs = NCHW image tensor
-            rhs = parameters[0], # rhs = OIHW conv kernel tensor
-            window_strides = stride[0],  # window strides
-            padding = 'same'
-            )
-    conv10r = nn.relu(conv10)
-    conv11 = lax.conv(
-            lhs = conv10r,    
-            rhs = parameters[1], 
-            window_strides = stride[1],  
-            padding = 'same'
-            )
-    conv11r = nn.relu(conv11)
-    print(conv11r.shape)
-    conv1bn = vmap(batchnorm1bn,axis_name="batch")(conv11r) 
-    conv1mp = vmap(maxpool2d,axis_name="batch")(conv1bn)
-    
-    
-    # dropout
+    def get_parameters(self,cfg):
+        key = random.PRNGKey(cfg.model.key)
 
-    return conv1bn
+        channels = cfg.model.parameters.channels
+        kernel_sizes = cfg.model.parameters.kernel_sizes
+
+        key, *subkey = random.split(key,cfg.model.parameters.N_channels+1)
+        parameters = []
+        for i,((in_channel,out_channel),(kernel_size_h,kernel_size_w)) in enumerate(zip(channels,kernel_sizes)): 
+            parameters.append(random.normal(subkey[i], ((out_channel,in_channel,kernel_size_h,kernel_size_w)), dtype=jnp.float32))
+        return parameters
+
+    def forward(self,input_img,parameters):
+        out = self.down1.forward(input_img, parameters)
+        # print(out.shape)
+        return out
+        
+    def loss_mse(self, res, true):
+        return jnp.mean((res-true)**2)
+
+    def loss_fn(self, parameters, true_data):
+        output = self.forward(true_data, parameters)
+        loss = jnp.sum(output) #self.loss_mse(output, true_data)
+        return loss
 
 
 if __name__ == "__main__":
@@ -92,7 +101,7 @@ if __name__ == "__main__":
 
     from utils.utils import get_hydra_config
     cfg = get_hydra_config()
-    print(cfg.model)
+    # print(cfg.model)
 
     img = jnp.zeros((
             cfg.model.parameters.batch_size,    # Batchsize
@@ -102,10 +111,26 @@ if __name__ == "__main__":
                 dtype=jnp.float32)
     img = img.at[0, 0, 2:2+10, 2:2+10].set(1.0) 
 
-    model_init(cfg.model)
-    parameters = get_parameters(cfg)
-    model_call(img,parameters, stride=cfg.model.parameters.kernel_stride)
-    
+    model = unet(cfg.model)
+    parameters = model.get_parameters(cfg)
+    get_grad = grad(jit(model.loss_fn),0)
+    loss_fn = jit(model.loss_fn)
+    print("loss",loss_fn(parameters, img))
+    print("parameter1 shape",get_grad(parameters, img)[0].shape)
+    print("parameter2 shape",get_grad(parameters, img)[1].shape)
+
+#%%
+
+class fisk():
+    def sum_logistic(self,x,y):
+        return jnp.sum(x**2*y)
+
+fsk = fisk()
+x_small = jnp.arange(3.)
+y_small = jnp.arange(3.)
+derivative_fn = grad(jit(fsk.sum_logistic),0)
+derivative_fn2 = grad(jit(fsk.sum_logistic),1)
+print(derivative_fn(x_small,y_small),derivative_fn2(x_small,y_small))
 
 
 
