@@ -28,44 +28,135 @@ import equinox as eqx
 
 
 class down():
-    def __init__(self,cfg) -> None:
-        self.maxpool2d = eqx.nn.MaxPool2d(2,2) # add to config
+    def __init__(self,cfg,sub_model_num,maxpool_factor=2) -> None:
+        self.sub_model_num = sub_model_num
+        self.maxpool2d = eqx.nn.MaxPool2d(maxpool_factor,maxpool_factor) # add to config
         self.batchnorm1bn = eqx.experimental.BatchNorm(  # Make 1 for each needed, as they have differetent input shapes
-                input_size=cfg.parameters.channels[1][1], #takes in-channels as input_size
+                input_size=cfg.parameters.channels[2*sub_model_num+0][1], #takes in-channels as input_size
                 axis_name="batch",
                 momentum=0.99,
                 eps=1e-05,
                 # channelwise_affine=True
                 ) 
-        self.strides = cfg.parameters.kernel_stride
+        self.batchnorm2bn = eqx.experimental.BatchNorm(  # Make 1 for each needed, as they have differetent input shapes
+                input_size=cfg.parameters.channels[2*sub_model_num+1][1], #takes in-channels as input_size
+                axis_name="batch",
+                momentum=0.99,
+                eps=1e-05,
+                # channelwise_affine=True
+                ) 
+        self.strides = cfg.parameters.kernel_stride[2*self.sub_model_num:2*self.sub_model_num+2]
 
     def forward(self, input_x, parameters):
-        conv10 = lax.conv( # vmap on these as well? or are they already? I assume they already are
+        conv1 = lax.conv( # vmap on these as well? or are they already? I assume they already are
                 lhs = input_x,    # lhs = NCHW image tensor
-                rhs = parameters[0], # rhs = OIHW conv kernel tensor
+                rhs = parameters[2*self.sub_model_num], # rhs = OIHW conv kernel tensor
                 window_strides = self.strides[0],  # window strides
                 padding = 'same'
                 )
-        conv10r = nn.relu(conv10)
-        conv11 = lax.conv(
-                lhs = conv10r,    
-                rhs = parameters[1], 
+        conv1r = nn.relu(conv1) # vmap on these?
+        conv1bn = vmap(self.batchnorm1bn,axis_name="batch")(conv1r) 
+
+        conv2 = lax.conv(
+                lhs = conv1bn,    
+                rhs = parameters[2*self.sub_model_num+1], 
                 window_strides = self.strides[1],  
                 padding = 'same'
                 )
-        conv11r = nn.relu(conv11)
-        # print(conv11r.shape)
-        conv1bn = vmap(self.batchnorm1bn,axis_name="batch")(conv11r) 
-        conv1mp = vmap(self.maxpool2d,axis_name="batch")(conv1bn)
+        conv2r = nn.relu(conv2) # vmap on these?
+        conv2bn = vmap(self.batchnorm2bn,axis_name="batch")(conv2r) 
+        conv2mp = vmap(self.maxpool2d,axis_name="batch")(conv2bn)
+        return conv2mp, conv2r
 
-        return conv1mp
+def upsample2d(x, factor=2):
+    # stolen from https://github.com/yang-song/score_sde/blob/main/models/up_or_down_sampling.py
+    _N, C, H, W = x.shape
+    x = jnp.reshape(x, [-1, C, 1, H, 1, W])
+    x = jnp.tile(x, [1, 1, factor, 1, factor, 1])
+    return jnp.reshape(x, [-1, C, H * factor, W * factor])
 
+class up():
+    def __init__(self,cfg,sub_model_num,upsampling_factor=2) -> None:
+        self.sub_model_num = sub_model_num
+        self.upsampling_factor = upsampling_factor
+        self.batchnorm1bn = eqx.experimental.BatchNorm(  # Make 1 for each needed, as they have differetent input shapes
+                input_size=cfg.parameters.channels[2*sub_model_num][1], #takes in-channels as input_size
+                axis_name="batch",
+                momentum=0.99,
+                eps=1e-05,
+                # channelwise_affine=True
+                ) 
+        self.batchnorm2bn = eqx.experimental.BatchNorm(  # Make 1 for each needed, as they have differetent input shapes
+                input_size=cfg.parameters.channels[2*sub_model_num+1][1], #takes in-channels as input_size
+                axis_name="batch",
+                momentum=0.99,
+                eps=1e-05,
+                # channelwise_affine=True
+                ) 
+        self.strides = cfg.parameters.kernel_stride[2*self.sub_model_num:2*self.sub_model_num+2]
 
+    def forward(self, residual_x, input_x, parameters):
+        # upsample img to high img resolution
+        upsampled = upsample2d(input_x, factor=self.upsampling_factor)
+
+        # concat the channels
+        catted = jnp.concatenate((residual_x,upsampled),axis=1)
+
+        # Apply the convolution etc.
+        conv1 = lax.conv( 
+                lhs = catted,    # lhs = NCHW image tensor
+                rhs = parameters[2*self.sub_model_num], # rhs = OIHW conv kernel tensor
+                window_strides = self.strides[0],  # window strides
+                padding = 'same'
+                )
+        conv1r = nn.relu(conv1)
+        conv1bn = vmap(self.batchnorm1bn,axis_name="batch")(conv1r) 
+
+        conv2 = lax.conv(
+                lhs = conv1bn,    
+                rhs = parameters[2*self.sub_model_num+1], 
+                window_strides = self.strides[1],  
+                padding = 'same'
+                )
+        conv2r = nn.relu(conv2)
+        conv2bn = vmap(self.batchnorm2bn,axis_name="batch")(conv2r) 
+        return conv2bn
 
 class unet():
     def __init__(self,cfg) -> None:
-        print(cfg)
-        self.down1 = down(cfg)
+        self.cfg = cfg
+        self.down1 = down(cfg,sub_model_num=0,maxpool_factor=2)
+        self.down2 = down(cfg,sub_model_num=1,maxpool_factor=2)
+        self.down3 = down(cfg,sub_model_num=2,maxpool_factor=2)
+        self.down4 = down(cfg,sub_model_num=3,maxpool_factor=2)
+        self.down5 = down(cfg,sub_model_num=4,maxpool_factor=1) # they dont downscale the last time. And this is effectivly the same as not downscaling. A little slower tho, so dont have this in the final
+        self.up1 = up(cfg,sub_model_num=5,upsampling_factor=2)
+        self.up2 = up(cfg,sub_model_num=6,upsampling_factor=2)
+        self.up3 = up(cfg,sub_model_num=7,upsampling_factor=2)
+        self.up4 = up(cfg,sub_model_num=8,upsampling_factor=2)
+        # self.up5 = up(cfg,sub_model_num=9,upsampling_factor=1) # same as before
+
+    def forward(self,input_img,parameters):
+        out1, pre_max_out1 = self.down1.forward(input_img, parameters)
+        out2, pre_max_out2 = self.down2.forward(out1, parameters)
+        out3, pre_max_out3 = self.down3.forward(out2, parameters)
+        out4, pre_max_out4 = self.down4.forward(out3, parameters)
+        out5, _ = self.down5.forward(out4, parameters)
+
+        out6 = self.up1.forward(pre_max_out4, out5, parameters)
+        out7 = self.up2.forward(pre_max_out3, out6, parameters)
+        out8 = self.up3.forward(pre_max_out2, out7, parameters)
+        out9 = self.up4.forward(pre_max_out1, out8, parameters)
+
+        out10 = lax.conv(
+                lhs = out9,    
+                rhs = parameters[-1], 
+                window_strides = self.cfg.parameters.kernel_stride[-1],  
+                padding = 'same'
+                )
+
+        print("final shape ==",out10.shape)
+        return nn.sigmoid(out10)
 
     def get_parameters(self,cfg):
         key = random.PRNGKey(cfg.model.key)
@@ -73,16 +164,11 @@ class unet():
         channels = cfg.model.parameters.channels
         kernel_sizes = cfg.model.parameters.kernel_sizes
 
-        key, *subkey = random.split(key,cfg.model.parameters.N_channels+1)
+        key, *subkey = random.split(key,len(cfg.model.parameters.channels)+1)
         parameters = []
         for i,((in_channel,out_channel),(kernel_size_h,kernel_size_w)) in enumerate(zip(channels,kernel_sizes)): 
             parameters.append(random.normal(subkey[i], ((out_channel,in_channel,kernel_size_h,kernel_size_w)), dtype=jnp.float32))
         return parameters
-
-    def forward(self,input_img,parameters):
-        out = self.down1.forward(input_img, parameters)
-        # print(out.shape)
-        return out
         
     def loss_mse(self, res, true):
         return jnp.mean((res-true)**2)
@@ -114,13 +200,21 @@ if __name__ == "__main__":
     model = unet(cfg.model)
     parameters = model.get_parameters(cfg)
     get_grad = grad(jit(model.loss_fn),0)
-    loss_fn = jit(model.loss_fn)
-    print("loss",loss_fn(parameters, img))
-    print("parameter1 shape",get_grad(parameters, img)[0].shape)
-    print("parameter2 shape",get_grad(parameters, img)[1].shape)
+    get_loss = jit(model.loss_fn)
+    # print("loss",get_loss(parameters, img))
+    grads = get_grad(parameters, img)
 
+    # print grads to make sure they work as intended
+    for i,gradi in enumerate(grads):
+        print(f"parameter{i} shape",gradi.shape)
+        if jnp.sum(gradi) == 0:
+            print(f"grad{i} is not being calculated")
 #%%
 
+
+
+
+#%%
 class fisk():
     def sum_logistic(self,x,y):
         return jnp.sum(x**2*y)
@@ -133,7 +227,7 @@ derivative_fn2 = grad(jit(fsk.sum_logistic),1)
 print(derivative_fn(x_small,y_small),derivative_fn2(x_small,y_small))
 
 
-
+#%&
 #%%
 # def build_unet_model(input_layer, start_neurons):
 #     # contracting path (left side) 
