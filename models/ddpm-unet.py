@@ -26,6 +26,10 @@ import equinox as eqx
 # Dropout ? - 
 # Relu - nn.relu(x)
 
+class timestep_embedding():
+    def __init__(self) -> None:
+        pass
+
 class resnet():
     def __init__(self,cfg,sub_model_num) -> None:
         self.sub_model_num = sub_model_num
@@ -47,7 +51,7 @@ class resnet():
         self.strides = cfg.parameters.kernel_stride[2*self.sub_model_num:2*self.sub_model_num+2]
 
 
-    def forward(self,x_in,parameters,subkey=None):
+    def forward(self,x_in,embedding,parameters,subkey=None):
         x = vmap(self.batchnorm0,axis_name="batch")(x_in) 
         x = nn.relu(x)
         x = lax.conv(
@@ -57,7 +61,7 @@ class resnet():
                 padding = 'same'
                 )
         x = nn.relu(x)
-        x = x + nn.relu(jnp.matmul(x,parameters["dense"])+parameters["bias"])# residual FF
+        x = x + nn.relu(jnp.matmul(embedding, parameters["dense"])+parameters["bias"])[:,:,None,None] # Output of matmul should have same dims as the rest of the data # embeddings.shape = [Bx512] -> BxC
         x = vmap(self.batchnorm1,axis_name="batch")(x) 
         x = nn.relu(x)
         x = self.dropout(x,key = subkey)
@@ -70,23 +74,23 @@ class resnet():
 
         return x
 
-class resnet_conv():
-    def __init__(self,cfg,sub_model_num) -> None:
-        self.sub_model_num = sub_model_num
-        self.resnet = resnet(cfg,sub_model_num)
-        self.stride = cfg.parameters.kernel_stride[sub_model_num]
+# class resnet_conv():
+#     def __init__(self,cfg,sub_model_num) -> None:
+#         self.sub_model_num = sub_model_num
+#         self.resnet = resnet(cfg,sub_model_num)
+#         self.stride = cfg.parameters.kernel_stride[sub_model_num]
 
-    def forward(self,x_in,parameters,subkey=None):
-        x = self.resnet.forward(x_in,parameters,subkey=None)
+#     def forward(self,x_in,parameters,subkey=None):
+#         x = self.resnet.forward(x_in,parameters,subkey=None)
         
-        # make change in input to make it downscalable (i assume)
-        x_in = lax.conv(
-                lhs = x_in,    
-                rhs = parameters[2*self.sub_model_num+1], 
-                window_strides = self.strides[1],  
-                padding = 'same'
-                )
-        return x+x_in
+#         # make change in input to make it downscalable (i assume)
+#         x_in = lax.conv(
+#                 lhs = x_in,    
+#                 rhs = parameters[2*self.sub_model_num+1], 
+#                 window_strides = self.strides[1],  
+#                 padding = 'same'
+#                 )
+#         return x+x_in
 
 class resnet_ff():
     def __init__(self,cfg,sub_model_num) -> None:
@@ -94,8 +98,8 @@ class resnet_ff():
         self.resnet = resnet(cfg,sub_model_num)
         self.stride = cfg.parameters.kernel_stride[sub_model_num]
 
-    def forward(self,x_in,parameters,subkey=None):
-        x = self.resnet.forward(x_in,parameters,subkey=None)
+    def forward(self, x_in, embedding, parameters,subkey=None):
+        x = self.resnet.forward(x_in, embedding, parameters, subkey=None)
         w = None
         b = None
         # make change in input to make it downscalable (i assume)
@@ -150,28 +154,33 @@ class attention():
 class down_resnet():
     def __init__(self,cfg,sub_model_num,maxpool_factor=2) -> None:
         self.sub_model_num = sub_model_num
-        self.resnet = resnet_conv(cfg,sub_model_num)
+        self.resnet0 = resnet_ff(cfg,sub_model_num)
+        self.resnet1 = resnet_ff(cfg,sub_model_num)
         self.maxpool2d = eqx.nn.MaxPool2d(maxpool_factor,maxpool_factor)
 
-    def forward(self, x_in, parameters):
+    def forward(self, x_in, embedding, parameters):
 
-        x = self.resnet.forward(x_in,parameters,subkey=None)
-        x = vmap(self.maxpool2d,axis_name="batch")(x)
-        return x
+        x0 = self.resnet0.forward(x_in, embedding, parameters,subkey=None)
+        x1 = self.resnet1.forward(x1, embedding, parameters,subkey=None)
+        x2 = vmap(self.maxpool2d,axis_name="batch")(x2)
+        return x0,x1,x2
 
 class down_resnet_attn():
     def __init__(self,cfg,sub_model_num,maxpool_factor=2) -> None:
         self.sub_model_num = sub_model_num
-        self.resnet = resnet_conv(cfg,sub_model_num)
+        self.resnet0 = resnet_ff(cfg,sub_model_num)
+        self.resnet1 = resnet_ff(cfg,sub_model_num)
         self.maxpool2d = eqx.nn.MaxPool2d(maxpool_factor,maxpool_factor)
         self.attn = attention(cfg,sub_model_num)
 
-    def forward(self, x_in, parameters):
+    def forward(self, x_in, embedding, parameters):
 
-        x = self.resnet.forward(x_in,parameters,subkey=None)
-        x = self.attn.forward(x_in,parameters)
-        x = vmap(self.maxpool2d,axis_name="batch")(x)
-        return x
+        x00 = self.resnet0.forward(x_in, embedding, parameters,subkey=None)
+        x01 = self.attn.forward(x00,parameters)
+        x10 = self.resnet1.forward(x01, embedding, parameters,subkey=None)
+        x11 = self.attn.forward(x10,parameters)
+        x2 = vmap(self.maxpool2d,axis_name="batch")(x11)
+        return x01,x11,x2
 
 def upsample2d(x, factor=2):
     # stolen from https://github.com/yang-song/score_sde/blob/main/models/up_or_down_sampling.py
@@ -185,45 +194,56 @@ class up_resnet():
     def __init__(self,cfg,sub_model_num,upsampling_factor=2) -> None:
         self.sub_model_num = sub_model_num
         self.upsampling_factor = upsampling_factor
-        self.resnet = resnet_conv(cfg,sub_model_num)
+        self.resnet0 = resnet_ff(cfg,sub_model_num)
+        self.resnet1 = resnet_ff(cfg,sub_model_num)
+        self.resnet2 = resnet_ff(cfg,sub_model_num)
 
-    def forward(self, x_in, parameters):
-        x = self.resnet.forward(x_in,parameters,subkey=None)
-        x = upsample2d(x, factor=self.upsampling_factor)
+
+    def forward(self, x, embedding, x_res0, x_res1, x_res2, parameters):
+        x = self.resnet0.forward(jnp.concatenate((x,x_res0),axis=1), embedding, parameters,subkey=None)
+        x = self.resnet1.forward(jnp.concatenate((x,x_res1),axis=1), embedding, parameters,subkey=None)
+        x = self.resnet2.forward(jnp.concatenate((x,x_res2),axis=1), embedding, parameters,subkey=None)
         return x
 
 class up_resnet_attn():
     def __init__(self,cfg,sub_model_num,upsampling_factor=2) -> None:
         self.sub_model_num = sub_model_num
         self.upsampling_factor = upsampling_factor
-        self.resnet = resnet_conv(cfg,sub_model_num)
-        self.attn = attention(cfg,sub_model_num)
+        self.resnet0 = resnet_ff(cfg,sub_model_num)
+        self.resnet1 = resnet_ff(cfg,sub_model_num)
+        self.resnet2 = resnet_ff(cfg,sub_model_num)
+        self.attn0 = attention(cfg,sub_model_num)
+        self.attn1 = attention(cfg,sub_model_num)
+        self.attn2 = attention(cfg,sub_model_num)
 
-    def forward(self, x_in, parameters):
-        x = self.resnet.forward(x_in,parameters,subkey=None)
-        x = self.attn.forward(x_in,parameters)
-        x = upsample2d(x, factor=self.upsampling_factor)
+    def forward(self, x, embedding, x_res0, x_res1, x_res2, parameters):
+        x = self.resnet0.forward(jnp.concatenate((x,x_res0),axis=1), embedding, parameters,subkey=None)
+        x = self.attn0.forward(x,parameters)
+        x = self.resnet1.forward(jnp.concatenate((x,x_res1),axis=1), embedding, parameters,subkey=None)
+        x = self.attn1.forward(x,parameters)
+        x = self.resnet2.forward(jnp.concatenate((x,x_res2),axis=1), embedding, parameters,subkey=None)
+        x = self.attn2.forward(x,parameters)
         return x
 
 class ddpm_unet():
     def __init__(self,cfg) -> None:
         self.cfg = cfg
         # down
-        self.conv_resnet_0 = down_resnet(cfg,sub_model_num=0,maxpool_factor=2)
-        self.conv_resnet_attn_1 = down_resnet_attn(cfg,sub_model_num=1,maxpool_factor=2)
-        self.conv_resnet_2 = down_resnet(cfg,sub_model_num=2,maxpool_factor=2)
-        self.conv_resnet_3 = down_resnet(cfg,sub_model_num=3,maxpool_factor=1) # no downsampling here
+        self.resnet_0 = down_resnet(cfg,sub_model_num=0,maxpool_factor=2)
+        self.resnet_attn_1 = down_resnet_attn(cfg,sub_model_num=1,maxpool_factor=2)
+        self.resnet_2 = down_resnet(cfg,sub_model_num=2,maxpool_factor=2)
+        self.resnet_3 = down_resnet(cfg,sub_model_num=3,maxpool_factor=1) # no downsampling here
 
         # middle
-        self.resnet4 = resnet_ff(cfg,sub_model_num=4)
-        self.attn5 = attention(cfg,sub_model_num=5)
-        self.resnet6 = resnet_ff(cfg,sub_model_num=6)
+        self.resnet_4 = resnet(cfg,sub_model_num=4)
+        self.attn_5 = attention(cfg,sub_model_num=5)
+        self.resnet_6 = resnet(cfg,sub_model_num=6)
 
         # up
-        self.conv_resnet_7 = down_resnet(cfg,sub_model_num=7,maxpool_factor=1) # no upsampling here
-        self.conv_resnet_attn_8 = up_resnet_attn(cfg,sub_model_num=8,maxpool_factor=2)
-        self.conv_resnet_9 = down_resnet(cfg,sub_model_num=9,maxpool_factor=2)
-        self.conv_resnet_10 = down_resnet(cfg,sub_model_num=10,maxpool_factor=2)
+        self.resnet_7 = up_resnet(cfg,sub_model_num=7)
+        self.resnet_8 = up_resnet(cfg,sub_model_num=8)
+        self.resnet_attn_9 = up_resnet_attn(cfg,sub_model_num=9)
+        self.resnet_10 = up_resnet(cfg,sub_model_num=10)
 
         # end
         self.batchnorm_11 = eqx.experimental.BatchNorm(  # Make 1 for each needed, as they have differetent input shapes
@@ -234,25 +254,39 @@ class ddpm_unet():
                 # channelwise_affine=True
                 )
         self.stride = cfg.parameters.kernel_stride[12]
+        self.upsampling_factor = cfg.parameters.upsampling_factor
 
 
     def forward(self,x_in,parameters):
+
+        # Timestep embedding
+        embedding = None # embedding -> dense -> nonlin -> dense (Shape = Bx512)
+
         # down
-        d0 = self.conv_resnet_0.forward(x_in, parameters) # 32x32 -> 16x16
-        d1 = self.conv_resnet_attn_1.forward(d0, parameters) # 16x16 -> 8x8
-        d2 = self.conv_resnet_2.forward(d1, parameters) # 8x8 -> 4x4
-        d3 = self.conv_resnet_3.forward(d2, parameters) # 4x4 -> 4x4 
+        d0 = lax.conv( 
+                lhs = x_in,    # lhs = NCHW image tensor
+                rhs = parameters[0][0], # rhs = OIHW conv kernel tensor
+                window_strides = self.stride,  # window strides
+                padding = 'same'
+                )
+        d10,d11,d12 = self.resnet_0.forward(       d0, parameters) # 32x32 -> 16x16
+        d20,d21,d22 = self.resnet_attn_1.forward(  d12, parameters) # 16x16 -> 8x8
+        d30,d31,d32 = self.resnet_2.forward(       d22, parameters) # 8x8 -> 4x4
+        d40,d41,d42 = self.resnet_3.forward(       d32, parameters) # 4x4 -> 4x4 
 
         # middle
-        m = self.resnet4.forward(d3,parameters,subkey=None) # 4x4 -> 4x4
-        m = self.attn5.forward(m,parameters) # 4x4 -> 4x4
-        m = self.resnet6.forward(m,parameters,subkey=None) # 4x4 -> 4x4
+        m = self.resnet_4.forward(                 d42, embedding, parameters,subkey=None) # 4x4 -> 4x4
+        m = self.attn_5.forward(                   m, parameters) # 4x4 -> 4x4
+        m = self.resnet_6.forward(                 m, embedding, parameters,subkey=None) # 4x4 -> 4x4
 
         # up
-        u = self.conv_resnet_7.forward(jnp.concatenate((u,d3),axis=1),parameters) # 4x4 -> 4x4
-        u = self.conv_resnet_attn_8.forward(jnp.concatenate((u,d2),axis=1),parameters) # 4x4 -> 8x8
-        u = self.conv_resnet_9.forward(jnp.concatenate((u,d1),axis=1),parameters) # 8x8 -> 16x16
-        u = self.conv_resnet_10.forward(jnp.concatenate((u,d0),axis=1),parameters) # 16x16 -> 32x32
+        u = self.resnet_7.forward(          m, embedding, x_res0=d42, x_res1=d41, x_res2=d40, parameters=parameters) # 4x4 -> 4x4
+        u = upsample2d(                     u, factor=self.upsampling_factor) # 4x4 -> 8x8
+        u = self.resnet_8.forward(          u, embedding, x_res0=d32, x_res1=d31, x_res2=d30, parameters=parameters) # 8x8 -> 8x8
+        u = upsample2d(                     u, factor=self.upsampling_factor) # 8x8 -> 16x16
+        u = self.resnet_attn_9.forward(     u, embedding, x_res0=d22, x_res1=d21, x_res2=d20, parameters=parameters) # 16x16 -> 16x16
+        u = upsample2d(                     u, factor=self.upsampling_factor) # 16x16 -> 32x32
+        u = self.resnet_10.forward(         u, embedding, x_res0=d12, x_res1=d11, x_res2=d10, parameters=parameters) # 32x32 -> 32x32
 
         # end
         e = vmap(self.batchnorm_11,axis_name="batch")(u)
@@ -341,6 +375,17 @@ derivative_fn2 = grad(jit(fsk.sum_logistic),1)
 print(derivative_fn(x_small,y_small),derivative_fn2(x_small,y_small))
 
 #%%
+
+
+
+
+
+
+
+
+
+
+
 import string
 
 def _einsum(a, b, c, x, y):
@@ -365,4 +410,34 @@ def contract_inner(x, y):
 # jnp.sum(jnp.einsum('bhwc,bHWc->bHWc', X, We))==jnp.sum(jnp.einsum('bhwc,bHWc->bhwc', X, We))
 # jnp.sum(q) == jnp.sum(jnp.einsum('bhwc,bHWC->bhWC', X, We))
 
+#%%
+hs = [nn.conv2d(x, name='conv_in', num_units=128)] # ch = 128, ch_mult=[1,2,2,2]
+for i_level in range(num_resolutions): # 4
 
+    # Residual blocks for this resolution
+    for i_block in range(num_res_blocks): # 2
+        h = resnet_block(hs[-1]) # 4*2 = 8 times total on down # out = 128,256,256,256
+
+        if h.shape[1] in attn_resolutions: # 16 
+            h = attn_block(h) # 2 times on down
+        hs.append(h)
+
+    # Downsample
+    if i_level != num_resolutions - 1: # not on last one
+        hs.append(downsample(hs[-1], name='downsample', with_conv=resamp_with_conv)) # (4-1) = 3 times
+
+
+#%%
+
+for i_level in reversed(range(num_resolutions)): # 4 (3,2,1,0)
+
+    # Residual blocks for this resolution
+    for i_block in range(num_res_blocks + 1): # 2 + 1 = 3
+        h = resnet_block(tf.concat([h, hs.pop()], axis=-1))
+
+        if h.shape[1] in attn_resolutions:
+            h = attn_block(h)
+
+    # Upsample
+    if i_level != 0: # Upsample every time but the last
+        h = upsample(h)
