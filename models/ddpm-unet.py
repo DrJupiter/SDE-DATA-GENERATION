@@ -19,16 +19,6 @@ import equinox as eqx
 # I - kernel input channel dimension
 # O - kernel output channel dimension
 # P - model Parameter count
- 
-# Conv2D - Done
-# Maxpool - Done
-# batchnorm - Done
-# Dropout ? - 
-# Relu - nn.relu(x)
-
-class timestep_embedding():
-    def __init__(self) -> None:
-        pass
 
 class resnet():
     def __init__(self,cfg,sub_model_num) -> None:
@@ -73,24 +63,6 @@ class resnet():
                 )
 
         return x
-
-# class resnet_conv():
-#     def __init__(self,cfg,sub_model_num) -> None:
-#         self.sub_model_num = sub_model_num
-#         self.resnet = resnet(cfg,sub_model_num)
-#         self.stride = cfg.parameters.kernel_stride[sub_model_num]
-
-#     def forward(self,x_in,parameters,subkey=None):
-#         x = self.resnet.forward(x_in,parameters,subkey=None)
-        
-#         # make change in input to make it downscalable (i assume)
-#         x_in = lax.conv(
-#                 lhs = x_in,    
-#                 rhs = parameters[2*self.sub_model_num+1], 
-#                 window_strides = self.strides[1],  
-#                 padding = 'same'
-#                 )
-#         return x+x_in
 
 class resnet_ff():
     def __init__(self,cfg,sub_model_num) -> None:
@@ -257,10 +229,12 @@ class ddpm_unet():
         self.upsampling_factor = cfg.parameters.upsampling_factor
 
 
-    def forward(self,x_in,parameters):
+    def forward(self, x_in, timesteps, parameters):
 
         # Timestep embedding
-        embedding = None # embedding -> dense -> nonlin -> dense (Shape = Bx512)
+        embedding_dim = self.cfg.parameters.time_embedding_dims
+        embedding = self.get_timestep_embedding(timesteps, embedding_dim = embedding_dim) # embedding -> dense -> nonlin -> dense (Shape = Bx512)
+    
 
         # down
         d0 = lax.conv( 
@@ -269,24 +243,24 @@ class ddpm_unet():
                 window_strides = self.stride,  # window strides
                 padding = 'same'
                 )
-        d10,d11,d12 = self.resnet_0.forward(       d0, parameters) # 32x32 -> 16x16
-        d20,d21,d22 = self.resnet_attn_1.forward(  d12, parameters) # 16x16 -> 8x8
-        d30,d31,d32 = self.resnet_2.forward(       d22, parameters) # 8x8 -> 4x4
-        d40,d41,d42 = self.resnet_3.forward(       d32, parameters) # 4x4 -> 4x4 
+        d10,d11,d12 = self.resnet_0.forward(       d0, parameters) # 32x32 -> 16x16     C_out = 128
+        d20,d21,d22 = self.resnet_attn_1.forward(  d12, parameters) # 16x16 -> 8x8      C_out = 256
+        d30,d31,d32 = self.resnet_2.forward(       d22, parameters) # 8x8 -> 4x4        C_out = 512
+        d40,d41,d42 = self.resnet_3.forward(       d32, parameters) # 4x4 -> 4x4        C_out = 512
 
         # middle
         m = self.resnet_4.forward(                 d42, embedding, parameters,subkey=None) # 4x4 -> 4x4
         m = self.attn_5.forward(                   m, parameters) # 4x4 -> 4x4
-        m = self.resnet_6.forward(                 m, embedding, parameters,subkey=None) # 4x4 -> 4x4
+        m = self.resnet_6.forward(                 m, embedding, parameters,subkey=None) # 4x4 -> 4x4   C_out = 512
 
         # up
-        u = self.resnet_7.forward(          m, embedding, x_res0=d42, x_res1=d41, x_res2=d40, parameters=parameters) # 4x4 -> 4x4
+        u = self.resnet_7.forward(          m, embedding, x_res0=d42, x_res1=d41, x_res2=d40, parameters=parameters) # 4x4 -> 4x4   C_out = 512
         u = upsample2d(                     u, factor=self.upsampling_factor) # 4x4 -> 8x8
-        u = self.resnet_8.forward(          u, embedding, x_res0=d32, x_res1=d31, x_res2=d30, parameters=parameters) # 8x8 -> 8x8
+        u = self.resnet_8.forward(          u, embedding, x_res0=d32, x_res1=d31, x_res2=d30, parameters=parameters) # 8x8 -> 8x8   C_out = 512
         u = upsample2d(                     u, factor=self.upsampling_factor) # 8x8 -> 16x16
-        u = self.resnet_attn_9.forward(     u, embedding, x_res0=d22, x_res1=d21, x_res2=d20, parameters=parameters) # 16x16 -> 16x16
+        u = self.resnet_attn_9.forward(     u, embedding, x_res0=d22, x_res1=d21, x_res2=d20, parameters=parameters) # 16x16 -> 16x16 C_out = 256
         u = upsample2d(                     u, factor=self.upsampling_factor) # 16x16 -> 32x32
-        u = self.resnet_10.forward(         u, embedding, x_res0=d12, x_res1=d11, x_res2=d10, parameters=parameters) # 32x32 -> 32x32
+        u = self.resnet_10.forward(         u, embedding, x_res0=d12, x_res1=d11, x_res2=d10, parameters=parameters) # 32x32 -> 32x32 C_out = 128
 
         # end
         e = vmap(self.batchnorm_11,axis_name="batch")(u)
@@ -301,19 +275,55 @@ class ddpm_unet():
     def get_parameters(self,cfg):
         key = random.PRNGKey(cfg.model.key)
 
-        channels = cfg.model.parameters.channels
+        # Get stuff from config
+        conv_channels = cfg.model.parameters.conv_channels
         kernel_sizes = cfg.model.parameters.kernel_sizes
-        Linear_dims = cfg.model.parameters.Linear_dims
+        skip_linear = cfg.model.parameters.skip_linear
+        time_embed_linear = cfg.model.parameters.time_embed_linear
+        attention_linear = cfg.model.parameters.attention_linear
+        embedding_parameters = cfg.model.parameters.embedding_parameters
 
-        key, *subkey = random.split(key,len(channels)+1)
-        parameters = [[],[]]
-        for i,((in_channel,out_channel),(kernel_size_h,kernel_size_w)) in enumerate(zip(channels,kernel_sizes)): 
+        parameters = [[], [[],[]], [[],[]], [[],[]]] 
+        # List of  [Conv, [sL,sB], [eL,eB], [aL,aB]], 
+        # L = Linear, B = Bias
+        # s = skip_linear, e = time_embedding_linear, a = attention_linear
+
+        # Conv2d parameters 
+        key, *subkey = random.split(key,len(conv_channels)+1)
+        for i,((in_channel,out_channel),(kernel_size_h,kernel_size_w)) in enumerate(zip(conv_channels,kernel_sizes)): 
             parameters[0].append(random.normal(subkey[i], ((out_channel,in_channel,kernel_size_h,kernel_size_w)), dtype=jnp.float32))
         
-        key, *subkey = random.split(key,len(Linear_dims)+1)
-        for i,(in_dims,out_dims) in enumerate(Linear_dims): 
-            parameters[1].append(random.normal(subkey[i], (in_dims,out_dims), dtype=jnp.float32))
-        
+        # Liner and Bias parameters for Skip connections
+        key, *subkey = random.split(key,len(skip_linear)+1)
+        for i,(in_dims,out_dims) in enumerate(skip_linear): 
+            parameters[1][0].append(random.normal(subkey[i], (in_dims,out_dims), dtype=jnp.float32))
+            parameters[1][1].append(random.normal(subkey[i], (out_dims), dtype=jnp.float32))
+
+        # Liner and Bias parameters for time embedding (first the ones happening in ResNets)
+        key, *subkey = random.split(key,len(time_embed_linear)+1)
+        for i,(in_dims,out_dims) in enumerate(time_embed_linear): 
+            parameters[2][0].append(random.normal(subkey[i], (in_dims,out_dims), dtype=jnp.float32))
+            parameters[2][1].append(random.normal(subkey[i], (out_dims), dtype=jnp.float32))
+
+        # adding for the first layers of the embedding (Then for the ones initializing it)
+        key, *subkey = random.split(key,len(embedding_parameters)+1)
+        for i,(in_dims,out_dims) in enumerate(embedding_parameters): 
+            parameters[2][0].append(random.normal(subkey[i], (in_dims,out_dims), dtype=jnp.float32))
+            parameters[2][1].append(random.normal(subkey[i], (out_dims), dtype=jnp.float32))
+
+        # Liner and Bias parameters for Attention
+        key, *subkey = random.split(key,len(attention_linear)+1)
+        for i,(in_dims,out_dims) in enumerate(attention_linear): 
+            parameters[3][0].append(random.normal(subkey[i], (in_dims,out_dims), dtype=jnp.float32))
+            parameters[3][1].append(random.normal(subkey[i], (out_dims), dtype=jnp.float32))
+    
+        mpa = cfg.model.parameters.model_parameter_association
+        copy = mpa
+
+        # Loop over mpa and add the elements like a sum to copy, such that the initial and end values each model need to index for can be found
+        # Maybe just pass this list into each and they find it for themselves during initialisation.
+        # jnp.array(mpa)[:,0]
+
         return parameters
         
     def loss_mse(self, res, true):
@@ -324,6 +334,29 @@ class ddpm_unet():
         loss = jnp.sum(output) #self.loss_mse(output, true_data)
         return loss
 
+    def get_timestep_embedding(self, timesteps, embedding_dim: int):
+        """
+        timesteps: array of ints describing the timestep each "picture" of the batch is perturbed to.\n
+        timesteps.shape = B\n
+        From Fairseq.
+        Build sinusoidal embeddings.
+        This matches the implementation in tensor2tensor, but differs slightly
+        from the description in Section 3.5 of "Attention Is All You Need".
+        \n
+        Credit to DDPM (https://github.com/hojonathanho/diffusion/blob/1e0dceb3b3495bbe19116a5e1b3596cd0706c543/diffusion_tf/nn.py#L90)
+        \n I just converted it to jax.
+        """
+        assert len(timesteps.shape) == 1  # and timesteps.dtype == tf.int32
+
+        half_dim = embedding_dim // 2
+        emb = jnp.log(10000) / (half_dim - 1)
+        emb = jnp.exp(jnp.arange(half_dim, dtype=jnp.int32) * -emb)
+        emb = jnp.int32(timesteps)[:, None] * emb[None, :]
+        emb = jnp.concatenate([jnp.sin(emb), jnp.cos(emb)], axis=1)
+        if embedding_dim % 2 == 1:  # zero pad if uneven number
+            emb = jnp.pad(emb, [[0, 0], [0, 1]])
+        assert emb.shape == (timesteps.shape[0], embedding_dim)
+        return emb
 
 if __name__ == "__main__":
     # Andreas needs
@@ -359,21 +392,6 @@ if __name__ == "__main__":
             print(f"grad{i} is not being calculated")
 #%%
 
-
-
-
-#%%
-class fisk():
-    def sum_logistic(self,x,y):
-        return jnp.sum(x**2*y)
-
-fsk = fisk()
-x_small = jnp.arange(3.)
-y_small = jnp.arange(3.)
-derivative_fn = grad(jit(fsk.sum_logistic),0)
-derivative_fn2 = grad(jit(fsk.sum_logistic),1)
-print(derivative_fn(x_small,y_small),derivative_fn2(x_small,y_small))
-
 #%%
 
 
@@ -381,63 +399,3 @@ print(derivative_fn(x_small,y_small),derivative_fn2(x_small,y_small))
 
 
 
-
-
-
-
-
-import string
-
-def _einsum(a, b, c, x, y):
-  einsum_str = '{},{}->{}'.format(''.join(a), ''.join(b), ''.join(c))
-  print(einsum_str)
-  return jnp.einsum(einsum_str, x, y)
-
-
-def contract_inner(x, y):
-  """tensordot(x, y, 1)."""
-  x_chars = list(string.ascii_lowercase[:len(x.shape)])
-  y_chars = list(string.ascii_uppercase[:len(y.shape)])
-  assert len(x_chars) == len(x.shape) and len(y_chars) == len(y.shape)
-  y_chars[0] = x_chars[-1]  # first axis of y and last of x get summed
-  out_chars = x_chars[:-1] + y_chars[1:]
-  return _einsum(x_chars, y_chars, out_chars, x, y)
-
-
-
-# print(X.shape,We.shape)
-
-# jnp.sum(jnp.einsum('bhwc,bHWc->bHWc', X, We))==jnp.sum(jnp.einsum('bhwc,bHWc->bhwc', X, We))
-# jnp.sum(q) == jnp.sum(jnp.einsum('bhwc,bHWC->bhWC', X, We))
-
-#%%
-hs = [nn.conv2d(x, name='conv_in', num_units=128)] # ch = 128, ch_mult=[1,2,2,2]
-for i_level in range(num_resolutions): # 4
-
-    # Residual blocks for this resolution
-    for i_block in range(num_res_blocks): # 2
-        h = resnet_block(hs[-1]) # 4*2 = 8 times total on down # out = 128,256,256,256
-
-        if h.shape[1] in attn_resolutions: # 16 
-            h = attn_block(h) # 2 times on down
-        hs.append(h)
-
-    # Downsample
-    if i_level != num_resolutions - 1: # not on last one
-        hs.append(downsample(hs[-1], name='downsample', with_conv=resamp_with_conv)) # (4-1) = 3 times
-
-
-#%%
-
-for i_level in reversed(range(num_resolutions)): # 4 (3,2,1,0)
-
-    # Residual blocks for this resolution
-    for i_block in range(num_res_blocks + 1): # 2 + 1 = 3
-        h = resnet_block(tf.concat([h, hs.pop()], axis=-1))
-
-        if h.shape[1] in attn_resolutions:
-            h = attn_block(h)
-
-    # Upsample
-    if i_level != 0: # Upsample every time but the last
-        h = upsample(h)
