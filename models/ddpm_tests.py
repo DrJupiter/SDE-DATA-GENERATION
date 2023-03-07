@@ -215,6 +215,5 @@ cfg = get_hydra_config()
 # print(cfg.model)
 
 mpa = cfg.model.parameters.model_parameter_association
-copy = mpa
 
-jnp.array(mpa)[:,0]
+mpa[0]
