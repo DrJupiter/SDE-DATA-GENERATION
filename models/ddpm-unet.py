@@ -43,7 +43,7 @@ class resnet():
         self.sub_model_num = sub_model_num
         self.local_num_shift = local_num_shift
 
-        conv_shapes = cfg.parameters.conv_channels
+        self.conv_shapes = cfg.parameters.conv_channels
 
         prior = param_asso[:sub_model_num].sum(axis=0)
         current = param_asso[:sub_model_num+1].sum(axis=0)
@@ -52,47 +52,49 @@ class resnet():
         self.time_lin_params_idx = range(prior[2],current[2])
         
         self.batchnorm0 = eqx.experimental.BatchNorm(
-                input_size=conv_shapes[self.conv_params_idx[0+local_num_shift]][1],
+                input_size=self.conv_shapes[self.conv_params_idx[0+local_num_shift]][0],
                 axis_name="batch",
                 momentum=0.99,
                 eps=1e-05,
                 # channelwise_affine=True
                 )
         self.batchnorm1 = eqx.experimental.BatchNorm(
-                input_size=conv_shapes[self.conv_params_idx[0+local_num_shift]][1],
+                input_size=self.conv_shapes[self.conv_params_idx[1+local_num_shift]][0],
                 axis_name="batch",
                 momentum=0.99,
                 eps=1e-05,
                 # channelwise_affine=True
                 ) 
-        self.dropout = eqx.nn.Dropout(cfg.parameters.dropout_p)
+        self.dropout = eqx.nn.Dropout(cfg.parameters.dropout_p,inference=cfg.parameters.inference)
         # self.strides = cfg.parameters.kernel_stride[2*self.sub_model_num:2*self.sub_model_num+2]
 
 
     def forward(self,x_in,embedding,parameters,subkey=None):
 
-        w = parameters[1][0][self.s_lin_params[0+self.local_num_shift]]
-        b = parameters[1][1][self.s_lin_params[0+self.local_num_shift]]
+        w = parameters[2][0][self.time_lin_params_idx[self.local_num_shift//2]]
+        b = parameters[2][1][self.time_lin_params_idx[self.local_num_shift//2]]
 
-        x = vmap(self.batchnorm0,axis_name="batch")(x_in) 
+        x = vmap(self.batchnorm0,axis_name="batch")(x_in.transpose(0,3,2,1)).transpose(0,3,2,1) 
         x = nn.relu(x)
-        x = lax.conv(
-                lhs = x,    
-                rhs = parameters[0][self.conv_params_idx[0+self.local_num_shift]],
-                window_strides = [1,1],  
-                padding = 'same'
-                )
+        x = lax.conv_general_dilated( 
+            lhs = x,    
+            rhs = parameters[0][self.conv_params_idx[0+self.local_num_shift]], 
+            window_strides = [1,1], 
+            padding = 'same',
+            dimension_numbers = ('NHWC', 'HWIO', 'NHWC')
+            )
         x = nn.relu(x)
-        x = x + nn.relu(jnp.matmul(embedding, w)+b)[:,:,None,None] # introducing time embedding
-        x = vmap(self.batchnorm1,axis_name="batch")(x) 
+        x = x + (jnp.matmul(nn.relu(embedding), w)+b)[:, None, None, :] # introducing time embedding
+        x = vmap(self.batchnorm1,axis_name="batch")(x.transpose(0,3,2,1)).transpose(0,3,2,1) 
         x = nn.relu(x)
         x = self.dropout(x,key = subkey)
-        x = lax.conv(
-                lhs = x,    
-                rhs = parameters[0][self.conv_params_idx[1+self.local_num_shift]], 
-                window_strides = [1,1],  
-                padding = 'same'
-                )
+        x = lax.conv_general_dilated( 
+            lhs = x,    
+            rhs = parameters[0][self.conv_params_idx[1+self.local_num_shift]], 
+            window_strides = [1,1], 
+            padding = 'same',
+            dimension_numbers = ('NHWC', 'HWIO', 'NHWC')
+            )
 
         return x
 
@@ -108,9 +110,11 @@ class resnet_ff():
         self.resnet = resnet(cfg, param_asso, sub_model_num, local_num_shift = self.local_num_shift)
 
     def forward(self, x_in, embedding, parameters,subkey=None):
-        x = self.resnet.forward(x_in, embedding, parameters, subkey=None)
-        w = parameters[1][0][self.s_lin_params[0+self.local_num_shift]]
-        b = parameters[1][1][self.s_lin_params[0+self.local_num_shift]]
+
+        x = self.resnet.forward(x_in, embedding, parameters, subkey=subkey)
+        w = parameters[1][0][self.s_lin_params[0+self.local_num_shift//2]]
+        b = parameters[1][1][self.s_lin_params[0+self.local_num_shift//2]]
+
         x_in = jnp.einsum('bhwc,cC->bhwC', x, w) + b
         return x+x_in
 
@@ -119,7 +123,7 @@ class attention():
         self.sub_model_num = sub_model_num
         self.local_num_shift = local_num_shift
         
-        attn_shapes = cfg.parameters.attention_linear
+        self.attn_shapes = cfg.parameters.attention_linear
 
         prior = param_asso[:sub_model_num].sum(axis=0)
         current = param_asso[:sub_model_num+1].sum(axis=0)
@@ -128,7 +132,7 @@ class attention():
 
 
         self.batchnorm0 = eqx.experimental.BatchNorm(  # Make 1 for each needed, as they have differetent input shapes
-                input_size=attn_shapes[self.attn_lin_params_idx[0+local_num_shift]][0],
+                input_size=self.attn_shapes[self.attn_lin_params_idx[0+local_num_shift]][0],
                 axis_name="batch",
                 momentum=0.99,
                 eps=1e-05,
@@ -151,7 +155,7 @@ class attention():
         b4 = parameters[3][1][self.attn_lin_params_idx[3+self.local_num_shift]]
 
         # normalization
-        x = vmap(self.batchnorm0,axis_name="batch")(x_in)
+        x = vmap(self.batchnorm0,axis_name="batch")(x_in.transpose(0,3,2,1)).transpose(0,3,2,1)
 
         # qkv linear passes
         q = jnp.einsum('bhwc,cC->bhwC', x, w1)+b1
@@ -176,11 +180,14 @@ class down_resnet():
         self.resnet1 = resnet_ff(cfg, param_asso,sub_model_num, local_num_shift = local_num_shift+2)
         self.maxpool2d = eqx.nn.MaxPool2d(maxpool_factor,maxpool_factor)
 
-    def forward(self, x_in, embedding, parameters):
+    def forward(self, x_in, embedding, parameters, subkey = None):
+        # split randomness key
+        if key is not None:
+            subkey = random.split(key*self.sub_model_num,2)
 
-        x0 = self.resnet0.forward(x_in, embedding, parameters,subkey=None)
-        x1 = self.resnet1.forward(x1, embedding, parameters,subkey=None)
-        x2 = vmap(self.maxpool2d,axis_name="batch")(x2)
+        x0 = self.resnet0.forward(x_in, embedding, parameters,subkey = subkey[0])
+        x1 = self.resnet1.forward(x0, embedding, parameters,subkey = subkey[1])
+        x2 = vmap(self.maxpool2d,axis_name="batch")(x1.transpose(0,3,2,1)).transpose(0,3,2,1)
         return x0,x1,x2
 
 class down_resnet_attn():
@@ -189,15 +196,20 @@ class down_resnet_attn():
         self.resnet0 = resnet_ff(cfg, param_asso,sub_model_num, local_num_shift = 0+local_num_shift)
         self.resnet1 = resnet_ff(cfg, param_asso,sub_model_num, local_num_shift = 2+local_num_shift)
         self.maxpool2d = eqx.nn.MaxPool2d(maxpool_factor,maxpool_factor)
-        self.attn = attention(cfg, param_asso,sub_model_num)
+        self.attn0 = attention(cfg, param_asso,sub_model_num, local_num_shift = 0+local_num_shift)
+        self.attn1 = attention(cfg, param_asso,sub_model_num, local_num_shift = 4+local_num_shift)
 
-    def forward(self, x_in, embedding, parameters):
+    def forward(self, x_in, embedding, parameters, subkey = None):
 
-        x00 = self.resnet0.forward(x_in, embedding, parameters,subkey=None)
-        x01 = self.attn.forward(x00,parameters)
-        x10 = self.resnet1.forward(x01, embedding, parameters,subkey=None)
-        x11 = self.attn.forward(x10,parameters)
-        x2 = vmap(self.maxpool2d,axis_name="batch")(x11)
+        # split randomness key
+        if key is not None:
+            subkey = random.split(key*self.sub_model_num,2)
+
+        x00 = self.resnet0.forward(x_in, embedding, parameters,subkey=subkey[0])
+        x01 = self.attn0.forward(x00,parameters)
+        x10 = self.resnet1.forward(x01, embedding, parameters,subkey=subkey[1])
+        x11 = self.attn1.forward(x10,parameters)
+        x2 = vmap(self.maxpool2d,axis_name="batch")(x11.transpose(0,3,2,1)).transpose(0,3,2,1)
         return x01,x11,x2
 
 def upsample2d(x, factor=2):
@@ -216,10 +228,15 @@ class up_resnet():
         self.resnet2 = resnet_ff(cfg, param_asso,sub_model_num, local_num_shift = 4+local_num_shift)
 
 
-    def forward(self, x, embedding, x_res0, x_res1, x_res2, parameters):
-        x = self.resnet0.forward(jnp.concatenate((x,x_res0),axis=-1), embedding, parameters,subkey=None)
-        x = self.resnet1.forward(jnp.concatenate((x,x_res1),axis=-1), embedding, parameters,subkey=None)
-        x = self.resnet2.forward(jnp.concatenate((x,x_res2),axis=-1), embedding, parameters,subkey=None)
+    def forward(self, x, embedding, x_res0, x_res1, x_res2, parameters, subkey = None):
+        
+        # split randomness key
+        if key is not None:
+            subkey = random.split(key*self.sub_model_num,3)
+
+        x = self.resnet0.forward(jnp.concatenate((x,x_res0),axis=-1), embedding, parameters,subkey=subkey[0])
+        x = self.resnet1.forward(jnp.concatenate((x,x_res1),axis=-1), embedding, parameters,subkey=subkey[1])
+        x = self.resnet2.forward(jnp.concatenate((x,x_res2),axis=-1), embedding, parameters,subkey=subkey[2])
         return x
 
 class up_resnet_attn():
@@ -233,12 +250,17 @@ class up_resnet_attn():
         self.attn1 = attention(cfg, param_asso,sub_model_num, local_num_shift = 4+local_num_shift)
         self.attn2 = attention(cfg, param_asso,sub_model_num, local_num_shift = 8+local_num_shift)
 
-    def forward(self, x, embedding, x_res0, x_res1, x_res2, parameters):
-        x = self.resnet0.forward(jnp.concatenate((x,x_res0),axis=-1), embedding, parameters,subkey=None)
+    def forward(self, x, embedding, x_res0, x_res1, x_res2, parameters, subkey = None):
+
+        # split randomness key
+        if key is not None:
+            subkey = random.split(key*self.sub_model_num,3)
+
+        x = self.resnet0.forward(jnp.concatenate((x,x_res0),axis=-1), embedding, parameters,subkey=subkey[0])
         x = self.attn0.forward(x,parameters)
-        x = self.resnet1.forward(jnp.concatenate((x,x_res1),axis=-1), embedding, parameters,subkey=None)
+        x = self.resnet1.forward(jnp.concatenate((x,x_res1),axis=-1), embedding, parameters,subkey=subkey[1])
         x = self.attn1.forward(x,parameters)
-        x = self.resnet2.forward(jnp.concatenate((x,x_res2),axis=-1), embedding, parameters,subkey=None)
+        x = self.resnet2.forward(jnp.concatenate((x,x_res2),axis=-1), embedding, parameters,subkey=subkey[2])
         x = self.attn2.forward(x,parameters)
         return x
 
@@ -277,50 +299,63 @@ class ddpm_unet():
         # self.stride = self.cfg.parameters.kernel_stride[12]
         self.upsampling_factor = self.cfg.parameters.upsampling_factor
 
+    def forward(self, x_in, timesteps, parameters, key = None):
 
-    def forward(self, x_in, timesteps, parameters):
+        # split key
+        if key is not None:
+            key, *subkey = random.split(key,13)
 
         # Timestep embedding
-        embedding_dim = self.cfg.parameters.time_embedding_dims
-        embedding = self.get_timestep_embedding(timesteps, embedding_dim = embedding_dim) # embedding -> dense -> nonlin -> dense (Shape = Bx512)
-    
+        em_w1 = parameters[2][0][-2]
+        em_w2 = parameters[2][0][-1]
+        em_b1 = parameters[2][1][-2]
+        em_b2 = parameters[2][1][-1]
+        embedding_dims = self.cfg.parameters.time_embedding_dims
+        embedding = self.get_timestep_embedding(timesteps, embedding_dim = embedding_dims) # embedding -> dense -> nonlin -> dense (Shape = Bx512)
+        embedding = jnp.matmul(embedding,em_w1)+em_b1 # 128 -> 512
+        embedding = nn.relu(embedding)
+        embedding = jnp.matmul(embedding,em_w2)+em_b2 # 512 -> 512
 
         # down
-        print(x_in.shape,parameters[0][0].shape)
-        d0 = lax.conv( 
-                lhs = x_in,    # lhs = NCHW image tensor
-                rhs = parameters[0][0], # kernel is the conv [0] and the first [0]
-                window_strides = [1,1],  # window strides
-                padding = 'same'
+        print(x_in.shape)
+        d0 = lax.conv_general_dilated( 
+                lhs = x_in,    
+                rhs = parameters[0][0], # kernel is the conv [0] and the first entry i this [0]
+                window_strides = [1,1], 
+                padding = 'same',
+                dimension_numbers = ('NHWC', 'HWIO', 'NHWC')
                 )
-        d10,d11,d12 = self.resnet_1.forward(       d0, parameters) # 32x32 -> 16x16     C_out = 128
-        d20,d21,d22 = self.resnet_attn_2.forward(  d12, parameters) # 16x16 -> 8x8      C_out = 256
-        d30,d31,d32 = self.resnet_3.forward(       d22, parameters) # 8x8 -> 4x4        C_out = 512
-        d40,d41,d42 = self.resnet_4.forward(       d32, parameters) # 4x4 -> 4x4        C_out = 512
+        print(d0.shape)
+        d10,d11,d12 = self.resnet_1.forward(       d0, embedding, parameters, subkey = subkey[1]) # 32x32 -> 16x16     C_out = 128
+        d20,d21,d22 = self.resnet_attn_2.forward(  d12, embedding, parameters, subkey = subkey[2]) # 16x16 -> 8x8      C_out = 256
+        d30,d31,d32 = self.resnet_3.forward(       d22, embedding, parameters, subkey = subkey[3]) # 8x8 -> 4x4        C_out = 512
+        d40,d41,_   = self.resnet_4.forward(       d32, embedding, parameters, subkey = subkey[4]) # 4x4 -> 4x4        C_out = 512
 
         # middle
-        m = self.resnet_5.forward(                 d42, embedding, parameters,subkey=None) # 4x4 -> 4x4
+        m = self.resnet_5.forward(                 d41, embedding, parameters,subkey=subkey[5]) # 4x4 -> 4x4
         m = self.attn_6.forward(                   m, parameters) # 4x4 -> 4x4
-        m = self.resnet_7.forward(                 m, embedding, parameters,subkey=None) # 4x4 -> 4x4   C_out = 512
+        m = self.resnet_7.forward(                 m, embedding, parameters,subkey=subkey[7]) # 4x4 -> 4x4   C_out = 512
 
         # up
-        u = self.resnet_8.forward(          m, embedding, x_res0=d42, x_res1=d41, x_res2=d40, parameters=parameters) # 4x4 -> 4x4   C_out = 512
+        u = self.resnet_8.forward(          m, embedding, x_res0=d41, x_res1=d40, x_res2=d32, parameters=parameters, subkey = subkey[8]) # 4x4 -> 4x4   C_out = 512
         u = upsample2d(                     u, factor=self.upsampling_factor) # 4x4 -> 8x8
-        u = self.resnet_9.forward(          u, embedding, x_res0=d32, x_res1=d31, x_res2=d30, parameters=parameters) # 8x8 -> 8x8   C_out = 512
+        u = self.resnet_9.forward(          u, embedding, x_res0=d31, x_res1=d30, x_res2=d22, parameters=parameters, subkey = subkey[9]) # 8x8 -> 8x8   C_out = 512
         u = upsample2d(                     u, factor=self.upsampling_factor) # 8x8 -> 16x16
-        u = self.resnet_attn_10.forward(     u, embedding, x_res0=d22, x_res1=d21, x_res2=d20, parameters=parameters) # 16x16 -> 16x16 C_out = 256
+        u = self.resnet_attn_10.forward(    u, embedding, x_res0=d21, x_res1=d20, x_res2=d12, parameters=parameters, subkey = subkey[10]) # 16x16 -> 16x16 C_out = 256
         u = upsample2d(                     u, factor=self.upsampling_factor) # 16x16 -> 32x32
-        u = self.resnet_11.forward(         u, embedding, x_res0=d12, x_res1=d11, x_res2=d10, parameters=parameters) # 32x32 -> 32x32 C_out = 128
+        u = self.resnet_11.forward(         u, embedding, x_res0=d11, x_res1=d10, x_res2=d0, parameters=parameters, subkey = subkey[11]) # 32x32 -> 32x32 C_out = 128
 
         # end
-        e = vmap(self.batchnorm_12,axis_name="batch")(u)
+        e = vmap(self.batchnorm_12,axis_name="batch")(u.transpose(0,3,2,1)).transpose(0,3,2,1)
         e = nn.relu(e)
-        e = lax.conv( 
-                lhs = e,    # lhs = NCHW image tensor
-                rhs = parameters[0][-1], # kernel is the conv [0] and the last [-1]
-                window_strides = [1,1],  # window strides
-                padding = 'same'
+        e = lax.conv_general_dilated( 
+                lhs = e,    
+                rhs = parameters[0][-1], # kernel is the conv [0] and the last entry of these [-1]
+                window_strides = [1,1], 
+                padding = 'same',
+                dimension_numbers = ('NHWC', 'HWIO', 'NHWC')
                 )
+        return e
 
     def get_parameters(self,cfg):
         key = random.PRNGKey(cfg.model.key)
@@ -341,7 +376,8 @@ class ddpm_unet():
         # Conv2d parameters 
         key, *subkey = random.split(key,len(conv_channels)+1)
         for i,((in_channel,out_channel),(kernel_size_h,kernel_size_w)) in enumerate(zip(conv_channels,kernel_sizes)): 
-            parameters[0].append(random.normal(subkey[i], ((out_channel,in_channel,kernel_size_h,kernel_size_w)), dtype=jnp.float32))
+            # kernal shouold be of the shape HWIO, I = in, O = out
+            parameters[0].append(random.normal(subkey[i], ((kernel_size_h,kernel_size_w,in_channel,out_channel)), dtype=jnp.float32))
         
         # Liner and Bias parameters for Skip connections
         key, *subkey = random.split(key,len(skip_linear)+1)
@@ -371,14 +407,14 @@ class ddpm_unet():
         # Maybe just pass this list into each and they find it for themselves during initialisation.
         # jnp.array(mpa)[:,0]
 
-        return parameters
+        return parameters, key
         
-    def loss_mse(self, res, true):
-        return jnp.mean((res-true)**2)
+    def loss_mse(self, output, true_data):
+        return jnp.sum(output)
 
-    def loss_fn(self, parameters, true_data, timestep):
-        output = self.forward(true_data, timestep, parameters)
-        loss = jnp.sum(output) #self.loss_mse(output, true_data)
+    def loss_fn(self, parameters, true_data, timestep, key = None):
+        output = self.forward(true_data, timestep, parameters, key = key)
+        loss = self.loss_mse(output, true_data)
         return loss
 
     def get_timestep_embedding(self, timesteps, embedding_dim: int):
@@ -405,39 +441,85 @@ class ddpm_unet():
         assert emb.shape == (timesteps.shape[0], embedding_dim)
         return emb
 
-if __name__ == "__main__":
-    # Andreas needs
-    import sys
-    sys.path.append("/media/sf_Bsc-Diffusion")
-    # need ends
+#%%
+# if __name__ == "__main__":
+# Andreas needs
+import sys
+sys.path.append("/media/sf_Bsc-Diffusion")
+# need ends
 
-    from utils.utils import get_hydra_config
-    cfg = get_hydra_config()
-    # print(cfg.model)
+from utils.utils import get_hydra_config
+cfg = get_hydra_config()
+# print(cfg.model)
 
-    key = random.PRNGKey(69)
+key = random.PRNGKey(69)
 
-    img = jnp.zeros((
-            cfg.model.parameters.batch_size,    # Batchsize
-            cfg.model.parameters.img_h,         # h
-            cfg.model.parameters.img_w,         # w
-            cfg.model.parameters.conv_channels[0][0],# channels
-            ),dtype=jnp.float32)
-    img = img.at[0, 0, 2:2+10, 2:2+10].set(1.0) 
-    B, H, W, C = img.shape
+img = jnp.ones((
+        cfg.model.parameters.batch_size,    # Batchsize
+        cfg.model.parameters.img_h,         # h
+        cfg.model.parameters.img_w,         # w
+        cfg.model.parameters.conv_channels[0][0],# channels
+        ),dtype=jnp.float32)
+img = img.at[0, 0, 2:2+10, 2:2+10].set(0.0) 
+B, H, W, C = img.shape
 
-    model = ddpm_unet(cfg.model)
-    parameters = model.get_parameters(cfg)
-    get_grad = grad(jit(model.loss_fn),0)
-    get_loss = jit(model.loss_fn)
-    # print("loss",get_loss(parameters, img))
-    grads = get_grad(parameters, img, timestep = jnp.zeros(B))
+model = ddpm_unet(cfg.model)
+parameters, key = model.get_parameters(cfg)
+get_grad = grad(jit(model.loss_fn),0)
+get_loss = jit(model.loss_fn)
+# print("loss",get_loss(parameters, img))
+grads = get_grad(parameters, img, timestep = jnp.zeros(B), key = key)
 
-    # print grads to make sure they work as intended
-    for i,gradi in enumerate(grads):
-        print(f"parameter{i} shape",gradi.shape)
-        if jnp.sum(gradi) == 0:
-            print(f"grad{i} is not being calculated")
+#%%
+# check if all parameters have grads:
+def check_grads_beq_zero(grads):
+    print("False means that the sum of the entire gradient is 0. Which it normally not should be")
+
+    ## check conv layers
+    for i,gradi in enumerate(grads[0]):
+        if jnp.sum(gradi)==0:
+            print("conv layer:",i,jnp.sum(gradi)!=0)
+
+    ## check skip linear layers
+    # linear
+    for i,gradi in enumerate(grads[1][0]):
+        if jnp.sum(gradi)==0:
+            print("skip linear layer:",i,jnp.sum(gradi)!=0)
+
+    # bias
+    for i,gradi in enumerate(grads[1][1]):
+        if jnp.sum(gradi)==0:
+            print("skip bias layer:",i,jnp.sum(gradi)!=0)
+
+    # time embedding
+    # linear
+    for i,gradi in enumerate(grads[2][0]):
+        if jnp.sum(gradi)==0:
+            print("time linear layer:",i,jnp.sum(gradi)!=0)
+
+    # bias
+    for i,gradi in enumerate(grads[2][1]):
+        if jnp.sum(gradi)==0:
+            print("time bias layer:",i,jnp.sum(gradi)!=0)
+
+    # attention
+    # linear
+    for i,gradi in enumerate(grads[3][0]):
+        if jnp.sum(gradi)==0:
+            print("attention linear layer:",i,jnp.sum(gradi)!=0)
+
+    # bias
+    for i,gradi in enumerate(grads[3][1]):
+        if jnp.sum(gradi)==0:
+            print("attention bias layer:",i,jnp.sum(gradi)!=0)
+
+
+
+check_grads_beq_zero(grads)
+
+#%%
+grads[0][0]
+
 #%%
 
 # import sys
@@ -551,33 +633,3 @@ if __name__ == "__main__":
 
 # y0 = jnp.matmul(x0,w)+b
 # y0.shape
-#%%
-import jax.numpy as jnp
-from jax import lax
-in_dim = 5
-img1 = jnp.arange(2*in_dim*9*9).reshape(2,in_dim,9,9)*(1e-3)
-k1 = jnp.arange(10*in_dim*3*3).reshape(10,in_dim,3,3)*(1e-3)
-
-# e = lax.conv_general_dilated( 
-#             lhs = img1,   
-#             rhs = k1, 
-#             window_strides = [1,1], 
-#             padding = 'same',
-#             dimension_numbers = ('NCHW', 'OIHW', 'NCHW')
-#             )
-
-img2 = img1.reshape(2,9,9,in_dim)
-k2 = k1.reshape(3,3,in_dim,10)
-e2 = lax.conv_general_dilated( 
-            lhs = img2,    
-            rhs = k2, 
-            window_strides = [1,1], 
-            padding = 'same',
-            dimension_numbers = ('NHWC', 'HWIO', 'NHWC')
-            )
-
-# print(jnp.sum(k1),jnp.sum(k2),"\n",jnp.sum(img1),jnp.sum(img2))
-
-jnp.sum(e2)
-
-# %%
