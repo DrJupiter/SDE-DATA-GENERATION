@@ -66,7 +66,6 @@ class resnet():
                 # channelwise_affine=True
                 ) 
         self.dropout = eqx.nn.Dropout(cfg.parameters.dropout_p,inference=cfg.parameters.inference)
-        # self.strides = cfg.parameters.kernel_stride[2*self.sub_model_num:2*self.sub_model_num+2]
 
 
     def forward(self,x_in,embedding,parameters,subkey=None):
@@ -134,8 +133,8 @@ class attention():
         self.batchnorm0 = eqx.experimental.BatchNorm(  # Make 1 for each needed, as they have differetent input shapes
                 input_size=self.attn_shapes[self.attn_lin_params_idx[0+local_num_shift]][0],
                 axis_name="batch",
-                momentum=0.99,
-                eps=1e-05,
+                momentum=cfg.parameters.momentum,
+                eps=cfg.parameters.eps,
                 # channelwise_affine=True
                 )
 
@@ -278,9 +277,9 @@ class ddpm_unet():
         self.resnet_4 = down_resnet(cfg, param_asso,sub_model_num=4,maxpool_factor=1) # no downsampling here
 
         # middle
-        self.resnet_5 = resnet(cfg, param_asso,sub_model_num=5)
+        self.resnet_5 = resnet_ff(cfg, param_asso,sub_model_num=5)
         self.attn_6 = attention(cfg, param_asso,sub_model_num=6)
-        self.resnet_7 = resnet(cfg, param_asso,sub_model_num=7)
+        self.resnet_7 = resnet_ff(cfg, param_asso,sub_model_num=7)
 
         # up
         self.resnet_8 = up_resnet(cfg, param_asso,sub_model_num=8)
@@ -292,11 +291,10 @@ class ddpm_unet():
         self.batchnorm_12 = eqx.experimental.BatchNorm(  # Make 1 for each needed, as they have differetent input shapes
                 input_size=conv_shapes[-1][0], # Its input is equal to last conv input, as this doesnt change shape
                 axis_name="batch",
-                momentum=0.99,
-                eps=1e-05,
+                momentum=cfg.parameters.momentum,
+                eps=cfg.parameters.eps,
                 # channelwise_affine=True
                 )
-        # self.stride = self.cfg.parameters.kernel_stride[12]
         self.upsampling_factor = self.cfg.parameters.upsampling_factor
 
     def forward(self, x_in, timesteps, parameters, key = None):
@@ -332,9 +330,9 @@ class ddpm_unet():
         d40,d41,_   = self.resnet_4.forward(       d32, embedding, parameters, subkey = subkey[4]) # 4x4 -> 4x4        C_out = 512
 
         # middle
-        m = self.resnet_5.forward(                 d41, embedding, parameters,subkey=subkey[5]) # 4x4 -> 4x4
+        m = self.resnet_5.forward(                 d41, embedding, parameters,subkey = subkey[5]) # 4x4 -> 4x4
         m = self.attn_6.forward(                   m, parameters) # 4x4 -> 4x4
-        m = self.resnet_7.forward(                 m, embedding, parameters,subkey=subkey[7]) # 4x4 -> 4x4   C_out = 512
+        m = self.resnet_7.forward(                 m, embedding, parameters,subkey = subkey[7]) # 4x4 -> 4x4   C_out = 512
 
         # up
         u = self.resnet_8.forward(          m, embedding, x_res0=d41, x_res1=d40, x_res2=d32, parameters=parameters, subkey = subkey[8]) # 4x4 -> 4x4   C_out = 512
@@ -466,8 +464,12 @@ B, H, W, C = img.shape
 model = ddpm_unet(cfg.model)
 parameters, key = model.get_parameters(cfg)
 get_grad = grad(jit(model.loss_fn),0)
-get_loss = jit(model.loss_fn)
+# get_loss = jit(model.loss_fn)
 # print("loss",get_loss(parameters, img))
+
+# check if img channels == first conv channel:
+assert img.shape[-1] == parameters[0][0].shape[-2], f"The first conv channel doesnt correspond to img channels. Go into ddpm_unet.yaml and change it to {img.shape[-1]}"
+
 grads = get_grad(parameters, img, timestep = jnp.zeros(B), key = key)
 
 #%%
@@ -513,123 +515,7 @@ def check_grads_beq_zero(grads):
         if jnp.sum(gradi)==0:
             print("attention bias layer:",i,jnp.sum(gradi)!=0)
 
+    print("If no 'False' appears then it all worked out")
 
 
 check_grads_beq_zero(grads)
-
-#%%
-grads[0][0]
-
-#%%
-
-# import sys
-# sys.path.append("/media/sf_Bsc-Diffusion")
-# # need ends
-
-# from utils.utils import get_hydra_config
-# cfg = get_hydra_config()
-# # print(cfg.model)
-
-# mpa = jnp.array(cfg.model.parameters.model_parameter_association)
-
-# mpa[11]
-# #%%
-
-# def get_parameters(cfg):
-#     key = random.PRNGKey(cfg.model.key)
-
-#     # Get stuff from config
-#     conv_channels = cfg.model.parameters.conv_channels
-#     kernel_sizes = cfg.model.parameters.kernel_sizes
-#     skip_linear = cfg.model.parameters.skip_linear
-#     time_embed_linear = cfg.model.parameters.time_embed_linear
-#     attention_linear = cfg.model.parameters.attention_linear
-#     embedding_parameters = cfg.model.parameters.embedding_parameters
-
-#     parameters = [[], [[],[]], [[],[]], [[],[]]] 
-#     # List of  [Conv, [sL,sB], [eL,eB], [aL,aB]], 
-#     # L = Linear, B = Bias
-#     # s = skip_linear, e = time_embedding_linear, a = attention_linear
-
-#     # Conv2d parameters 
-#     key, *subkey = random.split(key,len(conv_channels)+1)
-#     for i,((in_channel,out_channel),(kernel_size_h,kernel_size_w)) in enumerate(zip(conv_channels,kernel_sizes)): 
-#         parameters[0].append(random.normal(subkey[i], ((out_channel,in_channel,kernel_size_h,kernel_size_w)), dtype=jnp.float32))
-    
-#     # Liner and Bias parameters for Skip connections
-#     key, *subkey = random.split(key,len(skip_linear)+1)
-#     for i,(in_dims,out_dims) in enumerate(skip_linear): 
-#         parameters[1][0].append(random.normal(subkey[i], (in_dims,out_dims), dtype=jnp.float32))
-#         parameters[1][1].append(random.normal(subkey[i], (1,out_dims), dtype=jnp.float32))
-
-#     # Liner and Bias parameters for time embedding (first the ones happening in ResNets)
-#     key, *subkey = random.split(key,len(time_embed_linear)+1)
-#     for i,(in_dims,out_dims) in enumerate(time_embed_linear): 
-#         parameters[2][0].append(random.normal(subkey[i], (in_dims,out_dims), dtype=jnp.float32))
-#         parameters[2][1].append(random.normal(subkey[i], (1,out_dims), dtype=jnp.float32))
-
-#     # adding for the first layers of the embedding (Then for the ones initializing it)
-#     key, *subkey = random.split(key,len(embedding_parameters)+1)
-#     for i,(in_dims,out_dims) in enumerate(embedding_parameters): 
-#         parameters[2][0].append(random.normal(subkey[i], (in_dims,out_dims), dtype=jnp.float32))
-#         parameters[2][1].append(random.normal(subkey[i], (1,out_dims), dtype=jnp.float32))
-
-#     # Liner and Bias parameters for Attention
-#     key, *subkey = random.split(key,len(attention_linear)+1)
-#     for i,(in_dims,out_dims) in enumerate(attention_linear): 
-#         parameters[3][0].append(random.normal(subkey[i], (in_dims,out_dims), dtype=jnp.float32))
-#         parameters[3][1].append(random.normal(subkey[i], (1,out_dims), dtype=jnp.float32))
-
-#     # Loop over mpa and add the elements like a sum to copy, such that the initial and end values each model need to index for can be found
-#     # Maybe just pass this list into each and they find it for themselves during initialisation.
-#     # jnp.array(mpa)[:,0]
-
-#     return parameters
-
-
-
-# params = get_parameters(cfg)
-
-# #%%
-# sub_model_num = 3
-
-# # for sub_model_num in range(13):
-# #     prior = mpa[:sub_model_num].sum(axis=0)
-# #     current = mpa[:sub_model_num+1].sum(axis=0)
-# #     print("num:",sub_model_num)
-# #     print("N_para=",len(params[para_type][prior[para_type]:current[para_type]]))
-# #     # for param in params[para_type][prior[para_type]:current[para_type]]:
-# #     #     print(param.shape)
-# mpa = jnp.array(cfg.model.parameters.model_parameter_association)
-# prior = mpa[:sub_model_num].sum(axis=0)
-# current = mpa[:sub_model_num+1].sum(axis=0)
-
-# conv_params_idx = range(prior[0],current[0])
-# # s_lin_params = range(prior[1],current[1])
-# # time_lin_params = range(prior[2],current[2])
-# # attn_lin_params = range(prior[3],current[3])
-
-# # params[0][conv_params[0]]
-# # params[1][0][s_lin_params[0]]
-# # params[2][0][time_lin_params[0]]
-# # params[3][0][attn_lin_params[0]]
-
-# conv_shapes = cfg.model.parameters.conv_channels
-# # conv_shapes[conv_params[0]]
-# # cfg.parameters.conv_channels
-
-# conv_shapes[conv_params_idx[0+2]][1]
-
-# #%%
-# B = 22
-# H = 13
-# W = 19
-# C = 4
-# C_out = 44
-# key = random.PRNGKey(cfg.model.key)
-# x0 = jnp.arange(B*H*W*C).reshape(B,H,W,C)
-# w = jnp.ones((C,C_out), dtype=jnp.float32)
-# b = jnp.ones((1,C_out), dtype=jnp.float32)
-
-# y0 = jnp.matmul(x0,w)+b
-# y0.shape
