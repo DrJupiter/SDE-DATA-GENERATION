@@ -1,6 +1,7 @@
 from jax import jacfwd
 import jax.numpy as jnp
 from jax import random as jrandom
+from utils.utils import batch_matmul
 
 def implicit_score_matching(func, function_parameters, data):
     """
@@ -20,7 +21,7 @@ def implicit_score_matching(func, function_parameters, data):
     score = func(data, function_parameters)
 
     # TODO: Add axis to this
-    jnp.mean(0.5 * jnp.dot(score, score.T) + div)
+    jnp.mean(0.5 * batch_matmul(score, score) + div)
 
 if __name__ == "__main__":
     func = lambda x, a: a*x**2    
