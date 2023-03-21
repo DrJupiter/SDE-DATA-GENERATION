@@ -12,6 +12,8 @@ def implicit_score_matching(func, function_parameters, data):
     The loss that is computed is a numerical estimate of 
         E_(p_D(x))[1/2 ||f(x,θ)||^2 + Div_x(f(x,θ))]
     """
+
+    raise NotImplementedError("TODO: get correct divergence and norm")
     div_fn = jacfwd(func, argnums=0)
 
     div = div_fn(data, function_parameters)
