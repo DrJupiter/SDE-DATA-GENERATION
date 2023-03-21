@@ -1,7 +1,8 @@
 defaults:
         - wandb : defaults
-        - dataset: mnist
+        - dataset: cifar10
         - train_and_test: default
         - model : ddpm_unet
         - visualization: visualize
         - optimizer: gradient_descent
+        - sde: paper_subvp
