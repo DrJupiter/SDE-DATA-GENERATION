@@ -18,3 +18,12 @@ def get_hydra_config(config_path='../configs', job_name='test', version_base='1.
     initialize(config_path=config_path, job_name=job_name, version_base=version_base) 
     cfg = compose(config, overrides=overrides)
     return cfg
+
+def batch_matmul(a,b):
+    """
+    dim(a): B x W x L x ...
+    dim(b): B x W x L x ...
+
+    Performs matmull across the batch dimension B
+    """
+    raise NotImplementedError("Performs matmull across the batch dimension B") # vmap, jax.lav.batch_matmul
