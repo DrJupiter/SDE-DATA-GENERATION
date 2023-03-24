@@ -31,8 +31,3 @@ batch_matmul = vmap(lambda a,b: jnp.matmul(a.T, b), (0, 0) , 0)
 
     return: B x L1 x L2 | B  
 """
-
-from jax import jacfwd
-
-divergence = lambda func, args, argnums: jnp.sum(jnp.diag(jacfwd(func, argnums=argnums)(*args)))
-v_divergence = vmap(lambda func, args, argnums: divergence(func, args, argnums)(*args), (None, 0, None), 0)
