@@ -1,11 +1,11 @@
 import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from sde.sde_class import SDE
+from sde import sdeclass
 import jax
 from jax import numpy as jnp
 
-class SUBVPSDE(SDE):
+class SUBVPSDE(sdeclass.SDE):
 
     def __init__(self, cfg) -> None:
         super().__init__()
