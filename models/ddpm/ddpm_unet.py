@@ -184,6 +184,8 @@ class down_resnet():
         # initialize submodels this model is built by
         self.resnet0 = resnet_ff(cfg, param_asso,sub_model_num, local_num_shift = local_num_shift+0)
         self.resnet1 = resnet_ff(cfg, param_asso,sub_model_num, local_num_shift = local_num_shift+2)
+
+        # initialize maxpool
         self.maxpool2d = eqx.nn.MaxPool2d(maxpool_factor,maxpool_factor)
 
     def forward(self, x_in, embedding, parameters, subkey = None):
@@ -191,9 +193,14 @@ class down_resnet():
         if subkey is not None:
             subkey = random.split(subkey*self.sub_model_num,2)
 
+        # pass thruogh resnets
         x0 = self.resnet0.forward(x_in, embedding, parameters,subkey = subkey[0])
         x1 = self.resnet1.forward(x0, embedding, parameters,subkey = subkey[1])
-        x2 = vmap(self.maxpool2d,axis_name="batch")(x1.transpose(0,3,2,1)).transpose(0,3,2,1)
+
+        # maxpool (changes shape)
+        x2 = vmap(self.maxpool2d,axis_name="batch")(x1.transpose(0,3,2,1)).transpose(0,3,2,1) 
+
+        # return all three outputs
         return x0,x1,x2
 
 class down_resnet_attn():
