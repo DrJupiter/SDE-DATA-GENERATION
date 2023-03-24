@@ -19,11 +19,15 @@ def get_hydra_config(config_path='../configs', job_name='test', version_base='1.
     cfg = compose(config, overrides=overrides)
     return cfg
 
-def batch_matmul(a,b):
-    """
-    dim(a): B x W x L x ...
-    dim(b): B x W x L x ...
+import jax.numpy as jnp
+from jax import vmap
 
-    Performs matmull across the batch dimension B
-    """
-    raise NotImplementedError("Performs matmull across the batch dimension B") # vmap, jax.lav.batch_matmul
+batch_matmul = vmap(lambda a,b: jnp.matmul(a.T, b), (0, 0) , 0)
+"""
+    dim(a): B x W x L1 | B x L1 
+    dim(b): B x W x L2 | B x L1 
+
+    Performs matmull across the batch dimension B.
+
+    return: B x L1 x L2 | B  
+"""
