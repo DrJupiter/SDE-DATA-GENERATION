@@ -24,8 +24,15 @@ from jax import vmap
 
 batch_matmul = vmap(lambda a,b: jnp.matmul(a.T, b), (0, 0) , 0)
 """
-    dim(a): B x W x L x ...
-    dim(b): B x W x L x ...
+    dim(a): B x W x L1 | B x L1 
+    dim(b): B x W x L2 | B x L1 
 
-    Performs matmull across the batch dimension B
+    Performs matmull across the batch dimension B.
+
+    return: B x L1 x L2 | B  
 """
+
+from jax import jacfwd
+
+divergence = lambda func, args, argnums: jnp.sum(jnp.diag(jacfwd(func, argnums=argnums)(*args)))
+v_divergence = vmap(lambda func, args, argnums: divergence(func, args, argnums)(*args), (None, 0, None), 0)
