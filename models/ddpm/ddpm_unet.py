@@ -205,12 +205,15 @@ class down_resnet():
 
 class down_resnet_attn():
     def __init__(self,cfg, param_asso, sub_model_num, local_num_shift = 0,maxpool_factor=2) -> None:
+        # store local location variation for later use
         self.sub_model_num = sub_model_num
+
+        # initialize submodels this model is built by
         self.resnet0 = resnet_ff(cfg, param_asso,sub_model_num, local_num_shift = 0+local_num_shift)
         self.resnet1 = resnet_ff(cfg, param_asso,sub_model_num, local_num_shift = 2+local_num_shift)
-        self.maxpool2d = eqx.nn.MaxPool2d(maxpool_factor,maxpool_factor)
         self.attn0 = attention(cfg, param_asso,sub_model_num, local_num_shift = 0+local_num_shift)
         self.attn1 = attention(cfg, param_asso,sub_model_num, local_num_shift = 4+local_num_shift)
+        self.maxpool2d = eqx.nn.MaxPool2d(maxpool_factor,maxpool_factor)
 
     def forward(self, x_in, embedding, parameters, subkey = None):
 
@@ -218,28 +221,46 @@ class down_resnet_attn():
         if subkey is not None:
             subkey = random.split(subkey*self.sub_model_num,2)
 
+        # pass through resnet and attention in alternating manner
         x00 = self.resnet0.forward(x_in, embedding, parameters,subkey=subkey[0])
         x01 = self.attn0.forward(x00,parameters)
         x10 = self.resnet1.forward(x01, embedding, parameters,subkey=subkey[1])
         x11 = self.attn1.forward(x10,parameters)
+        
+        # maxpool (changes shapes)
         x2 = vmap(self.maxpool2d,axis_name="batch")(x11.transpose(0,3,2,1)).transpose(0,3,2,1)
+
+        # returns outputs from attention and maxpool
         return x01,x11,x2
 
 def upsample2d(x, factor=2):
-    # stolen from https://github.com/yang-song/score_sde/blob/main/models/up_or_down_sampling.py
+    """
+    Upsamling function\n
+    Dublicates values to increase shape\n
+    credit to SDE paper: https://github.com/yang-song/score_sde/blob/main/models/up_or_down_sampling.py
+    """ 
+    # get shapes of input
     B, H, W, C = x.shape
+    # rehape it to BxHx1xWx1xC
     x = jnp.reshape(x, [-1, H, 1, W, 1, C])
+    
+    # dubilicate values factor number of times
     x = jnp.tile(x, [1, 1, factor, 1, factor, 1])
+
+    # Collect the shapes back into the desized "shape", resulting in and increase in H and W, by the factors magnitude.
     return jnp.reshape(x, [-1, H * factor, W * factor, C])
 
 class up_resnet():
     def __init__(self,cfg, param_asso, sub_model_num, local_num_shift = 0,upsampling_factor=2) -> None:
+        # store local parameter "location" 
         self.sub_model_num = sub_model_num
+        # store upsampling factor for forward call
         self.upsampling_factor = upsampling_factor
+
+        # inititalize resnets
         self.resnet0 = resnet_ff(cfg, param_asso,sub_model_num, local_num_shift = 0+local_num_shift)
         self.resnet1 = resnet_ff(cfg, param_asso,sub_model_num, local_num_shift = 2+local_num_shift)
         self.resnet2 = resnet_ff(cfg, param_asso,sub_model_num, local_num_shift = 4+local_num_shift)
-
 
     def forward(self, x, embedding, x_res0, x_res1, x_res2, parameters, subkey = None):
         
@@ -247,6 +268,7 @@ class up_resnet():
         if subkey is not None:
             subkey = random.split(subkey*self.sub_model_num,3)
 
+        # pass through resnets with residual input concatenated to x:
         x = self.resnet0.forward(jnp.concatenate((x,x_res0),axis=-1), embedding, parameters,subkey=subkey[0])
         x = self.resnet1.forward(jnp.concatenate((x,x_res1),axis=-1), embedding, parameters,subkey=subkey[1])
         x = self.resnet2.forward(jnp.concatenate((x,x_res2),axis=-1), embedding, parameters,subkey=subkey[2])
@@ -254,8 +276,12 @@ class up_resnet():
 
 class up_resnet_attn():
     def __init__(self,cfg, param_asso, sub_model_num, local_num_shift = 0,upsampling_factor=2) -> None:
+        # store local parameter "location" 
         self.sub_model_num = sub_model_num
+        # store upsampling factor for forward call
         self.upsampling_factor = upsampling_factor
+
+        # initialize resnets and attention relative to location location, adding shifts to each
         self.resnet0 = resnet_ff(cfg, param_asso,sub_model_num, local_num_shift = 0+local_num_shift)
         self.resnet1 = resnet_ff(cfg, param_asso,sub_model_num, local_num_shift = 2+local_num_shift)
         self.resnet2 = resnet_ff(cfg, param_asso,sub_model_num, local_num_shift = 4+local_num_shift)
@@ -315,7 +341,7 @@ class ddpm_unet():
 
     def forward(self, x_in, timesteps, parameters, key = None):
 
-        x_in = x_in.reshape(4,32,32,-1) # make this work, as cfg is cfg.model, men så kan jeg ikke se train, for shapes
+        x_in = x_in.reshape(-1,32,32,3) # TODO: make this work, as cfg is cfg.model, men så kan jeg ikke se train, for shapes
 
         # split key
         if key is not None:
@@ -373,7 +399,7 @@ class ddpm_unet():
                 )
         
         # return to shape loss can take
-        x_out = e.reshape(4,-1)
+        x_out = e.reshape(-1) # TODO: make this work, as cfg is cfg.model, men så kan jeg ikke se train, for shapes
 
         return x_out
 
@@ -453,6 +479,7 @@ class ddpm_unet():
         Credit to DDPM (https://github.com/hojonathanho/diffusion/blob/1e0dceb3b3495bbe19116a5e1b3596cd0706c543/diffusion_tf/nn.py#L90)
         \n I just converted it to jax.
         """
+        print(timesteps)
         assert len(timesteps.shape) == 1  # and timesteps.dtype == tf.int32
 
         half_dim = embedding_dim // 2
