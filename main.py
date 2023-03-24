@@ -1,3 +1,8 @@
+## Adding path (for some it is needed to import packages)
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
 # convret to torch for FID
 import torch
 
@@ -8,6 +13,7 @@ import os
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 
 import jax
+from jax import grad
 
 # Data
 from data.dataload import dataload 
@@ -31,9 +37,12 @@ import wandb
 
 import hydra
 
+## Optimizer
+import optax
+
 ### TODO: REMOVE
 
-from jax import numpy as jnp
+import jax.numpy as jnp
 
 def one_hot(x, k, dtype=jnp.float32):
   """Create a one-hot encoding of x of size k."""
@@ -47,24 +56,35 @@ def run_experiment(cfg):
 
     train_dataset, test_dataset = dataload(cfg) 
 
-    model_parameters, model_call = get_model(cfg)
+    model_parameters, model_call = get_model(cfg) # model_call(x_in, timesteps, parameters)
 
-    optim_parameters, optim_alg = get_optim(cfg)
+    optimizer, optim_parameters = get_optim(cfg, model_parameters)
 
-    loss_fn = get_loss(cfg)
+    loss_fn = get_loss(cfg) # loss_fn(parameters, model_pass, data_batch, target_batch, time_steps)
+    grad_fn = grad(loss_fn,0)
 
     for epoch in range(cfg.train_and_test.train.epochs): 
-        for t, (data, labels) in enumerate(train_dataset):
+        for t, (data, labels) in enumerate(train_dataset): # batches
 			
-           # TODO: REMOVE
-           t_data = one_hot(labels, 10).T 
-           optim_parameters, model_parameters = optim_alg(optim_parameters, model_parameters, t_data, labels)
-           
-           if t % cfg.wandb.log.frequency == 0:
-               if cfg.wandb.log.loss:
-                   wandb.log({"loss": loss_fn(model_parameters, t_data, data.T)})
-               if cfg.wandb.log.img:
-                   display_images(cfg, model_call(t_data, model_parameters).T, labels)
+            # TODO: REMOVE
+            t_data = one_hot(labels, 10).T 
+
+            timesteps = jnp.ones(data.shape[0])*t
+
+            # get grad for this batch
+            # loss_value, grads = jax.value_and_grad(loss_fn)(model_parameters, model_call, data, labels, t)
+            grads = grad_fn(model_parameters, model_call, data, labels, timesteps)
+
+            # optim_parameters, model_parameters = optim_alg(optim_parameters, model_parameters, t_data, labels)
+            updates, optim_parameters = optimizer.update(grads, optim_parameters, model_parameters)
+            model_parameters = optax.apply_updates(model_parameters, updates)
+
+            if t % cfg.wandb.log.frequency == 0:
+                  if cfg.wandb.log.loss:
+                    wandb.log({"loss": loss_fn(model_parameters, model_call, data, labels, timesteps)})
+                    # wandb.log({"loss": loss_value})
+                  if cfg.wandb.log.img:
+                     display_images(cfg, model_call(data, timesteps, model_parameters), labels)
 
         if epoch % cfg.wandb.log.epoch_frequency == 0:
             if cfg.wandb.log.FID: 

@@ -1,5 +1,7 @@
-name: dppm_unet
+name: ddpm_unet
 key: 4269
+learningrate: 0.0001
+optimizer: adam
 parameters: 
   img_h: 32
   img_w: 32
@@ -29,7 +31,7 @@ parameters:
     - [128,512] # Linear
     - [512,512] # Linear
   conv_channels: 
-    - [1,128]   #  0 # 32x32
+    - [3,128]   #  0 # 32x32
     - [128,128] # 1  # 32x32
     - [128,128] # 1  # 32x32
     - [128,128] # 1  # 32x32
@@ -74,7 +76,7 @@ parameters:
     - [128,128] # 11
     - [256,128] # 11 res in 128+128 = 256
     - [128,128] # 11
-    - [128,2] # 12
+    - [128,3] # 12
   skip_linear:
     - [128,128] # 1
     - [128,128] # 1

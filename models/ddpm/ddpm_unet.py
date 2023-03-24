@@ -181,8 +181,8 @@ class down_resnet():
 
     def forward(self, x_in, embedding, parameters, subkey = None):
         # split randomness key
-        if key is not None:
-            subkey = random.split(key*self.sub_model_num,2)
+        if subkey is not None:
+            subkey = random.split(subkey*self.sub_model_num,2)
 
         x0 = self.resnet0.forward(x_in, embedding, parameters,subkey = subkey[0])
         x1 = self.resnet1.forward(x0, embedding, parameters,subkey = subkey[1])
@@ -201,8 +201,8 @@ class down_resnet_attn():
     def forward(self, x_in, embedding, parameters, subkey = None):
 
         # split randomness key
-        if key is not None:
-            subkey = random.split(key*self.sub_model_num,2)
+        if subkey is not None:
+            subkey = random.split(subkey*self.sub_model_num,2)
 
         x00 = self.resnet0.forward(x_in, embedding, parameters,subkey=subkey[0])
         x01 = self.attn0.forward(x00,parameters)
@@ -230,8 +230,8 @@ class up_resnet():
     def forward(self, x, embedding, x_res0, x_res1, x_res2, parameters, subkey = None):
         
         # split randomness key
-        if key is not None:
-            subkey = random.split(key*self.sub_model_num,3)
+        if subkey is not None:
+            subkey = random.split(subkey*self.sub_model_num,3)
 
         x = self.resnet0.forward(jnp.concatenate((x,x_res0),axis=-1), embedding, parameters,subkey=subkey[0])
         x = self.resnet1.forward(jnp.concatenate((x,x_res1),axis=-1), embedding, parameters,subkey=subkey[1])
@@ -252,8 +252,8 @@ class up_resnet_attn():
     def forward(self, x, embedding, x_res0, x_res1, x_res2, parameters, subkey = None):
 
         # split randomness key
-        if key is not None:
-            subkey = random.split(key*self.sub_model_num,3)
+        if subkey is not None:
+            subkey = random.split(subkey*self.sub_model_num,3)
 
         x = self.resnet0.forward(jnp.concatenate((x,x_res0),axis=-1), embedding, parameters,subkey=subkey[0])
         x = self.attn0.forward(x,parameters)
@@ -299,9 +299,13 @@ class ddpm_unet():
 
     def forward(self, x_in, timesteps, parameters, key = None):
 
+        x_in = x_in.reshape(4,32,32,-1) # make this work, as cfg is cfg.model, men så kan jeg ikke se train, for shapes
+
         # split key
         if key is not None:
             key, *subkey = random.split(key,13)
+        else:
+            key, *subkey = random.split(random.PRNGKey(self.cfg.key),13) 
 
         # Timestep embedding
         em_w1 = parameters[2][0][-2]
@@ -315,7 +319,6 @@ class ddpm_unet():
         embedding = jnp.matmul(embedding,em_w2)+em_b2 # 512 -> 512
 
         # down
-        print(x_in.shape)
         d0 = lax.conv_general_dilated( 
                 lhs = x_in,    
                 rhs = parameters[0][0], # kernel is the conv [0] and the first entry i this [0]
@@ -323,7 +326,6 @@ class ddpm_unet():
                 padding = 'same',
                 dimension_numbers = ('NHWC', 'HWIO', 'NHWC')
                 )
-        print(d0.shape)
         d10,d11,d12 = self.resnet_1.forward(       d0, embedding, parameters, subkey = subkey[1]) # 32x32 -> 16x16     C_out = 128
         d20,d21,d22 = self.resnet_attn_2.forward(  d12, embedding, parameters, subkey = subkey[2]) # 16x16 -> 8x8      C_out = 256
         d30,d31,d32 = self.resnet_3.forward(       d22, embedding, parameters, subkey = subkey[3]) # 8x8 -> 4x4        C_out = 512
@@ -353,10 +355,16 @@ class ddpm_unet():
                 padding = 'same',
                 dimension_numbers = ('NHWC', 'HWIO', 'NHWC')
                 )
+        
+        # return to shape loss can take
+        x_out = e.reshape(4,-1)
+
         return e
 
-    def get_parameters(self,cfg):
-        key = random.PRNGKey(cfg.model.key)
+    def get_parameters(self, cfg, key = None):
+        if key == None:
+            key = cfg.model.key
+        key = random.PRNGKey(key)
 
         # Get stuff from config
         conv_channels = cfg.model.parameters.conv_channels
@@ -453,7 +461,7 @@ if __name__ == "__main__":
     key = random.PRNGKey(69)
 
     img = jnp.ones((
-            cfg.model.parameters.batch_size,    # Batchsize
+            cfg.train_and_test.train.batch_size,    # Batchsize
             cfg.model.parameters.img_h,         # h
             cfg.model.parameters.img_w,         # w
             cfg.model.parameters.conv_channels[0][0],# channels
