@@ -50,7 +50,7 @@ def run_experiment(cfg):
     print(cfg)
     wandb.init(entity=cfg.wandb.setup.entity, project=cfg.wandb.setup.project)
 
-    key = jax.random.PRNG(cfg.model.key)
+    key = jax.random.PRNGkey(cfg.model.key)
     key, subkey = jax.random.split(key,2)
 
     train_dataset, test_dataset = dataload(cfg) 
