@@ -4,7 +4,7 @@ from jax import random as jrandom
 from utils.utils import batch_matmul
 
 
-def implicit_score_matching(func, function_parameters, data):
+def implicit_score_matching(func, function_parameters, data, time):
     """
     func: The function, f, is assumed to be the score of a function, f = ∇_x log(p(x;θ)).
 
@@ -15,8 +15,8 @@ def implicit_score_matching(func, function_parameters, data):
         E_(p_D(x))[1/2 ||f(x,θ)||^2 + Div_x(f(x,θ))]
     """
     hess = jacfwd(func, 0)
-    div = lambda x: jnp.sum(jnp.diag(hess(x, function_parameters)))
-    divergence = vmap(div, (0), 0)(data)
+    div = lambda x, time: jnp.sum(jnp.diag(hess(x, time, function_parameters)))
+    divergence = vmap(div, (0, 0), 0)(data)
 
     score = func(data, function_parameters)
 

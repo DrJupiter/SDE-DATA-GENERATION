@@ -1,5 +1,7 @@
+import sys, os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from sde import SDE
+from sde.sde_class import SDE
 import jax
 from jax import numpy as jnp
 
@@ -66,6 +68,7 @@ if __name__ == "__main__":
     key, subkey = jax.random.split(key)
     data, label = next(iter_train) 
     t = jax.random.uniform(subkey, data.shape, minval=0, maxval=1)
+    print(t)
     print(key)
     xt = subvpsde.sample(t, data, key)
     from visualization.visualize import display_images

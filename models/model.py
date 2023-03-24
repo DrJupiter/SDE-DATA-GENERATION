@@ -7,7 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from models.dummy import dummy_jax
 import optax
 from models.ddpm.ddpm_unet import ddpm_unet
-from loss_functions.loss_functions import sum_diff_loss
+from loss.sumloss import sum_diff_loss
 from optimizer.optimizers import adam
 
 
