@@ -78,7 +78,7 @@ def run_experiment(cfg):
             scaled_timesteps = timesteps*999
             # get grad for this batch
             # loss_value, grads = jax.value_and_grad(loss_fn)(model_parameters, model_call, data, labels, t) # is this extra computation time
-            grads = grad_fn(model_parameters, model_call, data, scaled_timesteps)
+            grads = grad_fn(model_parameters, model_call, perturbed_data, scaled_timesteps)
 
             # optim_parameters, model_parameters = optim_alg(optim_parameters, model_parameters, t_data, labels)
             updates, optim_parameters = optimizer.update(grads, optim_parameters, model_parameters)
@@ -86,10 +86,10 @@ def run_experiment(cfg):
 
             if i % cfg.wandb.log.frequency == 0:
                   if cfg.wandb.log.loss:
-                    wandb.log({"loss": loss_fn(model_parameters, model_call, data, labels, scaled_timesteps)})
+                    wandb.log({"loss": loss_fn(model_parameters, model_call, perturbed_data, scaled_timesteps)})
                     # wandb.log({"loss": loss_value})
                   if cfg.wandb.log.img:
-                     display_images(cfg, model_call(data, scaled_timesteps, model_parameters), labels)
+                     display_images(cfg, model_call(perturbed_data, scaled_timesteps, model_parameters), labels)
 
         if epoch % cfg.wandb.log.epoch_frequency == 0:
             if cfg.wandb.log.FID: 
