@@ -21,7 +21,10 @@ from data.dataload import dataload
 # maybe make this a seperate module
 
 # Model and optimizer
-from models.model import get_model, get_optim, get_loss
+from models.model import get_model, get_optim 
+
+# Loss
+from loss.loss import get_loss
 
 # Visualization
 from visualization.visualize import display_images
@@ -87,14 +90,14 @@ def run_experiment(cfg):
             key, subkey = jax.random.split(key) # repalce with key,3 in the other one
 
             # Perturb the data with the timesteps trhough sampling sde trick (for speed, see paper for explanation)
-            perturbed_data = SDE.sample(timesteps, data, key)
+            perturbed_data = SDE.sample(timesteps, data, subkey)
 
             # scale timesteps for more significance
             scaled_timesteps = timesteps*999
 
             # get grad for this batch
               # loss_value, grads = jax.value_and_grad(loss_fn)(model_parameters, model_call, data, labels, t) # is this extra computation time
-            grads = grad_fn(model_parameters, model_call, perturbed_data, scaled_timesteps)
+            grads = grad_fn(model_call, model_parameters, perturbed_data, scaled_timesteps)
 
             # get change in model_params and new optimizer params
               # optim_parameters, model_parameters = optim_alg(optim_parameters, model_parameters, t_data, labels)

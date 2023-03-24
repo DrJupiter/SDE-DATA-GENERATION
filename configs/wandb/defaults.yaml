@@ -2,8 +2,8 @@ setup:
         project: test-project
         entity: ai-dtu
 log:
-        loss: true
-        img: true
+        loss: false
+        img: false
         frequency: 1000
         FID: false
         epoch_frequency: 1

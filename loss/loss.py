@@ -1,5 +1,5 @@
 
-from implicit import implicit_score_matching
+from loss.implicit import implicit_score_matching
 
 def get_loss(cfg):
     if cfg.loss.name == "denoising_score_matching":

@@ -6,3 +6,4 @@ defaults:
         - visualization: visualize
         - optimizer: gradient_descent
         - sde: paper_subvp
+        - loss: implicit_sm
