@@ -1,11 +1,11 @@
-import sys, os
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from sde import sdeclass
+from sde.sde_class import SDE
 import jax
 from jax import numpy as jnp
 
-class SUBVPSDE(sdeclass.SDE):
+# TODO: CHECK IF TIME AND NOISE IS APPLIED CORRECTLY, GO BACK FROM -INF;INF domain to color values
+
+class SUBVPSDE(SDE):
 
     def __init__(self, cfg) -> None:
         super().__init__()
@@ -18,7 +18,7 @@ class SUBVPSDE(sdeclass.SDE):
         exponents = -0.25 * t ** 2 * (self.beta_max - self.beta_min) - 0.5 * t * self.beta_min 
 
         # Get means for batch
-        mean = jnp.exp(exponents) * x0
+        mean = jax.vmap(lambda a, b: a * b)(jnp.exp(exponents) , x0)
         covar = (1-jnp.exp( 2. * exponents)) 
         return mean, covar
     
@@ -38,10 +38,10 @@ class SUBVPSDE(sdeclass.SDE):
         # We take the sqrt to get the matrix A in AA^T = COVARIANCE 
         std = jnp.sqrt(covar)
 
-        key, subkey = jax.random.split(key) 
+        key, subkey = jax.random.split(key)
         z = jax.random.normal(subkey, x0.shape)
         # bacth mul
-        return mean + std * z
+        return mean + jax.vmap(lambda a,b: a*b)(std , z)
 
     def score(self, x0, t, xt):
         mu, covariance = self.parameters(t, x0)
@@ -67,10 +67,12 @@ if __name__ == "__main__":
     key = jax.random.PRNGKey(0)
     key, subkey = jax.random.split(key)
     data, label = next(iter_train) 
-    t = jax.random.uniform(subkey, data.shape, minval=0, maxval=1)
+    t = jax.random.uniform(subkey, (data.shape[0],), minval=0, maxval=1)
     print(t)
     print(key)
+
     xt = subvpsde.sample(t, data, key)
+    print(jnp.where(xt<0))
     from visualization.visualize import display_images
     if config.dataset.name == 'cifar10':
         label = [config.dataset.classes[int(idx)] for idx in label]

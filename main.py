@@ -34,56 +34,76 @@ import wandb
 
 #wandb.init(project="test-project", entity="ai-dtu")
 
+# config mangement
 import hydra
 
 ## Optimizer
 import optax
 
 ## SDE
-
 from sde.sde import get_sde
 
+### Train loop:
 
+# Gets config
 @hydra.main(config_path="configs/", config_name="defaults", version_base='1.3')
 def run_experiment(cfg):
 
+    # initialize Weights and Biases
     print(cfg)
     wandb.init(entity=cfg.wandb.setup.entity, project=cfg.wandb.setup.project)
 
-    key = jax.random.PRNGkey(cfg.model.key)
-    key, subkey = jax.random.split(key,2)
+    # Get randomness key
+    key = jax.random.PRNGKey(cfg.model.key)
+    key, subkey = jax.random.split(key)
 
+    # Load train and test sets
     train_dataset, test_dataset = dataload(cfg) 
 
+    # Get model forward call and its parameters
     model_parameters, model_call = get_model(cfg, key = subkey) # model_call(x_in, timesteps, parameters)
 
+    # Get optimizer and its parameters
     optimizer, optim_parameters = get_optim(cfg, model_parameters)
 
-    sde = get_sde(cfg)
+    # get sde
+    SDE = get_sde(cfg)
 
+    # get loss functions and convert to grad function
     loss_fn = get_loss(cfg) # loss_fn(func, function_parameters, data, time)
     grad_fn = jax.grad(loss_fn,1)
 
+    # start training for each epoch
     for epoch in range(cfg.train_and_test.train.epochs): 
-        for i, (data, labels) in enumerate(train_dataset): # batches
+        for i, (data, labels) in enumerate(train_dataset): # batch training
 			
-            # TODO: make real
+            # split key to keep randomness "random" for each training batch
             key, subkey = jax.random.split(key)
-            timesteps = jax.random.uniform(subkey, data.shape, minval=0, maxval=1)
 
-            key, subkey = jax.random.split(key)
-            perturbed_data = sde.sample(timesteps, data, subkey)
+            # get tiemsteps given random key for this batch and data shape
+            timesteps = jax.random.uniform(subkey, (data.shape[0],), minval=0, maxval=1)
 
 
+            key, subkey = jax.random.split(key) # repalce with key,3 in the other one
+
+            # Perturb the data with the timesteps trhough sampling sde trick (for speed, see paper for explanation)
+            perturbed_data = SDE.sample(timesteps, data, key)
+
+            # scale timesteps for more significance
             scaled_timesteps = timesteps*999
+
             # get grad for this batch
-            # loss_value, grads = jax.value_and_grad(loss_fn)(model_parameters, model_call, data, labels, t) # is this extra computation time
+              # loss_value, grads = jax.value_and_grad(loss_fn)(model_parameters, model_call, data, labels, t) # is this extra computation time
             grads = grad_fn(model_parameters, model_call, perturbed_data, scaled_timesteps)
 
-            # optim_parameters, model_parameters = optim_alg(optim_parameters, model_parameters, t_data, labels)
+            # get change in model_params and new optimizer params
+              # optim_parameters, model_parameters = optim_alg(optim_parameters, model_parameters, t_data, labels)
             updates, optim_parameters = optimizer.update(grads, optim_parameters, model_parameters)
+
+            # update model params
             model_parameters = optax.apply_updates(model_parameters, updates)
 
+            # Logging loss and an image
             if i % cfg.wandb.log.frequency == 0:
                   if cfg.wandb.log.loss:
                     wandb.log({"loss": loss_fn(model_parameters, model_call, perturbed_data, scaled_timesteps)})
@@ -91,13 +111,13 @@ def run_experiment(cfg):
                   if cfg.wandb.log.img:
                      display_images(cfg, model_call(perturbed_data, scaled_timesteps, model_parameters), labels)
 
+        # Test loop
         if epoch % cfg.wandb.log.epoch_frequency == 0:
             if cfg.wandb.log.FID: 
                 # generate pictures before this can be run
 
                 # extract imgs from dataset
                 x_test = [torch.tensor(data.reshape(cfg.train_and_test.test.batch_size,3,32,32)) for (data,labels) in test_dataset][:1]
-                
                 x_test = torch.vstack(x_test)
 
                 # get saved imgs

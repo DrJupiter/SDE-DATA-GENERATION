@@ -1,148 +1,148 @@
-# %%
+# stop prelocation of memory
 import os
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 
+# JAX
 import jax.numpy as jnp
 from jax import grad, jit, vmap 
 from jax import random
 from jax import nn
 from jax import lax
 
+# Equinox
 import equinox as eqx
-# %%
 
-# Jax input denotions
-# N - batch dimension
-# H - spatial height
-# W - spatial height
-# C - channel dimension
-# I - kernel input channel dimension
-# O - kernel output channel dimension
-# P - model Parameter count
-
-# conv_shapes = cfg.model.parameters.conv_channels
-
-# prior = param_asso[:sub_model_num].sum(axis=0)
-# current = param_asso[:sub_model_num+1].sum(axis=0)
-
-# self.conv_params_idx = range(prior[0],current[0])
-# self.s_lin_params_idx = range(prior[1],current[1])
-# self.time_lin_params_idx = range(prior[2],current[2])
-# self.attn_lin_params_idx = range(prior[3],current[3])
-
-# parameters[0][self.conv_params_idx[0+self.local_num_shift]] # 
-# parameters[1][0][self.s_lin_params_idx[0+self.local_num_shift]] # Linear ..[1][1].. for bias
-# parameters[2][0][self.time_lin_params_idx[0+self.local_num_shift]]
-# parameters[3][0][self.attn_lin_params_idx[0+self.local_num_shift]]
-
-# conv_shapes[conv_params_idx[0]][1]
-
-
+######################## Basic building blocks ########################
 class resnet():
     def __init__(self,cfg, param_asso, sub_model_num, local_num_shift = 0) -> None:
+        """Initialises the ResNet Block, see paper for further explanation of this class"""
+
+        # store local parameter "location" for use in forward 
         self.sub_model_num = sub_model_num
         self.local_num_shift = local_num_shift
 
+        # get shapes of all convolution channels, so we can extract the correct ones given our local parameter location
         self.conv_shapes = cfg.parameters.conv_channels
 
+        # Find which and amount parameters this model needs
         prior = param_asso[:sub_model_num].sum(axis=0)
         current = param_asso[:sub_model_num+1].sum(axis=0)
 
+        # get the indexes for each type of parameter we need
         self.conv_params_idx = range(prior[0],current[0])
         self.time_lin_params_idx = range(prior[2],current[2])
         
+        # initialize the batchnorm parameters we need for the forward call
         self.batchnorm0 = eqx.experimental.BatchNorm(
                 input_size=self.conv_shapes[self.conv_params_idx[0+local_num_shift]][0],
                 axis_name="batch",
                 momentum=0.99,
                 eps=1e-05,
-                # channelwise_affine=True
                 )
         self.batchnorm1 = eqx.experimental.BatchNorm(
                 input_size=self.conv_shapes[self.conv_params_idx[1+local_num_shift]][0],
                 axis_name="batch",
                 momentum=0.99,
                 eps=1e-05,
-                # channelwise_affine=True
                 ) 
+        
+        # initialize dropout layer
         self.dropout = eqx.nn.Dropout(cfg.parameters.dropout_p,inference=cfg.parameters.inference)
 
 
     def forward(self,x_in,embedding,parameters,subkey=None):
 
+        # Get linear parameters needed later
         w = parameters[2][0][self.time_lin_params_idx[self.local_num_shift//2]]
         b = parameters[2][1][self.time_lin_params_idx[self.local_num_shift//2]]
 
-        x = vmap(self.batchnorm0,axis_name="batch")(x_in.transpose(0,3,2,1)).transpose(0,3,2,1) 
+        # Apply the function to the input data
+        x = vmap(self.batchnorm0,axis_name="batch")(x_in.transpose(0,3,2,1)).transpose(0,3,2,1) # batchnorm
         x = nn.relu(x)
         x = lax.conv_general_dilated( 
-            lhs = x,    
-            rhs = parameters[0][self.conv_params_idx[0+self.local_num_shift]], 
-            window_strides = [1,1], 
-            padding = 'same',
-            dimension_numbers = ('NHWC', 'HWIO', 'NHWC')
-            )
+                lhs = x,    
+                rhs = parameters[0][self.conv_params_idx[0+self.local_num_shift]], 
+                window_strides = [1,1], 
+                padding = 'same',
+                dimension_numbers = ('NHWC', 'HWIO', 'NHWC')
+                )
         x = nn.relu(x)
         x = x + (jnp.matmul(nn.relu(embedding), w)+b)[:, None, None, :] # introducing time embedding
         x = vmap(self.batchnorm1,axis_name="batch")(x.transpose(0,3,2,1)).transpose(0,3,2,1) 
         x = nn.relu(x)
         x = self.dropout(x,key = subkey)
         x = lax.conv_general_dilated( 
-            lhs = x,    
-            rhs = parameters[0][self.conv_params_idx[1+self.local_num_shift]], 
-            window_strides = [1,1], 
-            padding = 'same',
-            dimension_numbers = ('NHWC', 'HWIO', 'NHWC')
-            )
-
+                lhs = x,    
+                rhs = parameters[0][self.conv_params_idx[1+self.local_num_shift]], 
+                window_strides = [1,1], 
+                padding = 'same',
+                dimension_numbers = ('NHWC', 'HWIO', 'NHWC')
+                )
         return x
 
 class resnet_ff():
     def __init__(self,cfg, param_asso, sub_model_num, local_num_shift = 0) -> None:
+        """Initialises the ResNet Linear Block, see paper for further explanation of this class"""
+
+        # store local parameter "location" for use in forward 
         self.sub_model_num = sub_model_num
         self.local_num_shift = local_num_shift
-
+        
+        # Find which and amount parameters this model needs
         prior = param_asso[:sub_model_num].sum(axis=0)
         current = param_asso[:sub_model_num+1].sum(axis=0)
+
+        # get the indexes for each type of parameter we need. 1 corresponds to skip connections
         self.s_lin_params = range(prior[1],current[1])
 
+        # initialize resnet class
         self.resnet = resnet(cfg, param_asso, sub_model_num, local_num_shift = self.local_num_shift)
 
     def forward(self, x_in, embedding, parameters,subkey=None):
-
-        x = self.resnet.forward(x_in, embedding, parameters, subkey=subkey)
+        # get parameters for skip connection
         w = parameters[1][0][self.s_lin_params[0+self.local_num_shift//2]]
         b = parameters[1][1][self.s_lin_params[0+self.local_num_shift//2]]
 
+        # call chain, built on resnet
+        x = self.resnet.forward(x_in, embedding, parameters, subkey=subkey)
+
+        # perform skip connection
         x_in = jnp.einsum('bhwc,cC->bhwC', x, w) + b
+
+        # add and return
         return x+x_in
 
 class attention():
     def __init__(self,cfg, param_asso, sub_model_num, local_num_shift = 0) -> None:
-        self.sub_model_num = sub_model_num
-        self.local_num_shift = local_num_shift
-        
+
+        # store atten shapes for later use
         self.attn_shapes = cfg.parameters.attention_linear
 
+        # store local parameter "location" for use in forward 
+        self.sub_model_num = sub_model_num
+        self.local_num_shift = local_num_shift
+
+        # Find which and amount parameters this model needs
         prior = param_asso[:sub_model_num].sum(axis=0)
         current = param_asso[:sub_model_num+1].sum(axis=0)
 
+        # get the indexes for each type of parameter we need. 3 corresponds to attention
         self.attn_lin_params_idx = range(prior[3],current[3])
 
-
+        # Initialize batchnorm
         self.batchnorm0 = eqx.experimental.BatchNorm(  # Make 1 for each needed, as they have differetent input shapes
                 input_size=self.attn_shapes[self.attn_lin_params_idx[0+local_num_shift]][0],
                 axis_name="batch",
                 momentum=cfg.parameters.momentum,
                 eps=cfg.parameters.eps,
-                # channelwise_affine=True
                 )
 
     def forward(self,x_in,parameters):
+
         # Get shape for reshapes later
         B, H, W, C = x_in.shape
 
-        # will be replaces with parameters
+        # Get parameters needed for call
         w1 = parameters[3][0][self.attn_lin_params_idx[0+self.local_num_shift]]
         w2 = parameters[3][0][self.attn_lin_params_idx[1+self.local_num_shift]]
         w3 = parameters[3][0][self.attn_lin_params_idx[2+self.local_num_shift]]
@@ -167,14 +167,21 @@ class attention():
         sdpa = nn.softmax(sdpa, -1)
         sdpa = sdpa.reshape(B, H, W, H, W)
 
+        # compute the final outputs
         x = jnp.einsum('bhwHW,bHWc->bhwc', sdpa, v)
         x = jnp.einsum('bhwc,cC->bhwC', x, w4)+b4
 
+        # sum and return
         return x+x_in
+
+######################## Advanced building blocks ########################
 
 class down_resnet():
     def __init__(self,cfg, param_asso, sub_model_num, local_num_shift = 0,maxpool_factor=2) -> None:
+        # store local location variation for later use
         self.sub_model_num = sub_model_num
+
+        # initialize submodels this model is built by
         self.resnet0 = resnet_ff(cfg, param_asso,sub_model_num, local_num_shift = local_num_shift+0)
         self.resnet1 = resnet_ff(cfg, param_asso,sub_model_num, local_num_shift = local_num_shift+2)
         self.maxpool2d = eqx.nn.MaxPool2d(maxpool_factor,maxpool_factor)
@@ -262,6 +269,8 @@ class up_resnet_attn():
         x = self.resnet2.forward(jnp.concatenate((x,x_res2),axis=-1), embedding, parameters,subkey=subkey[2])
         x = self.attn2.forward(x,parameters)
         return x
+
+######################## MODEL ########################
 
 class ddpm_unet():
     def __init__(self,cfg) -> None:
@@ -359,14 +368,13 @@ class ddpm_unet():
         # return to shape loss can take
         x_out = e.reshape(4,-1)
 
-        return e
+        return x_out
 
     def get_parameters(self, cfg, key = None):
         if key == None:
             key = cfg.model.key
-        key = random.PRNGKey(key)
 
-        # Get stuff from config
+        # Get parameters from config
         conv_channels = cfg.model.parameters.conv_channels
         kernel_sizes = cfg.model.parameters.kernel_sizes
         skip_linear = cfg.model.parameters.skip_linear
@@ -374,10 +382,13 @@ class ddpm_unet():
         attention_linear = cfg.model.parameters.attention_linear
         embedding_parameters = cfg.model.parameters.embedding_parameters
 
+        # initialize list for paramteres
         parameters = [[], [[],[]], [[],[]], [[],[]]] 
-        # List of  [Conv, [sL,sB], [eL,eB], [aL,aB]], 
+        # List of  [Conv, [sL,sB], [eL,eB], [aL,aB]], # details which si what 
         # L = Linear, B = Bias
         # s = skip_linear, e = time_embedding_linear, a = attention_linear
+
+        ### Below the parameters will be apended to the parameter list
 
         # Conv2d parameters 
         key, *subkey = random.split(key,len(conv_channels)+1)
