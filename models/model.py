@@ -12,12 +12,10 @@ from optimizer.optimizers import adam
 
 
 def get_model(cfg, key = None):
-    if key == None:
-        key = cfg.model.key
     if cfg.model.name == "dummy_jax":
         return dummy_jax.get_parameters(cfg), dummy_jax.model_call
     elif cfg.model.name == "ddpm_unet":
-        ddpm_model = ddpm_unet(cfg.model)
+        ddpm_model = ddpm_unet(cfg)
         params, key = ddpm_model.get_parameters(cfg, key = key)
         return params, ddpm_model.forward 
     raise ValueError(f"Model {cfg.model.name} not found")

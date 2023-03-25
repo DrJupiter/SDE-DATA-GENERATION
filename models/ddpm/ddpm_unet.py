@@ -14,7 +14,7 @@ import equinox as eqx
 
 ######################## Basic building blocks ########################
 class resnet():
-    def __init__(self,cfg, param_asso, sub_model_num, local_num_shift = 0) -> None:
+    def __init__(self, cfg, param_asso, sub_model_num, local_num_shift = 0) -> None:
         """Initialises the ResNet Block, see paper for further explanation of this class"""
 
         # store local parameter "location" for use in forward 
@@ -307,34 +307,34 @@ class up_resnet_attn():
 
 class ddpm_unet():
     def __init__(self,cfg) -> None:
-        self.cfg = cfg
-        conv_shapes = cfg.parameters.conv_channels
+        self.cfg = cfg.model
+        conv_shapes = cfg.model.parameters.conv_channels
 
         param_asso = jnp.array(self.cfg.parameters.model_parameter_association)
 
         # down
-        self.resnet_1 = down_resnet(cfg, param_asso,sub_model_num=1,maxpool_factor=2)
-        self.resnet_attn_2 = down_resnet_attn(cfg, param_asso,sub_model_num=2,maxpool_factor=2)
-        self.resnet_3 = down_resnet(cfg, param_asso,sub_model_num=3,maxpool_factor=2)
-        self.resnet_4 = down_resnet(cfg, param_asso,sub_model_num=4,maxpool_factor=1) # no downsampling here
+        self.resnet_1 = down_resnet(cfg.model, param_asso,sub_model_num=1,maxpool_factor=2)
+        self.resnet_attn_2 = down_resnet_attn(cfg.model, param_asso,sub_model_num=2,maxpool_factor=2)
+        self.resnet_3 = down_resnet(cfg.model, param_asso,sub_model_num=3,maxpool_factor=2)
+        self.resnet_4 = down_resnet(cfg.model, param_asso,sub_model_num=4,maxpool_factor=1) # no downsampling here
 
         # middle
-        self.resnet_5 = resnet_ff(cfg, param_asso,sub_model_num=5)
-        self.attn_6 = attention(cfg, param_asso,sub_model_num=6)
-        self.resnet_7 = resnet_ff(cfg, param_asso,sub_model_num=7)
+        self.resnet_5 = resnet_ff(cfg.model, param_asso,sub_model_num=5)
+        self.attn_6 = attention(cfg.model, param_asso,sub_model_num=6)
+        self.resnet_7 = resnet_ff(cfg.model, param_asso,sub_model_num=7)
 
         # up
-        self.resnet_8 = up_resnet(cfg, param_asso,sub_model_num=8)
-        self.resnet_9 = up_resnet(cfg, param_asso,sub_model_num=9)
-        self.resnet_attn_10 = up_resnet_attn(cfg, param_asso,sub_model_num=10)
-        self.resnet_11 = up_resnet(cfg, param_asso,sub_model_num=11)
+        self.resnet_8 = up_resnet(cfg.model, param_asso,sub_model_num=8)
+        self.resnet_9 = up_resnet(cfg.model, param_asso,sub_model_num=9)
+        self.resnet_attn_10 = up_resnet_attn(cfg.model, param_asso,sub_model_num=10)
+        self.resnet_11 = up_resnet(cfg.model, param_asso,sub_model_num=11)
 
         # end
         self.batchnorm_12 = eqx.experimental.BatchNorm(  # Make 1 for each needed, as they have differetent input shapes
                 input_size=conv_shapes[-1][0], # Its input is equal to last conv input, as this doesnt change shape
                 axis_name="batch",
-                momentum=cfg.parameters.momentum,
-                eps=cfg.parameters.eps,
+                momentum=cfg.model.parameters.momentum,
+                eps=cfg.model.parameters.eps,
                 # channelwise_affine=True
                 )
         self.upsampling_factor = self.cfg.parameters.upsampling_factor
@@ -405,7 +405,7 @@ class ddpm_unet():
 
     def get_parameters(self, cfg, key = None):
         if key == None:
-            key = cfg.model.key
+            key = random.PRNGKey(cfg.model.key)
 
         # Get parameters from config
         conv_channels = cfg.model.parameters.conv_channels
@@ -514,7 +514,7 @@ if __name__ == "__main__":
     img = img.at[0, 0, 2:2+10, 2:2+10].set(0.0) 
     B, H, W, C = img.shape
 
-    model = ddpm_unet(cfg.model)
+    model = ddpm_unet(cfg)
     parameters, key = model.get_parameters(cfg)
     get_grad = jit(grad(jit(model.loss_fn),0))
     # get_loss = jit(model.loss_fn)
