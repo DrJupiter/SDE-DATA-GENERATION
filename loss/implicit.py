@@ -17,6 +17,7 @@ def implicit_score_matching(func, function_parameters, data, time):
     hess = jacfwd(func, 0)
     div = lambda x, t: jnp.sum(jnp.diag(hess(x, t, function_parameters)))
     divergence = vmap(div, (0, 0), 0)(data, time.reshape(-1,1)) # TODO: is vmap good ehre?, ask Paul?
+    print(f"The divergence {divergence}")
     #print(divergence)
 
     score = func(data, time, function_parameters)
@@ -24,8 +25,9 @@ def implicit_score_matching(func, function_parameters, data, time):
     return jnp.mean(0.5 * batch_matmul(score, score) + divergence)
 
 if __name__ == "__main__":
-    func = lambda x, timesteps, a: a*x**2 + timesteps#+ jnp.sum(x)
-
+    def func(x, timesteps, a):
+        print(f"The timesteps: {timesteps}")
+        return a * x**2
     from utils.utils import get_hydra_config
     config = get_hydra_config() 
     from data.dataload import dataload

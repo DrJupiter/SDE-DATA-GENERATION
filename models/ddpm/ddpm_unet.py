@@ -527,7 +527,6 @@ if __name__ == "__main__":
 #            cfg.model.parameters.img_w,         # w
 #            cfg.model.parameters.conv_channels[0][0],# channels
 #            ),dtype=jnp.float32)
-    img = img.at[0, 0, 2:2+10, 2:2+10].set(0.0) 
     B, H, W, C = img.shape
     parameters, key = model.get_parameters(cfg)
     get_grad = jit(grad(jit(model.loss_fn),0))
