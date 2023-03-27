@@ -3,7 +3,7 @@ setup:
         entity: ai-dtu
 log:
         loss: true
-        img: false
+        img: true
         frequency: 1000
         FID: false
         epoch_frequency: 1
