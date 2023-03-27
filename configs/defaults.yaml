@@ -4,6 +4,6 @@ defaults:
         - train_and_test: default
         - model : ddpm_unet_mega_downscaled
         - visualization: visualize
-        - optimizer: gradient_descent
+        - optimizer: adam
         - sde: paper_subvp
         - loss: implicit_sm
