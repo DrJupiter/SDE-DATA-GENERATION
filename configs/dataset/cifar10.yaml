@@ -11,3 +11,7 @@ classes:
   - horse
   - ship
   - truck
+shape:
+  - 32
+  - 32
+  - 3
