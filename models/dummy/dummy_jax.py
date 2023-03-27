@@ -25,12 +25,12 @@ def get_parameters(cfg):
     return parameters
 
 @jit
-def model_call(data, parameters):
+def model_call(data, _time, parameters, _key):
     x = data
 
     for parameter in parameters:
         # TODO: Reconsider ORDER in terms of shape representation
-        x = jnp.matmul(parameter, x)
+        x = jnp.matmul(parameter, x.T).T
         x = nn.sigmoid(x)
     
     return x 

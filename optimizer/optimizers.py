@@ -6,9 +6,7 @@ from models.dummy import dummy_jax
 
 
 def get_optim(cfg,params=None):
-    if cfg.model.name == "dummy_jax":
-        return dummy_jax.get_optim_parameters(cfg), dummy_jax.optim_alg
-    elif cfg.optimizer.name == "adam":
+    if cfg.optimizer.name == "adam":
         return adam(cfg,params)
     raise ValueError(f"Model {cfg.model.name} not found")
 
