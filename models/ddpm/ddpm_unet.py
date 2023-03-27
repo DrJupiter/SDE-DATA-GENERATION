@@ -347,19 +347,16 @@ class ddpm_unet():
                 # channelwise_affine=True
                 )
 
-    def forward(self, x_in, timesteps, parameters, key = None):
+    def forward(self, x_in, timesteps, parameters, key):
 
         # Save initial shape, so we can transform the output pack into this shape
         in_shape = x_in.shape
 
         # Transform input into the image shape
-        x_in = x_in.reshape(self.shape) # TODO: make this work, as cfg is cfg.model, men så kan jeg ikke se train, for shapes
+        x_in = x_in.reshape(self.shape)
 
         # Split key to preserve randomness
-        if key is not None:
-            key, *subkey = random.split(key,13)
-        else:
-            key, *subkey = random.split(random.PRNGKey(self.cfg.model.key),13) # this should only be the case in test cases
+        key, *subkey = random.split(key,13)
 
         # Get parameters for Timestep embedding
         em_w1 = parameters[2][0][-2]
