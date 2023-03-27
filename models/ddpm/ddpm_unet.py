@@ -215,11 +215,10 @@ class down_resnet_attn():
         self.attn1 = attention(cfg, param_asso,sub_model_num, local_num_shift = 4+local_num_shift)
         self.maxpool2d = eqx.nn.MaxPool2d(maxpool_factor,maxpool_factor)
 
-    def forward(self, x_in, embedding, parameters, subkey = None):
+    def forward(self, x_in, embedding, parameters, subkey):
 
         # split randomness key
-        if subkey is not None:
-            subkey = random.split(subkey*self.sub_model_num,2)
+        subkey = random.split(subkey*self.sub_model_num,2)
 
         # pass through resnet and attention in alternating manner
         x00 = self.resnet0.forward(x_in, embedding, parameters,subkey=subkey[0])
@@ -251,7 +250,7 @@ def upsample2d(x, factor=2):
     return jnp.reshape(x, [-1, H * factor, W * factor, C])
 
 class up_resnet():
-    def __init__(self,cfg, param_asso, sub_model_num, local_num_shift = 0,upsampling_factor=2) -> None:
+    def __init__(self, cfg, param_asso, sub_model_num, local_num_shift = 0,upsampling_factor=2) -> None:
         # store local parameter "location" 
         self.sub_model_num = sub_model_num
         # store upsampling factor for forward call
@@ -262,11 +261,10 @@ class up_resnet():
         self.resnet1 = resnet_ff(cfg, param_asso,sub_model_num, local_num_shift = 2+local_num_shift)
         self.resnet2 = resnet_ff(cfg, param_asso,sub_model_num, local_num_shift = 4+local_num_shift)
 
-    def forward(self, x, embedding, x_res0, x_res1, x_res2, parameters, subkey = None):
+    def forward(self, x, embedding, x_res0, x_res1, x_res2, parameters, subkey):
         
         # split randomness key
-        if subkey is not None:
-            subkey = random.split(subkey*self.sub_model_num,3)
+        subkey = random.split(subkey*self.sub_model_num,3)
 
         # pass through resnets with residual input concatenated to x:
         x = self.resnet0.forward(jnp.concatenate((x,x_res0),axis=-1), embedding, parameters,subkey=subkey[0])
@@ -275,7 +273,7 @@ class up_resnet():
         return x
 
 class up_resnet_attn():
-    def __init__(self,cfg, param_asso, sub_model_num, local_num_shift = 0,upsampling_factor=2) -> None:
+    def __init__(self, cfg, param_asso, sub_model_num, local_num_shift = 0, upsampling_factor=2) -> None:
         # store local parameter "location" 
         self.sub_model_num = sub_model_num
         # store upsampling factor for forward call
@@ -289,11 +287,10 @@ class up_resnet_attn():
         self.attn1 = attention(cfg, param_asso,sub_model_num, local_num_shift = 4+local_num_shift)
         self.attn2 = attention(cfg, param_asso,sub_model_num, local_num_shift = 8+local_num_shift)
 
-    def forward(self, x, embedding, x_res0, x_res1, x_res2, parameters, subkey = None):
+    def forward(self, x, embedding, x_res0, x_res1, x_res2, parameters, subkey):
 
         # split randomness key
-        if subkey is not None:
-            subkey = random.split(subkey*self.sub_model_num,3)
+        subkey = random.split(subkey*self.sub_model_num,3)
 
         x = self.resnet0.forward(jnp.concatenate((x,x_res0),axis=-1), embedding, parameters,subkey=subkey[0])
         x = self.attn0.forward(x,parameters)
@@ -307,6 +304,15 @@ class up_resnet_attn():
 
 class ddpm_unet():
     def __init__(self,cfg) -> None:
+
+        # Figure out reshape shape: B x W x H x C
+        if cfg.dataset.name == "mnist":
+            self.shape = (-1, 28, 28, 1)
+        elif cfg.dataset.name == "cifar10":
+            self.shape = (-1, 32, 32, 3)
+        else:
+            raise NameError(f"No suitable shape found for dataset: {cfg.dataset.name}")
+
         self.cfg = cfg.model
         conv_shapes = cfg.model.parameters.conv_channels
 
@@ -341,7 +347,10 @@ class ddpm_unet():
 
     def forward(self, x_in, timesteps, parameters, key = None):
 
-        x_in = x_in.reshape(-1,32,32,3) # TODO: make this work, as cfg is cfg.model, men så kan jeg ikke se train, for shapes
+        # Get initial shape
+        in_shape = x_in.shape
+
+        x_in = x_in.reshape(self.shape) # TODO: make this work, as cfg is cfg.model, men så kan jeg ikke se train, for shapes
 
         # split key
         if key is not None:
@@ -399,7 +408,7 @@ class ddpm_unet():
                 )
         
         # return to shape loss can take
-        x_out = e.reshape(-1) # TODO: make this work, as cfg is cfg.model, men så kan jeg ikke se train, for shapes
+        x_out = e.reshape(in_shape) 
 
         return x_out
 
@@ -504,17 +513,22 @@ if __name__ == "__main__":
     # print(cfg.model)
 
     key = random.PRNGKey(69)
+    from data.dataload import dataload
+    train, _ = dataload(cfg)
+    iter_train = iter(train)
+    data, label = next(iter_train) 
+    img = jnp.ones_like(data)
+    model = ddpm_unet(cfg)
+    img = img.reshape(model.shape)
 
-    img = jnp.ones((
-            cfg.train_and_test.train.batch_size,    # Batchsize
-            cfg.model.parameters.img_h,         # h
-            cfg.model.parameters.img_w,         # w
-            cfg.model.parameters.conv_channels[0][0],# channels
-            ),dtype=jnp.float32)
+#    img = jnp.ones((
+#            cfg.train_and_test.train.batch_size,    # Batchsize
+#            cfg.model.parameters.img_h,         # h
+#            cfg.model.parameters.img_w,         # w
+#            cfg.model.parameters.conv_channels[0][0],# channels
+#            ),dtype=jnp.float32)
     img = img.at[0, 0, 2:2+10, 2:2+10].set(0.0) 
     B, H, W, C = img.shape
-
-    model = ddpm_unet(cfg)
     parameters, key = model.get_parameters(cfg)
     get_grad = jit(grad(jit(model.loss_fn),0))
     # get_loss = jit(model.loss_fn)
