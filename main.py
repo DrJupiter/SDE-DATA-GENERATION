@@ -114,7 +114,7 @@ def run_experiment(cfg):
                     # wandb.log({"loss": loss_value})
                   if cfg.wandb.log.img:
                      display_images(cfg, model_call(perturbed_data, scaled_timesteps, model_parameters), labels)
-
+            break
         # Test loop
         if epoch % cfg.wandb.log.epoch_frequency == 0:
             if cfg.wandb.log.FID: 
