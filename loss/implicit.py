@@ -4,7 +4,7 @@ from jax import random as jrandom
 from utils.utils import batch_matmul
 
 
-def implicit_score_matching(func, function_parameters, data, time):
+def implicit_score_matching(func, function_parameters, data, time, key):
     """
     func: The function, f, is assumed to be the score of a function, f = ∇_x log(p(x;θ)).
 
@@ -15,9 +15,12 @@ def implicit_score_matching(func, function_parameters, data, time):
         E_(p_D(x))[1/2 ||f(x,θ)||^2 + Div_x(f(x,θ))]
     """
     hess = jacfwd(func, 0)
-    div = lambda x, t: jnp.sum(jnp.diag(hess(x, t, function_parameters)))
+    div = lambda x, t, key: jnp.sum(jnp.diag(hess(x, t, function_parameters, key)))
     #divergence = vmap(div, (0, 0), 0)(data, time.reshape(-1,1)) # TODO: is vmap good here?, ask Paul?
-    divergence = jnp.array([div(x, t) for (x,t) in zip(data, time.reshape(-1,1))])
+
+    # TODO do new keys
+    divergence = div(data[0], time.reshape(-1,1)[0], key)
+    #divergence = jnp.array([div(x, t, key) for (x,t) in zip(data, time.reshape(-1,1))])
     #divergence = div(data[0], time.reshape(-1,1)[0])
     print(f"The divergence {divergence}")
     #print(divergence)
@@ -45,6 +48,6 @@ if __name__ == "__main__":
     a = 1
     print(data)
     print(f"Function value of data: {func(data, timesteps, a)}")
-    print(f"Implicit Score matching loss: {implicit_score_matching(func, a, data, timesteps)}")
+    print(f"Implicit Score matching loss: {implicit_score_matching(func, a, data, timesteps, subkey)}")
     
     

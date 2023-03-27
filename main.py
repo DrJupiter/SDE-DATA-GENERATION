@@ -73,7 +73,7 @@ def run_experiment(cfg):
     SDE = get_sde(cfg)
 
     # get loss functions and convert to grad function
-    loss_fn = get_loss(cfg) # loss_fn(func, function_parameters, data, time)
+    loss_fn = get_loss(cfg) # loss_fn(func, function_parameters, data, time, key)
     grad_fn = jax.grad(loss_fn,1)
 
     # start training for each epoch
@@ -86,8 +86,7 @@ def run_experiment(cfg):
             # get tiemsteps given random key for this batch and data shape
             timesteps = jax.random.uniform(subkey, (data.shape[0],), minval=0, maxval=1)
 
-
-            key, subkey = jax.random.split(key) # repalce with key,3 in the other one
+            key, subkey = jax.random.split(key) 
 
             # Perturb the data with the timesteps trhough sampling sde trick (for speed, see paper for explanation)
             perturbed_data = SDE.sample(timesteps, data, subkey)
@@ -95,9 +94,11 @@ def run_experiment(cfg):
             # scale timesteps for more significance
             scaled_timesteps = timesteps*999
 
+            key, subkey = jax.random.split(key) 
+
             # get grad for this batch
               # loss_value, grads = jax.value_and_grad(loss_fn)(model_parameters, model_call, data, labels, t) # is this extra computation time
-            grads = grad_fn(model_call, model_parameters, perturbed_data, scaled_timesteps)
+            grads = grad_fn(model_call, model_parameters, perturbed_data, scaled_timesteps, key)
 
             # get change in model_params and new optimizer params
               # optim_parameters, model_parameters = optim_alg(optim_parameters, model_parameters, t_data, labels)
