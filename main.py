@@ -21,7 +21,8 @@ from data.dataload import dataload
 # maybe make this a seperate module
 
 # Model and optimizer
-from models.model import get_model, get_optim 
+from models.model import get_model 
+from optimizer.optimizers import get_optim
 
 # Loss
 from loss.loss import get_loss

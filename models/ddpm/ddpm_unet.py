@@ -50,7 +50,7 @@ class resnet():
         self.dropout = eqx.nn.Dropout(cfg.parameters.dropout_p,inference=cfg.parameters.inference)
 
 
-    def forward(self,x_in,embedding,parameters,subkey=None):
+    def forward(self,x_in,embedding,parameters,subkey):
 
         # Get linear parameters needed later
         w = parameters[2][0][self.time_lin_params_idx[self.local_num_shift//2]]
@@ -98,7 +98,7 @@ class resnet_ff():
         # initialize resnet class
         self.resnet = resnet(cfg, param_asso, sub_model_num, local_num_shift = self.local_num_shift)
 
-    def forward(self, x_in, embedding, parameters,subkey=None):
+    def forward(self, x_in, embedding, parameters,subkey):
         # get parameters for skip connection
         w = parameters[1][0][self.s_lin_params[0+self.local_num_shift//2]]
         b = parameters[1][1][self.s_lin_params[0+self.local_num_shift//2]]
@@ -188,10 +188,9 @@ class down_resnet():
         # initialize maxpool
         self.maxpool2d = eqx.nn.MaxPool2d(maxpool_factor,maxpool_factor)
 
-    def forward(self, x_in, embedding, parameters, subkey = None):
+    def forward(self, x_in, embedding, parameters, subkey):
         # split randomness key
-        if subkey is not None:
-            subkey = random.split(subkey*self.sub_model_num,2)
+        subkey = random.split(subkey*self.sub_model_num,2)
 
         # pass thruogh resnets
         x0 = self.resnet0.forward(x_in, embedding, parameters,subkey = subkey[0])
@@ -414,9 +413,8 @@ class ddpm_unet():
 
         return x_out
 
-    def get_parameters(self, cfg, key = None):
-        if key == None:
-            key = random.PRNGKey(cfg.model.key)
+    def get_parameters(self, cfg, key):
+        key = random.PRNGKey(cfg.model.key)
 
         # Get parameters from config
         conv_channels = cfg.model.parameters.conv_channels
@@ -474,7 +472,7 @@ class ddpm_unet():
         """used for test in this file"""
         return jnp.sum(output)
 
-    def loss_fn(self, parameters, true_data, timestep, key = None):
+    def loss_fn(self, parameters, true_data, timestep, key):
         """used for test in this file"""
         output = self.forward(true_data, timestep, parameters, key = key)
         loss = self.loss_mse(output, true_data)
@@ -532,7 +530,7 @@ if __name__ == "__main__":
 #            cfg.model.parameters.conv_channels[0][0],# channels
 #            ),dtype=jnp.float32)
     B, H, W, C = img.shape
-    parameters, key = model.get_parameters(cfg)
+    parameters, key = model.get_parameters(cfg,key)
     get_grad = jit(grad(jit(model.loss_fn),0))
     # get_loss = jit(model.loss_fn)
     # print("loss",get_loss(parameters, img))
