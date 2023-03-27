@@ -16,7 +16,8 @@ def implicit_score_matching(func, function_parameters, data, time):
     """
     hess = jacfwd(func, 0)
     div = lambda x, t: jnp.sum(jnp.diag(hess(x, t, function_parameters)))
-    divergence = vmap(div, (0, 0), 0)(data, time.reshape(-1,1)) # TODO: is vmap good here?, ask Paul?
+    #divergence = vmap(div, (0, 0), 0)(data, time.reshape(-1,1)) # TODO: is vmap good here?, ask Paul?
+    divergence = jnp.array([div(x, t) for (x,t) in zip(data, time.reshape(-1,1))])
     #divergence = div(data[0], time.reshape(-1,1)[0])
     print(f"The divergence {divergence}")
     #print(divergence)
