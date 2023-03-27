@@ -1,7 +1,5 @@
 name: ddpm_unet
 key: 4269
-learningrate: 0.0001
-optimizer: adam
 parameters: 
   img_h: 32
   img_w: 32
