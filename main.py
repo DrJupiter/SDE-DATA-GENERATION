@@ -13,6 +13,7 @@ import os
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 
 import jax
+import jax.numpy as jnp
 
 # Data
 from data.dataload import dataload 
@@ -82,13 +83,16 @@ def run_experiment(cfg):
     for epoch in range(cfg.train_and_test.train.epochs): 
         for i, (data, labels) in enumerate(train_dataset): # batch training
 			
+            # transform data into numpy, so jax will transform it into jax when used
+            data = jnp.array(data.numpy(), dtype=jnp.float32)
+
             # split key to keep randomness "random" for each training batch
             key, subkey = jax.random.split(key)
 
             # get tiemsteps given random key for this batch and data shape
             timesteps = jax.random.uniform(subkey, (data.shape[0],), minval=0, maxval=1)
 
-            key, subkey = jax.random.split(key) 
+            key, subkey = jax.random.split(key) # TODO: combine this into the other split above
 
             # Perturb the data with the timesteps trhough sampling sde trick (for speed, see paper for explanation)
             perturbed_data = SDE.sample(timesteps, data, subkey)
@@ -115,12 +119,7 @@ def run_experiment(cfg):
                     wandb.log({"loss": loss_fn(model_call, model_parameters, perturbed_data, scaled_timesteps, key)})
                     # wandb.log({"loss": loss_value})
                   if cfg.wandb.log.img:
-<<<<<<< Updated upstream
                      display_images(cfg, model_call(perturbed_data, scaled_timesteps, model_parameters, key), labels)
-=======
-                     display_images(cfg, model_call(perturbed_data, scaled_timesteps, model_parameters), labels) # add transform into image space 4.3 https://arxiv.org/pdf/1705.07057.pdf
-            break
->>>>>>> Stashed changes
         # Test loop
         if epoch % cfg.wandb.log.epoch_frequency == 0:
             if cfg.wandb.log.FID: 
