@@ -21,6 +21,7 @@ def get_hydra_config(config_path='../configs', job_name='test', version_base='1.
 
 import jax.numpy as jnp
 from jax import vmap, jit
+from jax.nn import sigmoid
 
 batch_matmul = vmap(lambda a,b: jnp.matmul(a.T, b), (0, 0) , 0)
 """
@@ -46,9 +47,16 @@ def rescale_to_logit(cfg,x):
     return logit(lamb + (1-2*lamb)*x)
 
 @jit
-def rescale_to_img(cfg,z):
+def rescale_logit_to_img(cfg,z):
     """Transforms logit into [0,256]\n
     CITE: E2 in https://arxiv.org/pdf/1705.07057.pdf"""
     lamb = cfg.dataset.lamb
     return logit(lamb + (1-2*lamb)*(z/256))
 
+@jit
+def rescale_sigmoid_img(x):
+    factor = 0.05 # -500;500 -> 0;10
+    max_val = 255
+    return max_val/(1+jnp.exp(-1,factor))
+
+print(2)
