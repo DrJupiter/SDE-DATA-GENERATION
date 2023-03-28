@@ -1,5 +1,7 @@
 import numpy as np
 from torch.utils import data
+from torchvision import transforms
+from torch import flatten as t_flatten
 from torchvision.datasets import MNIST, CIFAR10
 import multiprocessing as mp
 
@@ -60,19 +62,19 @@ def dataload(cfg):
     """
     name = cfg.dataset.name
     if name == 'mnist':
-        mnist_dataset_train = MNIST(cfg.dataset.path, download=True) # , transform=FlattenAndCast()
+        mnist_dataset_train = MNIST(cfg.dataset.path, download=True, transform=transforms.Compose([transforms.ToTensor(), transforms.Lambda(lambda x: t_flatten(x))])) # , transform=FlattenAndCast()
         training_generator = data.DataLoader(mnist_dataset_train, batch_size=cfg.train_and_test.train.batch_size, shuffle=cfg.train_and_test.train.shuffle) # num_workers=mp.cpu_count()
 
-        mnist_dataset_test = MNIST(cfg.dataset.path, train=False, download=True) # , transform=FlattenAndCast()
+        mnist_dataset_test = MNIST(cfg.dataset.path, train=False, download=True, transform=transforms.Compose([transforms.ToTensor(), transforms.Lambda(lambda x: t_flatten(x))])) # , transform=FlattenAndCast()
         test_generator = data.DataLoader(mnist_dataset_test, batch_size=cfg.train_and_test.test.batch_size, shuffle=cfg.train_and_test.test.shuffle) # num_workers=mp.cpu_count()
 
         return training_generator, test_generator 
 
     elif name == 'cifar10':
-        cifar10_dataset_train = CIFAR10(cfg.dataset.path, download=True) # , transform=FlattenAndCast()
+        cifar10_dataset_train = CIFAR10(cfg.dataset.path, download=True, transform=transforms.Compose([transforms.ToTensor(), transforms.Lambda(lambda x: t_flatten(x))])) # , transform=FlattenAndCast()
         training_generator = data.DataLoader(cifar10_dataset_train, batch_size=cfg.train_and_test.train.batch_size, shuffle=cfg.train_and_test.train.shuffle) # , num_workers=mp.cpu_count()
 
-        cifar10_dataset_test = CIFAR10(cfg.dataset.path, train=False, download=True) # , transform=FlattenAndCast()
+        cifar10_dataset_test = CIFAR10(cfg.dataset.path, train=False, download=True, transform=transforms.Compose([transforms.ToTensor(), transforms.Lambda(lambda x: t_flatten(x))])) # , transform=FlattenAndCast()
         test_generator = data.DataLoader(cifar10_dataset_test, batch_size=cfg.train_and_test.test.batch_size, shuffle=cfg.train_and_test.test.shuffle) # , num_workers=mp.cpu_count()
 
         return training_generator, test_generator

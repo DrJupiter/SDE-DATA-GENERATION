@@ -84,7 +84,7 @@ def run_experiment(cfg):
         for i, (data, labels) in enumerate(train_dataset): # batch training
 			
             # transform data into numpy, so jax will transform it into jax when used
-            data = jnp.array(torch.flatten(data,start_dim=1).numpy(), dtype=jnp.float32)
+            data = jnp.array(data.numpy(), dtype=jnp.float32)
 
             # split key to keep randomness "random" for each training batch
             key, subkey = jax.random.split(key)
