@@ -36,7 +36,7 @@ def model_call(data, _time, parameters, _key):
         # TODO: Reconsider ORDER in terms of shape representation
         x = jnp.matmul(parameter, x.T).T
         x = nn.sigmoid(x)
-    x = jnp.matmul(parameter[-1], x.T).T
+    x = jnp.matmul(parameters[-1], x.T).T
     
     return x 
 
