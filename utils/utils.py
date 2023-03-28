@@ -58,5 +58,3 @@ def rescale_sigmoid_img(x):
     factor = 0.05 # -500;500 -> 0;10
     max_val = 255
     return max_val/(1+jnp.exp(-1,factor))
-
-print(2)
