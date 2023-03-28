@@ -32,10 +32,11 @@ def model_call(data, _time, parameters, _key):
     time_emb = get_timestep_embedding(_time, embedding_dim)
     x = time_emb + x
 
-    for parameter in parameters:
+    for parameter in parameters[:-1]:
         # TODO: Reconsider ORDER in terms of shape representation
         x = jnp.matmul(parameter, x.T).T
         x = nn.sigmoid(x)
+    x = jnp.matmul(parameter[-1], x.T).T
     
     return x 
 
