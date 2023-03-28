@@ -24,7 +24,7 @@ import equinox as eqx
 # TODO: Worst case reimplement with equinox. Shouldnt take too long, as i got all the info, and have basically done it before.
 
 ######################## Basic building blocks ########################
-class resnet(eqx.Module):
+class resnet():
     def __init__(self, cfg, param_asso, sub_model_num, local_num_shift = 0) -> None:
         """Initialises the ResNet Block, see paper for further explanation of this class"""
 
@@ -91,7 +91,7 @@ class resnet(eqx.Module):
                 )
         return x
 
-class resnet_ff(eqx.Module):
+class resnet_ff():
     def __init__(self,cfg, param_asso, sub_model_num, local_num_shift = 0) -> None:
         """Initialises the ResNet Linear Block, see paper for further explanation of this class"""
 
@@ -123,7 +123,7 @@ class resnet_ff(eqx.Module):
         # add and return
         return x+x_in
 
-class attention(eqx.Module):
+class attention():
     def __init__(self,cfg, param_asso, sub_model_num, local_num_shift = 0) -> None:
 
         # store atten shapes for later use
@@ -187,7 +187,7 @@ class attention(eqx.Module):
 
 ######################## Advanced building blocks ########################
 
-class down_resnet(eqx.Module):
+class down_resnet():
     def __init__(self,cfg, param_asso, sub_model_num, local_num_shift = 0,maxpool_factor=2) -> None:
         # store local location variation for later use
         self.sub_model_num = sub_model_num
@@ -213,7 +213,7 @@ class down_resnet(eqx.Module):
         # return all three outputs
         return x0,x1,x2
 
-class down_resnet_attn(eqx.Module):
+class down_resnet_attn():
     def __init__(self,cfg, param_asso, sub_model_num, local_num_shift = 0,maxpool_factor=2) -> None:
         # store local location variation for later use
         self.sub_model_num = sub_model_num
@@ -259,7 +259,7 @@ def upsample2d(x, factor=2):
     # Collect the shapes back into the desized "shape", resulting in and increase in H and W, by the factors magnitude.
     return jnp.reshape(x, [-1, H * factor, W * factor, C])
 
-class up_resnet(eqx.Module):
+class up_resnet():
     def __init__(self, cfg, param_asso, sub_model_num, local_num_shift = 0,upsampling_factor=2) -> None:
         # store local parameter "location" 
         self.sub_model_num = sub_model_num
@@ -282,7 +282,7 @@ class up_resnet(eqx.Module):
         x = self.resnet2.forward(jnp.concatenate((x,x_res2),axis=-1), embedding, parameters,subkey=subkey[2])
         return x
 
-class up_resnet_attn(eqx.Module):
+class up_resnet_attn():
     def __init__(self, cfg, param_asso, sub_model_num, local_num_shift = 0, upsampling_factor=2) -> None:
         # store local parameter "location" 
         self.sub_model_num = sub_model_num
@@ -314,7 +314,7 @@ class up_resnet_attn(eqx.Module):
 
 ######################## MODEL ########################
 
-class ddpm_unet(eqx.Module):
+class ddpm_unet():
     def __init__(self,cfg) -> None:
 
         # Figure out reshape shape: B x W x H x C
