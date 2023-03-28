@@ -26,6 +26,7 @@ class NumpyLoader(data.DataLoader):
   """
   The dataloader used for our image datasets
   """
+  # TODO: Work with data in torch tensor until we pass it to model. As this loader is made to work on those, and is slow and has problems if not done like this.
   def __init__(self, dataset, batch_size=1,
                 shuffle=False, sampler=None,
                 batch_sampler=None, num_workers=0,
@@ -59,21 +60,20 @@ def dataload(cfg):
     """
     name = cfg.dataset.name
     if name == 'mnist':
+        mnist_dataset_train = MNIST(cfg.dataset.path, download=True) # , transform=FlattenAndCast()
+        training_generator = data.DataLoader(mnist_dataset_train, batch_size=cfg.train_and_test.train.batch_size, shuffle=cfg.train_and_test.train.shuffle) # num_workers=mp.cpu_count()
 
-        mnist_dataset_train = MNIST(cfg.dataset.path, download=True, transform=FlattenAndCast())
-        training_generator = NumpyLoader(mnist_dataset_train, batch_size=cfg.train_and_test.train.batch_size, shuffle=cfg.train_and_test.train.shuffle, num_workers=mp.cpu_count())
-
-        mnist_dataset_test = MNIST(cfg.dataset.path, train=False, download=True, transform=FlattenAndCast())
-        test_generator = NumpyLoader(mnist_dataset_test, batch_size=cfg.train_and_test.test.batch_size, shuffle=cfg.train_and_test.test.shuffle, num_workers=mp.cpu_count())
+        mnist_dataset_test = MNIST(cfg.dataset.path, train=False, download=True) # , transform=FlattenAndCast()
+        test_generator = data.DataLoader(mnist_dataset_test, batch_size=cfg.train_and_test.test.batch_size, shuffle=cfg.train_and_test.test.shuffle) # num_workers=mp.cpu_count()
 
         return training_generator, test_generator 
 
     elif name == 'cifar10':
-        cifar10_dataset_train = CIFAR10(cfg.dataset.path, download=True, transform=FlattenAndCast())
-        training_generator = NumpyLoader(cifar10_dataset_train, batch_size=cfg.train_and_test.train.batch_size, shuffle=cfg.train_and_test.train.shuffle, num_workers=mp.cpu_count())
+        cifar10_dataset_train = CIFAR10(cfg.dataset.path, download=True) # , transform=FlattenAndCast()
+        training_generator = data.DataLoader(cifar10_dataset_train, batch_size=cfg.train_and_test.train.batch_size, shuffle=cfg.train_and_test.train.shuffle) # , num_workers=mp.cpu_count()
 
-        cifar10_dataset_test = CIFAR10(cfg.dataset.path, train=False, download=True, transform=FlattenAndCast())
-        test_generator = NumpyLoader(cifar10_dataset_test, batch_size=cfg.train_and_test.test.batch_size, shuffle=cfg.train_and_test.test.shuffle, num_workers=mp.cpu_count())
+        cifar10_dataset_test = CIFAR10(cfg.dataset.path, train=False, download=True) # , transform=FlattenAndCast()
+        test_generator = data.DataLoader(cifar10_dataset_test, batch_size=cfg.train_and_test.test.batch_size, shuffle=cfg.train_and_test.test.shuffle) # , num_workers=mp.cpu_count()
 
         return training_generator, test_generator
     
