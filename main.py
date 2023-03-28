@@ -115,12 +115,7 @@ def run_experiment(cfg):
                     wandb.log({"loss": loss_fn(model_call, model_parameters, perturbed_data, scaled_timesteps, key)})
                     # wandb.log({"loss": loss_value})
                   if cfg.wandb.log.img:
-<<<<<<< Updated upstream
                      display_images(cfg, model_call(perturbed_data, scaled_timesteps, model_parameters, key), labels)
-=======
-                     display_images(cfg, model_call(perturbed_data, scaled_timesteps, model_parameters), labels) # add transform into image space 4.3 https://arxiv.org/pdf/1705.07057.pdf
-            break
->>>>>>> Stashed changes
         # Test loop
         if epoch % cfg.wandb.log.epoch_frequency == 0:
             if cfg.wandb.log.FID: 
