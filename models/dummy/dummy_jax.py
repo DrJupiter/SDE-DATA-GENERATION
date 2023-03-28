@@ -27,7 +27,9 @@ def get_parameters(cfg):
 @jit
 def model_call(data, _time, parameters, _key):
     x = data
-    time_emb = get_timestep_embedding(_time, int(x.shape[1]))
+    embedding_dim = x.shape[0] if len(x.shape) == 1 else x.shape[1]
+    embedding_dim = int(embedding_dim)
+    time_emb = get_timestep_embedding(_time, embedding_dim)
     x = time_emb + x
 
     for parameter in parameters:
