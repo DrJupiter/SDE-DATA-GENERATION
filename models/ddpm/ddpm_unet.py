@@ -12,6 +12,17 @@ from jax import lax
 # Equinox
 import equinox as eqx
 
+# TODO: register class with jax?
+# Inherit from equinox module to solve this
+
+# TODO: create smaller test model, maybe like down_resnet_attn -> up_resnet_attn, and see if it crashes 
+
+# TODO: Try to remove all batchnorm, and see if it works (this can make it all into pure functions)
+
+# TODO: Try with and without skip connections (just pass blank imgs in instead of correct imgs, so as to not have the loss propagate through those.)
+
+# TODO: Worst case reimplement with equinox. Shouldnt take too long, as i got all the info, and have basically done it before.
+
 ######################## Basic building blocks ########################
 class resnet():
     def __init__(self, cfg, param_asso, sub_model_num, local_num_shift = 0) -> None:
@@ -44,7 +55,7 @@ class resnet():
                 axis_name="batch",
                 momentum=0.99,
                 eps=1e-05,
-                ) 
+                )
         
         # initialize dropout layer
         self.dropout = eqx.nn.Dropout(cfg.parameters.dropout_p,inference=cfg.parameters.inference)
