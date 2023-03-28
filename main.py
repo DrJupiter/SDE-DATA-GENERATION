@@ -84,7 +84,6 @@ def run_experiment(cfg):
         for i, (data, labels) in enumerate(train_dataset): # batch training
 			
             # transform data into numpy, so jax will transform it into jax when used
-            print(data.shape)
             data = jnp.array(data.numpy(), dtype=jnp.float32)
 
             # split key to keep randomness "random" for each training batch
