@@ -22,8 +22,9 @@ def implicit_score_matching(func, function_parameters, data, time, key):
     test = lambda x, t, k: hess(x, t, function_parameters, k)
     v_test = vmap(test, (0, 0, 0), 0)(data, time.reshape(-1,1), keys) # TODO: is vmap good here?, ask Paul?
     print(v_test.shape)
-    div = lambda x, t, k: jnp.sum(jnp.diag(hess(x, t, function_parameters, k)))
+    div = lambda x, t, k: jnp.sum(jnp.diag(jnp.squeeze(hess(x, t, function_parameters, k), axis=0)))
     divergence = vmap(div, (0, 0, 0), 0)(data, time.reshape(-1,1), keys) # TODO: is vmap good here?, ask Paul?
+
 
     # TODO do new keys
     #divergence = div(data[0], time.reshape(-1,1)[0], key)
