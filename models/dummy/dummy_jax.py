@@ -27,6 +27,8 @@ def get_parameters(cfg):
 @jit
 def model_call(data, _time, parameters, _key):
     x = data
+    time_emb = get_timestep_embedding(_time, int(x.shape[1]))
+    x = time_emb + x
 
     for parameter in parameters:
         # TODO: Reconsider ORDER in terms of shape representation
@@ -34,6 +36,32 @@ def model_call(data, _time, parameters, _key):
         x = nn.sigmoid(x)
     
     return x 
+
+
+def get_timestep_embedding(timesteps, embedding_dim: int):
+    """
+    For math behind this see paper.\n
+    timesteps: array of ints describing the timestep each "picture" of the batch is perturbed to.\n
+    timesteps.shape = B\n
+    From Fairseq.
+    Build sinusoidal embeddings.
+    This matches the implementation in tensor2tensor, but differs slightly
+    from the description in Section 3.5 of "Attention Is All You Need".
+    \n
+    Credit to DDPM (https://github.com/hojonathanho/diffusion/blob/1e0dceb3b3495bbe19116a5e1b3596cd0706c543/diffusion_tf/nn.py#L90)
+    \n I just converted it to jax.
+    """
+    assert len(timesteps.shape) == 1 # and timesteps.dtype == tf.int32
+
+    half_dim = embedding_dim // 2
+    emb = jnp.log(10000) / (half_dim - 1)
+    emb = jnp.exp(jnp.arange(half_dim, dtype=jnp.int32) * -emb)
+    emb = jnp.int32(timesteps)[:, None] * emb[None, :]
+    emb = jnp.concatenate([jnp.sin(emb), jnp.cos(emb)], axis=1)
+    if embedding_dim % 2 == 1:  # zero pad if uneven number
+        emb = jnp.pad(emb, [[0, 0], [0, 1]])
+    assert emb.shape == (timesteps.shape[0], embedding_dim)
+    return emb
 
 @jit
 def loss_fn(parameters, data, gt):
@@ -67,32 +95,25 @@ if __name__ == "__main__":
     # end
 
     from utils.utils import get_hydra_config
-    cfg = get_hydra_config()
+    cfg = get_hydra_config(overrides=['model=dummy', 'wandb.log.loss=false', 'wandb.log.img=false', 'visualization.visualize_img=true'])
     print(cfg)
-    parameters = get_parameters(cfg)
-    data = jnp.ones((10, 1), dtype=jnp.float32)
-    imgs = model_call(data, parameters)
-    key = random.PRNGKey(69)
-    gt = random.normal(key, imgs.shape, dtype=jnp.float32)
-    grads = grad(loss_fn,0)
-    loss_grad = grads(parameters, data, gt)
-    print(type(loss_grad))
-    assert len(loss_grad) == len(parameters)
-    for g, p in zip(loss_grad, parameters):
-        print(g.shape, p.shape)
+    from models.model import get_model 
+    key = random.PRNGKey(cfg.model.key)
+    key, subkey = random.split(key)
+    parameters, model_call = get_model(cfg, subkey)
+    from data.dataload import dataload
+    train, test = dataload(cfg)
+    iter_train = iter(train)
+    data, label = next(iter_train)
+    timesteps = random.uniform(subkey, (data.shape[0],), minval=0, maxval=1)
+    imgs = model_call(data, timesteps, parameters, key)
     
-    c_parameters = [jnp.ones_like(p) for p in parameters]
-
-    print(sum([(p-c).sum() for p,c in zip(parameters, c_parameters)]))
-    parameters = optim_alg(cfg, parameters, loss_grad,gt)
-    print(get_shapes(parameters))
-    print(get_shapes(c_parameters))
 
 #    s = 0
 #    for i in range(len(parameters)):
 #        s += parameters[i]-c_parameters[i]
 #    print(s)
-    print(sum([(p-c).sum() for p,c in zip(parameters, c_parameters)]))
+
     from visualization.visualize import display_images
-    display_images(cfg,imgs.T)
+    display_images(cfg, imgs, label)
 # %%
