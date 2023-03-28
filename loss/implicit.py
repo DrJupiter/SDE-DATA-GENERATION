@@ -19,6 +19,9 @@ def implicit_score_matching(func, function_parameters, data, time, key):
     keys = jrandom.split(key, num=int(data.shape[0]))
     hess = jacrev(func, 0)
 
+    test = lambda x, t, k: hess(x, t, function_parameters, k)
+    v_test = vmap(test, (0, 0, 0), 0)(data, time.reshape(-1,1), keys) # TODO: is vmap good here?, ask Paul?
+    print(v_test.shape)
     div = lambda x, t, k: jnp.sum(jnp.diag(hess(x, t, function_parameters, k)))
     divergence = vmap(div, (0, 0, 0), 0)(data, time.reshape(-1,1), keys) # TODO: is vmap good here?, ask Paul?
 

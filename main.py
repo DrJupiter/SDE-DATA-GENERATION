@@ -91,7 +91,7 @@ def run_experiment(cfg):
 
             # get tiemsteps given random key for this batch and data shape
             timesteps = jax.random.uniform(subkey, (data.shape[0],), minval=0, maxval=1)
-            print(data.shape, timesteps.shape)
+
             key, subkey = jax.random.split(key) # TODO: combine this into the other split above
 
             # Perturb the data with the timesteps trhough sampling sde trick (for speed, see paper for explanation)
