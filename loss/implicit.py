@@ -6,7 +6,7 @@ from jax import random as jrandom
 from utils.utils import batch_matmul
 
 
-def implicit_score_matching(func, function_parameters, data, time, key):
+def implicit_score_matching(func, function_parameters, data, time, key, cfg):
     """
     func: The function, f, is assumed to be the score of a function, f = ∇_x log(p(x;θ)).
 
@@ -19,7 +19,7 @@ def implicit_score_matching(func, function_parameters, data, time, key):
     keys = jrandom.split(key, num=int(data.shape[0]))
     hess = jacrev(func, 0)
 
-    div = lambda x, t, k: jnp.sum(jnp.diag(jnp.squeeze(hess(x, t, function_parameters, k), axis=0)))
+    div = lambda x, t, k: jnp.sum(jnp.diag(jnp.squeeze(hess(x, t, function_parameters, k, cfg), axis=0)))
     divergence = vmap(div, (0, 0, 0), 0)(data, time.reshape(-1,1), keys) # TODO: is vmap good here?, ask Paul?
 
 

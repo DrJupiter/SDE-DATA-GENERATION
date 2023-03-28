@@ -100,7 +100,7 @@ def run_experiment(cfg):
 
             # get grad for this batch
               # loss_value, grads = jax.value_and_grad(loss_fn)(model_parameters, model_call, data, labels, t) # is this extra computation time
-            grads = grad_fn(model_call, model_parameters, perturbed_data, scaled_timesteps, subkey[2])
+            grads = grad_fn(model_call, model_parameters, perturbed_data, scaled_timesteps, subkey[2], cfg)
 
             # get change in model_params and new optimizer params
               # optim_parameters, model_parameters = optim_alg(optim_parameters, model_parameters, t_data, labels)

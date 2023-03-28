@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from models.dummy import dummy_jax
 # import optax
-from models.ddpm.ddpm_unet import ddpm_unet
+from models.ddpm.ddpm_unet_funcs import ddpm_unet, get_parameters
 # from loss.sumloss import sum_diff_loss
 # from optimizer.optimizers import adam
 
@@ -15,9 +15,9 @@ def get_model(cfg, key):
     if cfg.model.name == "dummy_jax":
         return dummy_jax.get_parameters(cfg), dummy_jax.model_call
     elif cfg.model.name == "ddpm_unet":
-        ddpm_model = ddpm_unet(cfg)
-        params, key = ddpm_model.get_parameters(cfg, key = key)
-        return params, ddpm_model.forward 
+        # ddpm_model = ddpm_unet(cfg)
+        params, key = get_parameters(cfg, key)
+        return params, ddpm_unet 
     raise ValueError(f"Model {cfg.model.name} not found")
 
 # def get_optim(cfg,params=None):

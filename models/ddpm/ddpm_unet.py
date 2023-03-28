@@ -32,7 +32,7 @@ class resnet(eqx.Module):
         self.sub_model_num = sub_model_num
         self.local_num_shift = local_num_shift
 
-        # get shapes of all convolution channels, so we can extract the correct ones given our local parameter location
+        # get shapes of all convolution channels, to initialize batchnorm correctly
         self.conv_shapes = cfg.parameters.conv_channels
 
         # Find which and amount parameters this model needs
@@ -318,7 +318,7 @@ class ddpm_unet(eqx.Module):
     def __init__(self,cfg) -> None:
 
         # Figure out reshape shape: B x W x H x C
-        self.shape = (-1,cfg.dataset.shape[0],cfg.dataset.shape[1],cfg.dataset.shape[2])
+        self.data_shape = (-1,cfg.dataset.shape[0],cfg.dataset.shape[1],cfg.dataset.shape[2])
 
         # store for later use
         self.cfg = cfg.model
@@ -363,7 +363,7 @@ class ddpm_unet(eqx.Module):
         in_shape = x_in.shape
 
         # Transform input into the image shape
-        x_in = x_in.reshape(self.shape)
+        x_in = x_in.reshape(self.data_shape)
 
         # Split key to preserve randomness
         key, *subkey = random.split(key,13)
