@@ -87,24 +87,20 @@ def run_experiment(cfg):
             data = jnp.array(data.numpy(), dtype=jnp.float32)
 
             # split key to keep randomness "random" for each training batch
-            key, subkey = jax.random.split(key)
+            key, *subkey = jax.random.split(key, 4)
 
             # get tiemsteps given random key for this batch and data shape
-            timesteps = jax.random.uniform(subkey, (data.shape[0],), minval=0, maxval=1)
-
-            key, subkey = jax.random.split(key) # TODO: combine this into the other split above
+            timesteps = jax.random.uniform(subkey[0], (data.shape[0],), minval=0, maxval=1)
 
             # Perturb the data with the timesteps trhough sampling sde trick (for speed, see paper for explanation)
-            perturbed_data = SDE.sample(timesteps, data, subkey)
+            perturbed_data = SDE.sample(timesteps, data, subkey[1])
 
             # scale timesteps for more significance
             scaled_timesteps = timesteps*999
 
-            key, subkey = jax.random.split(key) 
-
             # get grad for this batch
               # loss_value, grads = jax.value_and_grad(loss_fn)(model_parameters, model_call, data, labels, t) # is this extra computation time
-            grads = grad_fn(model_call, model_parameters, perturbed_data, scaled_timesteps, key)
+            grads = grad_fn(model_call, model_parameters, perturbed_data, scaled_timesteps, subkey[2])
 
             # get change in model_params and new optimizer params
               # optim_parameters, model_parameters = optim_alg(optim_parameters, model_parameters, t_data, labels)
@@ -116,10 +112,10 @@ def run_experiment(cfg):
             # Logging loss and an image
             if i % cfg.wandb.log.frequency == 0:
                   if cfg.wandb.log.loss:
-                    wandb.log({"loss": loss_fn(model_call, model_parameters, perturbed_data, scaled_timesteps, key)})
+                    wandb.log({"loss": loss_fn(model_call, model_parameters, perturbed_data, scaled_timesteps, subkey[2])})
                     # wandb.log({"loss": loss_value})
                   if cfg.wandb.log.img:
-                     display_images(cfg, model_call(perturbed_data, scaled_timesteps, model_parameters, key), labels)
+                     display_images(cfg, model_call(perturbed_data, scaled_timesteps, model_parameters, subkey[2]), labels)
         # Test loop
         if epoch % cfg.wandb.log.epoch_frequency == 0:
             if cfg.wandb.log.FID: 
