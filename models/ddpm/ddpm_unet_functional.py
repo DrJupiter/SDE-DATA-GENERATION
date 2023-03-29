@@ -10,7 +10,6 @@ from jax import nn
 from jax import lax
 
 # Equinox
-import equinox as eqx
 
 # TODO: register class with jax?
 # Inherit from equinox module to solve this
