@@ -8,7 +8,7 @@ from models.dummy import dummy_jax
 # import optax
 
 #from models.ddpm.ddpm_unet_funcs import ddpm_unet, get_parameters as func_ddpm_unet, func_get_parameters
-from models.ddpm.ddpm_unet_funcs_constructors import get_ddpm_unet, get_parameters 
+from models.ddpm.ddpm_unet_functional import get_ddpm_unet, get_parameters 
 from models.ddpm.ddpm_unet import ddpm_unet as class_ddpm_unet
 
 
