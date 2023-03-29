@@ -318,7 +318,7 @@ class ddpm_unet():
     def __init__(self,cfg) -> None:
 
         # Figure out reshape shape: B x W x H x C
-        self.data_shape = (-1,cfg.dataset.shape[0],cfg.dataset.shape[1],cfg.dataset.shape[2])
+        self.data_shape = cfg.dataset.shape 
 
         # store for later use
         self.cfg = cfg.model

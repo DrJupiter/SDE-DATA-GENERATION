@@ -248,7 +248,7 @@ def ddpm_unet(x_in, timesteps, parameters, key, cfg):
 
     # Transform input into the image shape
     x_in_shape = x_in.shape
-    x_in = x_in.reshape((-1,cfg.dataset.shape[0],cfg.dataset.shape[1],cfg.dataset.shape[2]))
+    x_in = x_in.reshape(cfg.dataset.shape)
 
     # conv_shapes = cfg.model.parameters.conv_channels
     upsampling_factor = cfg.model.parameters.upsampling_factor

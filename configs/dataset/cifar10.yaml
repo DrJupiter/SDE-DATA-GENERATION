@@ -12,6 +12,7 @@ classes:
   - ship
   - truck
 shape:
+  - -1
   - 32
   - 32
   - 3
