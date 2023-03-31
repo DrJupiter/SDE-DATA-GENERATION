@@ -58,7 +58,7 @@ class SUBVPSDE(SDE):
         return -1/covariance * (xt-mu)
 
     def drift(self, x, t):
-        return -0.5 (self.beta_min + t * (self.beta_max-self.beta_min)) * x 
+        return -0.5 * (self.beta_min + t * (self.beta_max-self.beta_min)) * x 
     
     def diffusion(self, _x, t):
         return (self.beta_min + t * (self.beta_max-self.beta_min))**(1/2)
@@ -95,3 +95,5 @@ if __name__ == "__main__":
     display_images(config, xt, label)
     display_images(config, data, label)
     print(key)
+    from models.model import get_model
+    model = get_model(config)
