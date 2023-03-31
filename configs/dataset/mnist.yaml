@@ -1,6 +1,7 @@
 name: mnist
 path: ./datasets/
 shape:
+  - -1
   - 28
   - 28
   - 1

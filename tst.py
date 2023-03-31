@@ -115,3 +115,36 @@ optimizer = optax.adam(learning_rate=1e-2)
 params = fit(initial_params, optimizer)
 
 # %%
+import os
+os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
+
+import jax
+import equinox as eqx
+
+
+class tst(eqx.Module):
+    def __init__(self):
+      self.adwds=2
+
+tst()
+
+#%%
+import jax.numpy as jnp
+from jax import vmap
+
+def fisk(x):
+  return x**2
+
+
+print(vmap(fisk,(0),0)(X))
+
+# %%
+
+def naive_downsample_2d(x, factor=2):
+  _N, H, W, C = x.shape
+  x = jnp.reshape(x, [-1, H // factor, factor, W // factor, factor, C])
+  return jnp.mean(x, axis=[2, 4])
+
+X = jnp.ones((3,32,32,2))*2
+
+naive_downsample_2d(X)
