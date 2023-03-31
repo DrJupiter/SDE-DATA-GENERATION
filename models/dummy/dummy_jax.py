@@ -27,6 +27,7 @@ def get_parameters(cfg):
 @jit
 def model_call(data, _time, parameters, _key):
     x = data
+    in_shape = x.shape
     embedding_dim = x.shape[0] if len(x.shape) == 1 else x.shape[1]
     embedding_dim = int(embedding_dim)
     time_emb = get_timestep_embedding(_time, embedding_dim)
@@ -38,7 +39,7 @@ def model_call(data, _time, parameters, _key):
         x = nn.sigmoid(x)
     x = jnp.matmul(parameters[-1], x.T).T
     
-    return x 
+    return x.reshape(in_shape) 
 
 
 def get_timestep_embedding(timesteps, embedding_dim: int):
