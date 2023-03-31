@@ -1,6 +1,5 @@
 # stop prelocation of memory
-import os
-os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
+
 
 # JAX
 import jax.numpy as jnp
@@ -479,3 +478,7 @@ def get_parameters(cfg, key):
         # jnp.array(mpa)[:,0]
 
         return parameters, key
+
+if __name__ == "__name__":
+    import os
+    os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'

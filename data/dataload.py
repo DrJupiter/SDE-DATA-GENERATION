@@ -6,8 +6,6 @@ from torchvision.datasets import MNIST, CIFAR10
 import multiprocessing as mp
 
 # Stop loading it 90% VRAM
-import os
-os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 
 import jax.numpy as jnp
 
@@ -88,6 +86,8 @@ def dataload(cfg):
 
 if __name__ == "__main__":
   # Define our dataset, using torch datasets
+    import os
+    os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
     mnist_dataset = MNIST('./tmp/mnist/', download=True, transform=FlattenAndCast())
     import multiprocessing as mp
     training_generator = NumpyLoader(mnist_dataset, batch_size=1, num_workers=mp.cpu_count())

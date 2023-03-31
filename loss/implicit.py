@@ -1,5 +1,4 @@
-import os
-os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
+
 from jax import jacfwd, vmap, jacrev
 import jax.numpy as jnp
 from jax import random as jrandom
@@ -35,6 +34,8 @@ def implicit_score_matching(func, function_parameters, data, time, key):
     return jnp.mean(0.5 * batch_matmul(score, score) + divergence)
 
 if __name__ == "__main__":
+    import os
+    os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
     def func(x, timesteps, a, key):
         print(f"The timesteps: {timesteps}")
         

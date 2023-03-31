@@ -1,6 +1,4 @@
-# stop prelocation of memory
-import os
-os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
+
 
 # JAX
 import jax.numpy as jnp
@@ -516,6 +514,9 @@ class ddpm_unet():
 
 #%%
 if __name__ == "__main__":
+    # stop prelocation of memory
+    import os
+    os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 # Andreas needs
     import sys
     sys.path.append("/media/sf_Bsc-Diffusion")

@@ -1,6 +1,4 @@
-# %%
-import os
-os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
+
 
 import jax.numpy as jnp
 from jax import grad, jit, vmap 
@@ -97,7 +95,8 @@ if __name__ == "__main__":
     # import sys
     # sys.path.append("/media/sf_Bsc-Diffusion")
     # end
-
+    import os
+    os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
     from utils.utils import get_hydra_config
     cfg = get_hydra_config(overrides=['model=dummy', 'wandb.log.loss=false', 'wandb.log.img=false', 'visualization.visualize_img=true'])
     print(cfg)

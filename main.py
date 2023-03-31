@@ -10,11 +10,11 @@ import torch
 
 # Stop jax from taking up 90% of GPU vram
 import os
-os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
+os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='true'
+os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION']='0.5'
 
 import jax
 import jax.numpy as jnp
-
 # Data
 from data.dataload import dataload 
 
