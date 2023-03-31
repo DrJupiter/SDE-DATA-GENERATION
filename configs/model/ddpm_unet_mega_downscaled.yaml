@@ -1,5 +1,5 @@
 name: ddpm_unet
-type: class
+type: function
 key: 4269
 size: big
 parameters: 

@@ -1,5 +1,3 @@
-# stop prelocation of memory
-
 
 # JAX
 import jax.numpy as jnp
@@ -29,9 +27,6 @@ from models.ddpm.building_blocks.ddpm_functions import down_resnet, down_resnet_
 def get_ddpm_unet(cfg):
 
     def ddpm_unet(x_in, timesteps, parameters, key):
-
-        B, H, W, C = x_in.shape
-
         # Transform input into the image shape
         x_in_shape = x_in.shape
         x_in = x_in.reshape(cfg.dataset.shape)

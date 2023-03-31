@@ -5,6 +5,7 @@ from jax import grad, jit, vmap
 from jax import random
 from jax import nn
 from jax import lax
+import equinox as eqx
 
 import equinox as eqx
 ######################## Basic building blocks ########################

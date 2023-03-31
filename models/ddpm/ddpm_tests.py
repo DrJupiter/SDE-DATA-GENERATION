@@ -1,9 +1,4 @@
 
-
-# %%
-import os
-os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
-
 import jax.numpy as jnp
 from jax import grad, jit, vmap 
 from jax import random

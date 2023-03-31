@@ -1,7 +1,3 @@
-# stop prelocation of memory
-import os
-os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
-
 # JAX
 import jax.numpy as jnp
 from jax import grad, jit, vmap 

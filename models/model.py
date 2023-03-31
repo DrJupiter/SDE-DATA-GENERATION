@@ -10,6 +10,8 @@ from models.dummy import dummy_jax
 #from models.ddpm.ddpm_unet_funcs import ddpm_unet, get_parameters as func_ddpm_unet, func_get_parameters
 from models.ddpm.ddpm_unet_functional_small import get_ddpm_unet as get_ddpm_unet_small, get_parameters as get_parameters_small
 from models.ddpm.ddpm_func_deconstruct import get_ddpm_unet, get_parameters 
+# from models.ddpm.ddpm_unet_functional import get_ddpm_unet, get_parameters 
+
 
 from models.ddpm.ddpm_unet import ddpm_unet as class_ddpm_unet
 

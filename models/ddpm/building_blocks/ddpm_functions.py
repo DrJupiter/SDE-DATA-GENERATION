@@ -99,7 +99,7 @@ def resnet(x_in, embedding, parameters, subkey, cfg, param_asso, sub_model_num, 
             )
     x = nn.relu(x)
     x = x + (jnp.matmul(nn.relu(embedding), w)+b)[:, None, None, :] # introducing time embedding
-    x# = vmap(batchnorm1,axis_name="batch")(x.transpose(0,3,2,1)).transpose(0,3,2,1) 
+    #x = vmap(batchnorm1,axis_name="batch")(x.transpose(0,3,2,1)).transpose(0,3,2,1) 
     x = nn.relu(x)
     #x = dropout(x,key = subkey)
     x = lax.conv_general_dilated( 
