@@ -57,6 +57,18 @@ class SUBVPSDE(SDE):
         # As we have isotropic covariance, then we have
         return -1/covariance * (xt-mu)
 
+    def drift(self, x, t):
+        return -0.5 (self.beta_min + t * (self.beta_max-self.beta_min)) * x 
+    
+    def diffusion(self, _x, t):
+        return (self.beta_min + t * (self.beta_max-self.beta_min))**(1/2)
+
+    def reverse_drift(self, x, t, sm):
+        return self.drift(x,t) - sm(x,t) * self.diffusion(x,t)**2 
+    
+    def reverse_diffusion(self, x, t, sm):
+        return self.diffusion(x, t)
+
     def __repr__(self) -> str:
         return self.description 
 

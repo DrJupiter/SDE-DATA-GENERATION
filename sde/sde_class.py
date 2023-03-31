@@ -16,8 +16,14 @@ class SDE():
     def score(self, x0, t, xt):
         raise NotImplementedError("The Score of p(x(t),x(0)) i.e ∇_x(t) log(p(x(t), x(0)))") 
 
-    def drift(x,t):
+    def drift(self, x,t):
         raise NotImplementedError("The drift coeffecient, f(x,t) in dx = f(x,t)dt + L(x,t)db(t)") 
 
-    def diffusion(x,t):
+    def diffusion(self, x,t):
         raise NotImplementedError("The diffusion coeffecient L(x,t) in dx = f(x,t)dt + L(x,t)db(t)") 
+    
+    def reverse_drift(self, x, t, sm):
+        raise NotImplementedError("The reverse drift term")
+        
+    def reverse_diffusion(self, x, t, sm):
+        raise NotImplementedError("The reverse diffusion term")
