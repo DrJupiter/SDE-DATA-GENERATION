@@ -1,6 +1,3 @@
-# stop prelocation of memory
-import os
-os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 
 # JAX
 import jax.numpy as jnp
@@ -9,7 +6,7 @@ from jax import random
 from jax import nn
 from jax import lax
 
-
+import equinox as eqx
 ######################## Basic building blocks ########################
 class resnet():
     def __init__(self, cfg, param_asso, sub_model_num, local_num_shift = 0) -> None:
