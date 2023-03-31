@@ -1,5 +1,6 @@
 # stop prelocation of memory
-
+import os
+os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 
 # JAX
 import jax.numpy as jnp
@@ -8,29 +9,13 @@ from jax import random
 from jax import nn
 from jax import lax
 
-# Equinox
-
-# TODO: register class with jax?
-# Inherit from equinox module to solve this
-
-# TODO: create smaller test model, maybe like down_resnet_attn -> up_resnet_attn, and see if it crashes 
-
-# TODO: Try to remove all batchnorm, and see if it works (this can make it all into pure functions)
-
-# TODO: Try with and without skip connections (just pass blank imgs in instead of correct imgs, so as to not have the loss propagate through those.)
-
-# TODO: Worst case reimplement with equinox. Shouldnt take too long, as i got all the info, and have basically done it before.
-
-######################## Basic building blocks ########################
+######################## MODEL ########################
 
 from models.ddpm.building_blocks.ddpm_functions import down_resnet, down_resnet_attn, up_resnet, up_resnet_attn, upsample2d, naive_downsample_2d, get_timestep_embedding, resnet_ff, attention
 
-######################## MODEL ########################
 def get_ddpm_unet(cfg):
 
     def ddpm_unet(x_in, timesteps, parameters, key):
-
-        B, H, W, C = x_in.shape
 
         # Transform input into the image shape
         x_in_shape = x_in.shape
@@ -57,7 +42,7 @@ def get_ddpm_unet(cfg):
         embedding = nn.relu(embedding)
         embedding = jnp.matmul(embedding,em_w2)+em_b2 # 512 -> 512
 
-        # Perform main pass:
+                # Perform main pass:
         ## down
         d0 = lax.conv_general_dilated( 
                 lhs = x_in,    
@@ -84,109 +69,33 @@ def get_ddpm_unet(cfg):
                                   param_asso = param_asso, 
                                   sub_model_num = 2, 
                                   local_num_shift = 0, 
-                                  maxpool_factor = 2) # 16x16 -> 8x8      C_out = 256
+                                  maxpool_factor = 1) # 16x16 -> 8x8      C_out = 256
 
-        d30,d31,d32 = down_resnet(x_in = d22, 
+        
+        u = up_resnet_attn(       x_in = d22, 
+                                  x_res0 = jnp.ones_like(d21), 
+                                  x_res1 = jnp.ones_like(d20), 
+                                  x_res2 = jnp.ones_like(d12),
                                   embedding = embedding, 
                                   parameters = parameters, 
                                   subkey = subkey[3], 
                                   cfg = cfg.model, 
                                   param_asso = param_asso, 
                                   sub_model_num = 3, 
-                                  local_num_shift = 0, 
-                                  maxpool_factor = 2) # 8x8 -> 4x4        C_out = 512
+                                  local_num_shift = 0, ) # 16x16 -> 16x16 C_out = 256
 
-        d40,d41,_   = down_resnet(x_in = d32, 
+        u = upsample2d(           u, factor=upsampling_factor) # 16x16 -> 32x32
+
+        u = up_resnet(            x_in = u, 
+                                  x_res0 = jnp.ones_like(d11), 
+                                  x_res1 = jnp.ones_like(d10), 
+                                  x_res2 = jnp.ones_like(d0),
                                   embedding = embedding, 
                                   parameters = parameters, 
                                   subkey = subkey[4], 
                                   cfg = cfg.model, 
                                   param_asso = param_asso, 
                                   sub_model_num = 4, 
-                                  local_num_shift = 0, 
-                                  maxpool_factor = 1) # 4x4 -> 4x4        C_out = 512
-
-        ## middle
-        m = resnet_ff(            x_in = d41, 
-                                  embedding = embedding, 
-                                  parameters = parameters, 
-                                  subkey = subkey[5], 
-                                  cfg = cfg.model, 
-                                  param_asso = param_asso, 
-                                  sub_model_num = 5, 
-                                  local_num_shift = 0, ) # 4x4 -> 4x4
-
-        m = attention(            x_in = m, 
-                                  embedding = embedding, 
-                                  parameters = parameters, 
-                                  subkey = subkey[6], 
-                                  cfg = cfg.model, 
-                                  param_asso = param_asso, 
-                                  sub_model_num = 6, 
-                                  local_num_shift = 0, ) # 4x4 -> 4x4
-
-        m = resnet_ff(            x_in = m, 
-                                  embedding = embedding, 
-                                  parameters = parameters, 
-                                  subkey = subkey[7], 
-                                  cfg = cfg.model, 
-                                  param_asso = param_asso, 
-                                  sub_model_num = 7, 
-                                  local_num_shift = 0, ) # 4x4 -> 4x4   C_out = 512
-
-        ## up
-        u = up_resnet(            x_in = m, 
-                                  x_res0 = d41, 
-                                  x_res1 = d40, 
-                                  x_res2 = d32,
-                                  embedding = embedding, 
-                                  parameters = parameters, 
-                                  subkey = subkey[8], 
-                                  cfg = cfg.model, 
-                                  param_asso = param_asso, 
-                                  sub_model_num = 8, 
-                                  local_num_shift = 0, ) # 4x4 -> 4x4   C_out = 512
-
-        u = upsample2d(           u, factor=upsampling_factor) # 4x4 -> 8x8
-
-        u = up_resnet(            x_in = u, 
-                                  x_res0 = d31, 
-                                  x_res1 = d30, 
-                                  x_res2 = d22,
-                                  embedding = embedding, 
-                                  parameters = parameters, 
-                                  subkey = subkey[9], 
-                                  cfg = cfg.model, 
-                                  param_asso = param_asso, 
-                                  sub_model_num = 9, 
-                                  local_num_shift = 0, ) # 8x8 -> 8x8   C_out = 512
-
-        u = upsample2d(           u, factor=upsampling_factor) # 8x8 -> 16x16
-
-        u = up_resnet_attn(       x_in = u, 
-                                  x_res0 = d21, 
-                                  x_res1 = d20, 
-                                  x_res2 = d12,
-                                  embedding = embedding, 
-                                  parameters = parameters, 
-                                  subkey = subkey[10], 
-                                  cfg = cfg.model, 
-                                  param_asso = param_asso, 
-                                  sub_model_num = 10, 
-                                  local_num_shift = 0, ) # 16x16 -> 16x16 C_out = 256
-
-        u = upsample2d(           u, factor=upsampling_factor) # 16x16 -> 32x32
-
-        u = up_resnet(            x_in = u, 
-                                  x_res0 = d11, 
-                                  x_res1 = d10, 
-                                  x_res2 = d0,
-                                  embedding = embedding, 
-                                  parameters = parameters, 
-                                  subkey = subkey[11], 
-                                  cfg = cfg.model, 
-                                  param_asso = param_asso, 
-                                  sub_model_num = 11, 
                                   local_num_shift = 0, ) # 32x32 -> 32x32 C_out = 128
 
         #3 end
@@ -265,7 +174,3 @@ def get_parameters(cfg, key):
         # jnp.array(mpa)[:,0]
 
         return parameters, key
-
-if __name__ == "__name__":
-    import os
-    os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'

@@ -1,5 +1,6 @@
 # stop prelocation of memory
-
+# import os
+# os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 
 # JAX
 import jax.numpy as jnp
@@ -30,20 +31,20 @@ def get_ddpm_unet(cfg):
 
     def ddpm_unet(x_in, timesteps, parameters, key):
 
-        B, H, W, C = x_in.shape
-
         # Transform input into the image shape
         x_in_shape = x_in.shape
         x_in = x_in.reshape(cfg.dataset.shape)
 
         # conv_shapes = cfg.model.parameters.conv_channels
         upsampling_factor = cfg.model.parameters.upsampling_factor
+        maxpool_factor = cfg.model.parameters.downsampling_factor
+
         embedding_dims = cfg.model.parameters.time_embedding_dims
 
         param_asso = jnp.array(cfg.model.parameters.model_parameter_association)
 
         # Split key to preserve randomness
-        key, *subkey = random.split(key,13)
+        key, *subkey = random.split(key,29)
 
         # Get parameters for Timestep embedding
         em_w1 = parameters[2][0][-2]
@@ -59,141 +60,103 @@ def get_ddpm_unet(cfg):
 
         # Perform main pass:
         ## down
-        d0 = lax.conv_general_dilated( 
+        x_32_0 = lax.conv_general_dilated( 
                 lhs = x_in,    
                 rhs = parameters[0][0], # kernel is the conv [0] and the first entry i this [0]
                 window_strides = [1,1], 
                 padding = 'same',
                 dimension_numbers = ('NHWC', 'HWIO', 'NHWC') # input and parameter shapes
                 )
-        d10,d11,d12 = down_resnet(x_in = d0, 
-                                  embedding = embedding, 
-                                  parameters = parameters, 
-                                  subkey = subkey[1], 
-                                  cfg = cfg.model, 
-                                  param_asso = param_asso, 
-                                  sub_model_num = 1, 
-                                  local_num_shift = 0, 
-                                  maxpool_factor = 2) # 32x32 -> 16x16     C_out = 128
+        
+        ### DOWN ###
+        # Down ResNet 1
+        x_32_1 = resnet_ff(x_32_0,    embedding, parameters,subkey = subkey.pop(), local_num_shift = 0, cfg=cfg, param_asso=param_asso, sub_model_num=1)
+        x_32_2 = resnet_ff(x_32_1,      embedding, parameters,subkey = subkey.pop(), local_num_shift = 2, cfg=cfg, param_asso= param_asso,sub_model_num=1)
+        # maxpool (changes shape)
+        x_16_0 = naive_downsample_2d(x_32_2, factor = maxpool_factor)
 
-        d20,d21,d22 = down_resnet_attn(x_in = d12, 
-                                  embedding = embedding, 
-                                  parameters = parameters, 
-                                  subkey = subkey[2], 
-                                  cfg = cfg.model, 
-                                  param_asso = param_asso, 
-                                  sub_model_num = 2, 
-                                  local_num_shift = 0, 
-                                  maxpool_factor = 2) # 16x16 -> 8x8      C_out = 256
+        # Down ResNet Attention 2
+        x = resnet_ff(x_16_0,   embedding, parameters, subkey = subkey.pop(), local_num_shift = 0, cfg=cfg, param_asso=param_asso, sub_model_num=2)
+        x_16_1 = attention(x,    embedding, parameters, subkey = subkey.pop(), local_num_shift = 0, cfg=cfg, param_asso=param_asso, sub_model_num=2)
+        x = resnet_ff(x_16_1,    embedding, parameters, subkey = subkey.pop(), local_num_shift = 2, cfg=cfg, param_asso=param_asso, sub_model_num=2)
+        x_16_2 = attention(x,    embedding, parameters, subkey = subkey.pop(), local_num_shift = 4, cfg=cfg, param_asso=param_asso, sub_model_num=2)
+        # maxpool (changes shapes)
+        x_8_0 = naive_downsample_2d(resnet_ff, factor = maxpool_factor)
 
-        d30,d31,d32 = down_resnet(x_in = d22, 
-                                  embedding = embedding, 
-                                  parameters = parameters, 
-                                  subkey = subkey[3], 
-                                  cfg = cfg.model, 
-                                  param_asso = param_asso, 
-                                  sub_model_num = 3, 
-                                  local_num_shift = 0, 
-                                  maxpool_factor = 2) # 8x8 -> 4x4        C_out = 512
+        # Down ResNet 3
+        x_8_1 = resnet_ff(x_8_0,    embedding, parameters,subkey = subkey.pop(), local_num_shift = 0, cfg=cfg, param_asso=param_asso, sub_model_num=3)
+        x_8_2 = resnet_ff(x_8_1,      embedding, parameters,subkey = subkey.pop(), local_num_shift = 2, cfg=cfg, param_asso= param_asso,sub_model_num=3)
+        # maxpool (changes shape)
+        x_4_0 = naive_downsample_2d(x_8_2, factor = maxpool_factor)
 
-        d40,d41,_   = down_resnet(x_in = d32, 
-                                  embedding = embedding, 
-                                  parameters = parameters, 
-                                  subkey = subkey[4], 
-                                  cfg = cfg.model, 
-                                  param_asso = param_asso, 
-                                  sub_model_num = 4, 
-                                  local_num_shift = 0, 
-                                  maxpool_factor = 1) # 4x4 -> 4x4        C_out = 512
+        # Down ResNet 4
+        x_4_1 = resnet_ff(x_4_0,    embedding, parameters,subkey = subkey.pop(), local_num_shift = 0, cfg=cfg, param_asso=param_asso, sub_model_num=4)
+        x_4_2 = resnet_ff(x_4_1,      embedding, parameters,subkey = subkey.pop(), local_num_shift = 2, cfg=cfg, param_asso= param_asso,sub_model_num=4)
+        
 
-        ## middle
-        m = resnet_ff(            x_in = d41, 
+        ### MIDDLE ###
+        # ff 5
+        x = resnet_ff(            x_in = x_4_2, 
                                   embedding = embedding, 
                                   parameters = parameters, 
-                                  subkey = subkey[5], 
+                                  subkey = subkey.pop(), 
                                   cfg = cfg.model, 
                                   param_asso = param_asso, 
                                   sub_model_num = 5, 
                                   local_num_shift = 0, ) # 4x4 -> 4x4
-
-        m = attention(            x_in = m, 
+        # attn 6
+        x = attention(            x_in = x, 
                                   embedding = embedding, 
                                   parameters = parameters, 
-                                  subkey = subkey[6], 
+                                  subkey = subkey.pop(), 
                                   cfg = cfg.model, 
                                   param_asso = param_asso, 
                                   sub_model_num = 6, 
                                   local_num_shift = 0, ) # 4x4 -> 4x4
-
-        m = resnet_ff(            x_in = m, 
+        # ff 7
+        x = resnet_ff(            x_in = x, 
                                   embedding = embedding, 
                                   parameters = parameters, 
-                                  subkey = subkey[7], 
+                                  subkey = subkey.pop(), 
                                   cfg = cfg.model, 
                                   param_asso = param_asso, 
                                   sub_model_num = 7, 
                                   local_num_shift = 0, ) # 4x4 -> 4x4   C_out = 512
 
-        ## up
-        u = up_resnet(            x_in = m, 
-                                  x_res0 = d41, 
-                                  x_res1 = d40, 
-                                  x_res2 = d32,
-                                  embedding = embedding, 
-                                  parameters = parameters, 
-                                  subkey = subkey[8], 
-                                  cfg = cfg.model, 
-                                  param_asso = param_asso, 
-                                  sub_model_num = 8, 
-                                  local_num_shift = 0, ) # 4x4 -> 4x4   C_out = 512
+        # Up ResNet 8
+        x = resnet_ff(jnp.concatenate([x_in,x_4_2],axis=-1), embedding, parameters,subkey=subkey.pop(), cfg=cfg, param_asso=param_asso, sub_model_num=8, local_num_shift = 0)
+        x = resnet_ff(jnp.concatenate([x,x_4_1],axis=-1), embedding, parameters,subkey=subkey.pop(), cfg=cfg, param_asso=param_asso, sub_model_num=8, local_num_shift = 2)
+        x = resnet_ff(jnp.concatenate([x,x_4_0],axis=-1), embedding, parameters,subkey=subkey.pop(), cfg=cfg, param_asso=param_asso, sub_model_num=8, local_num_shift = 4)
+        # Upsample
+        x = upsample2d(           x, factor=upsampling_factor) # 16x16 -> 32x32
 
-        u = upsample2d(           u, factor=upsampling_factor) # 4x4 -> 8x8
+        # Up ResNet 9
+        x = resnet_ff(jnp.concatenate([x_in,x_8_2],axis=-1), embedding, parameters,subkey=subkey.pop(), cfg=cfg, param_asso=param_asso, sub_model_num=9, local_num_shift = 0)
+        x = resnet_ff(jnp.concatenate([x,x_8_1],axis=-1), embedding, parameters,subkey=subkey.pop(), cfg=cfg, param_asso=param_asso, sub_model_num=9, local_num_shift = 2)
+        x = resnet_ff(jnp.concatenate([x,x_8_0],axis=-1), embedding, parameters,subkey=subkey.pop(), cfg=cfg, param_asso=param_asso, sub_model_num=9, local_num_shift = 4)
+        # Upsample
+        x = upsample2d(           x, factor=upsampling_factor) # 16x16 -> 32x32
 
-        u = up_resnet(            x_in = u, 
-                                  x_res0 = d31, 
-                                  x_res1 = d30, 
-                                  x_res2 = d22,
-                                  embedding = embedding, 
-                                  parameters = parameters, 
-                                  subkey = subkey[9], 
-                                  cfg = cfg.model, 
-                                  param_asso = param_asso, 
-                                  sub_model_num = 9, 
-                                  local_num_shift = 0, ) # 8x8 -> 8x8   C_out = 512
+        # Up ResNet Attn 10
+        x = resnet_ff(jnp.concatenate((x_in,x_16_2),axis=-1), embedding, parameters,subkey=subkey.pop(), cfg=cfg, param_asso=param_asso, sub_model_num=10, local_num_shift = 0)
+        x = attention(x, embedding, parameters, subkey = subkey[1], local_num_shift = 0, cfg=cfg, param_asso=param_asso, sub_model_num=10)
+        x = resnet_ff(jnp.concatenate((x,x_16_1),axis=-1), embedding, parameters,subkey=subkey.pop(), cfg=cfg, param_asso=param_asso, sub_model_num=10, local_num_shift = 2)
+        x = attention(x, embedding, parameters, subkey = subkey[3], local_num_shift = 4, cfg=cfg, param_asso=param_asso, sub_model_num=10)
+        x = resnet_ff(jnp.concatenate((x,x_16_0),axis=-1), embedding, parameters,subkey=subkey.pop(), cfg=cfg, param_asso=param_asso, sub_model_num=10, local_num_shift = 4)
+        x = attention(x, embedding, parameters, subkey = subkey[5], local_num_shift = 8, cfg=cfg, param_asso=param_asso, sub_model_num=10)
 
-        u = upsample2d(           u, factor=upsampling_factor) # 8x8 -> 16x16
 
-        u = up_resnet_attn(       x_in = u, 
-                                  x_res0 = d21, 
-                                  x_res1 = d20, 
-                                  x_res2 = d12,
-                                  embedding = embedding, 
-                                  parameters = parameters, 
-                                  subkey = subkey[10], 
-                                  cfg = cfg.model, 
-                                  param_asso = param_asso, 
-                                  sub_model_num = 10, 
-                                  local_num_shift = 0, ) # 16x16 -> 16x16 C_out = 256
+        # Up ResNet 11
+        x = resnet_ff(jnp.concatenate([x_in,x_32_2],axis=-1), embedding, parameters,subkey=subkey.pop(), cfg=cfg, param_asso=param_asso, sub_model_num=11, local_num_shift = 0)
+        x = resnet_ff(jnp.concatenate([x,x_32_1],axis=-1), embedding, parameters,subkey=subkey.pop(), cfg=cfg, param_asso=param_asso, sub_model_num=11, local_num_shift = 2)
+        x = resnet_ff(jnp.concatenate([x,x_32_0],axis=-1), embedding, parameters,subkey=subkey.pop(), cfg=cfg, param_asso=param_asso, sub_model_num=11, local_num_shift = 4)
 
-        u = upsample2d(           u, factor=upsampling_factor) # 16x16 -> 32x32
-
-        u = up_resnet(            x_in = u, 
-                                  x_res0 = d11, 
-                                  x_res1 = d10, 
-                                  x_res2 = d0,
-                                  embedding = embedding, 
-                                  parameters = parameters, 
-                                  subkey = subkey[11], 
-                                  cfg = cfg.model, 
-                                  param_asso = param_asso, 
-                                  sub_model_num = 11, 
-                                  local_num_shift = 0, ) # 32x32 -> 32x32 C_out = 128
 
         #3 end
-        e = u # vmap(batchnorm_12,axis_name="batch")(u.transpose(0,3,2,1)).transpose(0,3,2,1)
-        e = nn.relu(e)
-        e = lax.conv_general_dilated( 
-                lhs = e,    
+        x = x # vmap(batchnorm_12,axis_name="batch")(u.transpose(0,3,2,1)).transpose(0,3,2,1)
+        x = nn.relu(x)
+        x = lax.conv_general_dilated( 
+                lhs = x,    
                 rhs = parameters[0][-1], # kernel is the conv [0] and the last entry of these [-1]
                 window_strides = [1,1], 
                 padding = 'same',
@@ -201,7 +164,7 @@ def get_ddpm_unet(cfg):
                 )
 
         # return to shape loss can take (input shape)
-        x_out = e.reshape(x_in_shape) 
+        x_out = x.reshape(x_in_shape) 
 
         return x_out
 
@@ -265,7 +228,3 @@ def get_parameters(cfg, key):
         # jnp.array(mpa)[:,0]
 
         return parameters, key
-
-if __name__ == "__name__":
-    import os
-    os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
