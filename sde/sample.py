@@ -41,7 +41,7 @@ if __name__ == "__main__":
     key, subkey = jrandom.split(key)
     print(xt.shape)
     print(model(data, t, param, subkey))
-    print(sde.reverse_drift(xt[0], t[0], [model, param, subkey]))
+    print(sde.reverse_drift(xt[0], t.reshape(-1,1)[0], [model, param, subkey]))
     #sample(0, 0, t[0], -1/1000, drift, diffusion, param, xt[0],subkey )
 
     
