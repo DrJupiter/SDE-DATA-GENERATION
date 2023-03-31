@@ -3,8 +3,8 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 
-from sde.sde_class import SDE
-#from sde_class import SDE
+#from sde.sde_class import SDE
+from sde_class import SDE
 import jax
 from jax import numpy as jnp
 
@@ -64,9 +64,9 @@ class SUBVPSDE(SDE):
     def diffusion(self, _x, t):
         return (self.beta_min + t * (self.beta_max-self.beta_min))**(1/2)
 
-    def reverse_drift(self, x, t, sm, *args):
-        
-        return self.drift(x,t) - sm(x,t, *args) * self.diffusion(x,t)**2 
+    def reverse_drift(self, x, t, args):
+        sm = args[0] 
+        return self.drift(x,t) - sm(x,t, *args[1:]) * self.diffusion(x,t)**2 
     
     def reverse_diffusion(self, x, t, sm, *args):
         return self.diffusion(x, t)

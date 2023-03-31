@@ -1,5 +1,5 @@
-from sde.subvp import SUBVPSDE 
-#from subvp import SUBVPSDE 
+#from sde.subvp import SUBVPSDE 
+from subvp import SUBVPSDE 
 
 def get_sde(cfg):
     if cfg.sde.name == "paper_subvp":

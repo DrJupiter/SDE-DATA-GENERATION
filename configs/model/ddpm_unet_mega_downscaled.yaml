@@ -1,5 +1,5 @@
 name: ddpm_unet
-type: function
+type: class
 key: 4269
 parameters: 
   img_h: 32
