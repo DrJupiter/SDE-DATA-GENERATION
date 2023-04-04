@@ -39,21 +39,18 @@ def logit(p):
     """logit function using the natrual log"""
     return jnp.log(p/(1-p))
 
-@jit
 def rescale_to_logit(cfg,x):
     """Transforms x to logit space\n
     CITE: 4.3 in https://arxiv.org/pdf/1705.07057.pdf """
-    lamb = cfg.dataset.lamb
+    lamb = float(cfg.dataset.lamb)
     return logit(lamb + (1-2*lamb)*x)
 
-@jit
 def rescale_logit_to_img(cfg,z):
     """Transforms logit into [0,256]\n
     CITE: E2 in https://arxiv.org/pdf/1705.07057.pdf"""
-    lamb = cfg.dataset.lamb
+    lamb = float(cfg.dataset.lamb)
     return logit(lamb + (1-2*lamb)*(z/256))
 
-@jit
 def rescale_sigmoid_img(x):
     factor = 0.05 # -500;500 -> 0;10
     max_val = 255
