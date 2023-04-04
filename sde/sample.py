@@ -29,7 +29,7 @@ if __name__ == "__main__":
     key, subkey = jrandom.split(key)
     data, label = next(iter_train) 
     data = jnp.array(data.numpy(), dtype=jnp.float32)
-    t = jrandom.uniform(subkey, (data.shape[0],), minval=0, maxval=1)
+    t = jrandom.uniform(subkey, (data.shape[0],), minval=0, maxval=1).reshape(-1, 1)
     print(t)
     key, subkey = jrandom.split(key)
     from models.model import get_model
