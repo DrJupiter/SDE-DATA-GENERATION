@@ -5,7 +5,7 @@ from diffrax import diffeqsolve, ControlTerm, Euler, MultiTerm, ODETerm, SaveAt,
 def sample(t, t0, t1, dt0, drift, diffusion, args, y0, key, tol=1e-3, reverse=True):
     brownian_motion = VirtualBrownianTree(t0, t1, tol=tol, shape=y0.shape, key=key)
     terms = MultiTerm(ODETerm(drift), ControlTerm(diffusion, brownian_motion))
-    solver = Euler() # Ito something soemthing
+    solver = Euler() # Ito something 
     saveat = SaveAt(dense=True)
 
     if reverse:
@@ -45,6 +45,11 @@ if __name__ == "__main__":
     print(sde.reverse_diffusion(xt[0], t.reshape(-1,1)[0], [model, param, subkey]))
     
     key, *subkey = jrandom.split(key, 3)
-    sample(0, 0, t[0], -1/1000, lambda t,y, args: sde.reverse_drift(y, t, args), lambda t,y, args: sde.reverse_diffusion(y, t, args), [model, param, subkey[0]], xt[0], subkey[1] )
-
+    drift = lambda t,y, args: sde.reverse_drift(y, jnp.array([t]), args)
+    diffusion = lambda t,y, args: sde.reverse_diffusion(y, jnp.array([t]), args)
+    #drift = lambda t, y, args: -y
+    #diffusion = lambda t, y, args: jnp.identity(y.shape[0])
+    x0 = sample(0, 0, float(t[0]), -1/1000, drift , diffusion, [model, param, subkey[0]], xt[0], subkey[1] )
+    from visualization.visualize import display_images
+    display_images(config, [x0], titles=label)
     
