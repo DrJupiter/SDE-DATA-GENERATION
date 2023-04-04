@@ -2,9 +2,6 @@ name: ddpm_unet
 type: function
 key: 4269
 parameters: 
-  img_h: 32
-  img_w: 32
-  batch_size: 3
   momentum: 0.99
   eps: 0.00001
   dropout_p: 0.1

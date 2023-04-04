@@ -3,8 +3,8 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 
-from sde_class import SDE
-#from sde.sde_class import SDE
+# from sde_class import SDE
+from sde.sde_class import SDE
 import jax
 from jax import numpy as jnp
 

@@ -3,9 +3,6 @@ type: function
 key: 4269
 size: big
 parameters: 
-  img_h: 32
-  img_w: 32
-  batch_size: 3
   momentum: 0.99
   eps: 0.00001
   dropout_p: 0.1

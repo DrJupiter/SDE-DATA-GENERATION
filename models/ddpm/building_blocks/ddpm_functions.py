@@ -7,17 +7,6 @@ from jax import lax
 
 # Equinox
 
-# TODO: register class with jax?
-# Inherit from equinox module to solve this
-
-# TODO: create smaller test model, maybe like down_resnet_attn -> up_resnet_attn, and see if it crashes 
-
-# TODO: Try to remove all batchnorm, and see if it works (this can make it all into pure functions)
-
-# TODO: Try with and without skip connections (just pass blank imgs in instead of correct imgs, so as to not have the loss propagate through those.)
-
-# TODO: Worst case reimplement with equinox. Shouldnt take too long, as i got all the info, and have basically done it before.
-
 ######################## Basic building blocks ########################
 
 def naive_downsample_2d(x, factor=2):
@@ -236,3 +225,4 @@ def up_resnet_attn(x_in, x_res0, x_res1, x_res2, embedding, parameters, subkey, 
     x = attention(x, embedding, parameters, subkey = subkey[5], local_num_shift = local_num_shift+8, cfg=cfg, param_asso=param_asso, sub_model_num=sub_model_num)
 
     return x
+
