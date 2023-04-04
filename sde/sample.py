@@ -49,7 +49,9 @@ if __name__ == "__main__":
     diffusion = lambda t,y, args: sde.reverse_diffusion(y, jnp.array([t]), args)
     #drift = lambda t, y, args: -y
     #diffusion = lambda t, y, args: jnp.identity(y.shape[0])
-    x0 = sample(0, 0, float(t[0]), -1/1000, drift , diffusion, [model, param, subkey[0]], xt[0], subkey[1] )
+    from utils.utils import rescale_logit_to_img, rescale_to_logit
+    x_in  = rescale_to_logit(config, xt[0])
+    x0 = sample(0, 0, float(t[0]), -1/1000, drift , diffusion, [model, param, subkey[0]], x_in, subkey[1] )
     from visualization.visualize import display_images
-    display_images(config, [x0], titles=label)
+    display_images(config, [rescale_logit_to_img(config, x0)], titles=label)
     
