@@ -56,6 +56,64 @@ def get_timestep_embedding(timesteps, embedding_dim: int):
         assert emb.shape == (timesteps.shape[0], embedding_dim)
         return emb
 
+def get_resnet_ff(cfg, param_asso, sub_model_num, local_num_shift):
+
+    # Find which and amount parameters this model needs
+    prior = param_asso[:sub_model_num].sum(axis=0)
+    current = param_asso[:sub_model_num+1].sum(axis=0)
+
+    # get the indexes for each type of parameter we need
+    conv_params_idx = range(prior[0],current[0])
+    s_lin_params = range(prior[1],current[1])
+    time_lin_params_idx = range(prior[2],current[2])
+
+    # Find which and amount parameters this model needs
+    # prior = param_asso[:sub_model_num].sum(axis=0)
+    # current = param_asso[:sub_model_num+1].sum(axis=0)
+
+    def resnet(x_in, embedding, parameters, subkey):
+        # store local parameter "location" for use in forward 
+
+        # Get linear parameters needed later
+        w_embed = parameters[2][0][time_lin_params_idx[local_num_shift]]
+        b_embed = parameters[2][1][time_lin_params_idx[local_num_shift]]
+
+        # skip connection parameters
+        w_skip = parameters[1][0][s_lin_params[0+local_num_shift]]
+        b_skip = parameters[1][1][s_lin_params[0+local_num_shift]]
+
+        # Apply the function to the input data
+        x = x_in+0.0 # to counter memory share problems
+        # vmap(batchnorm0,axis_name="batch")(x_in.transpose(0,3,2,1)).transpose(0,3,2,1) # batchnorm
+        x = nn.relu(x)
+        x = lax.conv_general_dilated( 
+                lhs = x,    
+                rhs = parameters[0][conv_params_idx[0+local_num_shift*2]], 
+                window_strides = [1,1], 
+                padding = 'same',
+                dimension_numbers = ('NHWC', 'HWIO', 'NHWC')
+                )
+        x = nn.relu(x)
+        x = x + (jnp.matmul(nn.relu(embedding), w_embed) + b_embed)[:, None, None, :] # introducing time embedding
+        #x = vmap(batchnorm1,axis_name="batch")(x.transpose(0,3,2,1)).transpose(0,3,2,1) 
+        x = nn.relu(x)
+        #x = dropout(x,key = subkey)
+        x = lax.conv_general_dilated( 
+                lhs = x,    
+                rhs = parameters[0][conv_params_idx[1+local_num_shift*2]], 
+                window_strides = [1,1], 
+                padding = 'same',
+                dimension_numbers = ('NHWC', 'HWIO', 'NHWC')
+                )
+        
+        # perform skip connection
+        x_in = jnp.einsum('bhwc,cC->bhwC', x_in, w_skip) + b_skip
+
+        # add skip connections
+        return x+x_in
+
+    return resnet
+
 def resnet(x_in, embedding, parameters, subkey, cfg, param_asso, sub_model_num, local_num_shift):
     # store local parameter "location" for use in forward 
     # sub_model_num = sub_model_num
@@ -123,6 +181,56 @@ def resnet_ff(x_in, embedding, parameters, subkey, cfg, param_asso, sub_model_nu
 
     # add and return
     return x+x_in
+
+def get_attention(cfg, param_asso, sub_model_num, local_num_shift):
+    # store atten shapes for later use
+    # attn_shapes = cfg.parameters.attention_linear
+
+    # Find which and amount parameters this model needs
+    prior = param_asso[:sub_model_num].sum(axis=0)
+    current = param_asso[:sub_model_num+1].sum(axis=0)
+
+    # get the indexes for each type of parameter we need. 3 corresponds to attention
+    attn_lin_params_idx = range(prior[3],current[3])
+
+    def attn(x_in, embedding, parameters, subkey):
+
+        # Get shape for reshapes later
+        B, H, W, C = x_in.shape
+
+        # Get parameters needed for call
+        w1 = parameters[3][0][attn_lin_params_idx[0+local_num_shift*4]]
+        w2 = parameters[3][0][attn_lin_params_idx[1+local_num_shift*4]]
+        w3 = parameters[3][0][attn_lin_params_idx[2+local_num_shift*4]]
+        w4 = parameters[3][0][attn_lin_params_idx[3+local_num_shift*4]]
+
+        b1 = parameters[3][1][attn_lin_params_idx[0+local_num_shift*4]]
+        b2 = parameters[3][1][attn_lin_params_idx[1+local_num_shift*4]]
+        b3 = parameters[3][1][attn_lin_params_idx[2+local_num_shift*4]]
+        b4 = parameters[3][1][attn_lin_params_idx[3+local_num_shift*4]]
+
+        # normalization
+        x = x_in+0.0 #vmap(batchnorm0,axis_name="batch")(x_in.transpose(0,3,2,1)).transpose(0,3,2,1)
+
+        # qkv linear passes
+        q = jnp.einsum('bhwc,cC->bhwC', x, w1)+b1
+        k = jnp.einsum('bhwc,cC->bhwC', x, w2)+b2
+        v = jnp.einsum('bhwc,cC->bhwC', x, w3)+b3
+
+        # scaled dot production attention (sdpa)
+        sdpa = jnp.einsum('bhwc,bHWc->bhwHW', q, k) / (jnp.sqrt(C))
+        sdpa = sdpa.reshape(B, H, W, H * W)
+        sdpa = nn.softmax(sdpa, -1)
+        sdpa = sdpa.reshape(B, H, W, H, W)
+
+        # compute the final outputs
+        x = jnp.einsum('bhwHW,bHWc->bhwc', sdpa, v)
+        x = jnp.einsum('bhwc,cC->bhwC', x, w4)+b4
+
+        # sum and return
+        return x+x_in
+
+    return attn
 
 def attention(x_in, embedding, parameters, subkey, cfg, param_asso, sub_model_num, local_num_shift):
     # store atten shapes for later use

@@ -8,7 +8,7 @@ from models.dummy import dummy_jax
 # import optax
 
 #from models.ddpm.ddpm_unet_funcs import ddpm_unet, get_parameters as func_ddpm_unet, func_get_parameters
-from models.ddpm.ddpm_unet_functional_small import get_ddpm_unet as get_ddpm_unet_small, get_parameters as get_parameters_small
+# from models.ddpm.ddpm_unet_functional_small import get_ddpm_unet as get_ddpm_unet_small, get_parameters as get_parameters_small
 
 from models.ddpm.ddpm_func_deconstruct import get_ddpm_unet 
 # from models.ddpm.ddpm_unet_functional import get_ddpm_unet
@@ -24,12 +24,8 @@ def get_model(cfg, key):
         return dummy_jax.get_parameters(cfg), dummy_jax.model_call
     elif cfg.model.name == "ddpm_unet":
         if cfg.model.type == "function":
-            if cfg.model.size == "small":
-                params, key = get_parameters_small(cfg, key)
-                return params, get_ddpm_unet_small(cfg) 
-            else:
-                params, key = get_parameters(cfg, key)
-                return params, get_ddpm_unet(cfg) 
+            params, key = get_parameters(cfg, key)
+            return params, get_ddpm_unet(cfg) 
         elif cfg.model.type == "class":
             model = class_ddpm_unet(cfg)
             return model.get_parameters(cfg, key), model.forward
