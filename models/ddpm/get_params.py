@@ -1,4 +1,5 @@
 from jax import random
+import jax.numpy as jnp
 def get_parameters(cfg, key):
         key = random.PRNGKey(cfg.model.key)
 

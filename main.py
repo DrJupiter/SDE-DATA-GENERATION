@@ -16,6 +16,8 @@ os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 
 import jax
 import jax.numpy as jnp
+from functools import partial
+
 # Data
 from data.dataload import dataload 
 
@@ -78,19 +80,19 @@ def run_experiment(cfg):
 
     # get loss functions and convert to grad function
     loss_fn = get_loss(cfg) # loss_fn(func, function_parameters, data, time, key)
-    grad_fn = jax.grad(loss_fn,1)
+    grad_fn = jax.grad(loss_fn,1) # TODO: try to JIT function partial(jax.jit,static_argnums=0)(jax.grad(loss_fn,1))
 
     # start training for each epoch
     for epoch in range(cfg.train_and_test.train.epochs): 
         for i, (data, labels) in enumerate(train_dataset): # batch training
-			
+
             # transform data into numpy, so jax will transform it into jax when used
             data = jnp.array(data.numpy(), dtype=jnp.float32)
 
             # split key to keep randomness "random" for each training batch
             key, *subkey = jax.random.split(key, 4)
 
-            # get tiemsteps given random key for this batch and data shape
+            # get timesteps given random key for this batch and data shape
             timesteps = jax.random.uniform(subkey[0], (data.shape[0],), minval=0, maxval=1)
 
             # Perturb the data with the timesteps trhough sampling sde trick (for speed, see paper for explanation)

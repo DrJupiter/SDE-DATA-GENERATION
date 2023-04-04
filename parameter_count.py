@@ -206,4 +206,4 @@ for param in giant_dummy_params:
 count
 # %%
 
-count/true_model_count
+true_model_count

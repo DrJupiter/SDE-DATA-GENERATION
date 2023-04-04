@@ -10,10 +10,12 @@ from jax import nn
 from jax import lax
 
 # Equinox
-
+# TODO: remove everything from the function itself, by defining another function that creates this function with the params already defined, as such we remove the repeatable unessary code
 # TODO: replace all einsubs with matmul and the opposite
-# TODO: Deconstruct entire thing and manually inseart indexs for params
+    # TODO: Deconstruct entire thing and manually inseart indexs for params
 # TODO: try jit on grad as we for some reason dont do it now
+
+# TODO: rewrite it all in equinox
 
 
 ######################## Basic building blocks ########################
@@ -143,7 +145,7 @@ def get_ddpm_unet(cfg):
         x = resnet_ff(jnp.concatenate((x,x_16_0),axis=-1), embedding, parameters,subkey=subkey.pop(), cfg=cfg, param_asso=param_asso, sub_model_num=10, local_num_shift = 4)
         x = attention(x, embedding, parameters, subkey = subkey[5], local_num_shift = 8, cfg=cfg, param_asso=param_asso, sub_model_num=10)
         # Upsample
-        x = upsample2d(           x, factor=upsampling_factor) # 16x16 -> 32x32
+        x = upsample2d(x, factor=upsampling_factor) # 16x16 -> 32x32
 
 
         # Up ResNet 11

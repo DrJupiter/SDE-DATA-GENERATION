@@ -58,8 +58,8 @@ def get_timestep_embedding(timesteps, embedding_dim: int):
 
 def resnet(x_in, embedding, parameters, subkey, cfg, param_asso, sub_model_num, local_num_shift):
     # store local parameter "location" for use in forward 
-    sub_model_num = sub_model_num
-    local_num_shift = local_num_shift
+    # sub_model_num = sub_model_num
+    # local_num_shift = local_num_shift
 
     # get shapes of all convolution channels, so we can extract the correct ones given our local parameter location
     # conv_shapes = cfg.parameters.conv_channels
@@ -102,8 +102,8 @@ def resnet(x_in, embedding, parameters, subkey, cfg, param_asso, sub_model_num, 
 
 def resnet_ff(x_in, embedding, parameters, subkey, cfg, param_asso, sub_model_num, local_num_shift):
     # store local parameter "location" for use in forward 
-    sub_model_num = sub_model_num
-    local_num_shift = local_num_shift
+    # sub_model_num = sub_model_num
+    # local_num_shift = local_num_shift
     
     # Find which and amount parameters this model needs
     prior = param_asso[:sub_model_num].sum(axis=0)
