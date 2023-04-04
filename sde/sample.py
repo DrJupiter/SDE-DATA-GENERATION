@@ -44,6 +44,7 @@ if __name__ == "__main__":
     print(sde.reverse_drift(xt[0], t.reshape(-1,1)[0], [model, param, subkey]))
     print(sde.reverse_diffusion(xt[0], t.reshape(-1,1)[0], [model, param, subkey]))
     
-    #sample(0, 0, t[0], -1/1000, drift, diffusion, param, xt[0],subkey )
+    key, *subkey = jrandom.split(key, 3)
+    sample(0, 0, t[0], -1/1000, sde.reverse_drift, sde.reverse_diffusion, [model, param, subkey[0]], xt[0], subkey[1] )
 
     

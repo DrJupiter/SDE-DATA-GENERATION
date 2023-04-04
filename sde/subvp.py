@@ -68,7 +68,7 @@ class SUBVPSDE(SDE):
         sm = args[0] 
         return self.drift(x,t) - sm(x,t, *args[1:]) * self.diffusion(x,t)**2 
     
-    def reverse_diffusion(self, x, t, sm, *args):
+    def reverse_diffusion(self, x, t, args):
         return self.diffusion(x, t)
 
     def __repr__(self) -> str:
