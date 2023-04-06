@@ -4,8 +4,10 @@ from jax import grad, jit, vmap
 from jax import random
 from jax import nn
 from jax import lax
+import jax
 
 # Equinox
+import equinox as eqx
 
 ######################## Basic building blocks ########################
 
@@ -56,131 +58,47 @@ def get_timestep_embedding(timesteps, embedding_dim: int):
         assert emb.shape == (timesteps.shape[0], embedding_dim)
         return emb
 
-def get_resnet_ff(cfg, param_asso, sub_model_num, local_num_shift):
+class resnet_ff(eqx.Module):
+    conv_layers: list
+    linear_layers: list
 
-    # Find which and amount parameters this model needs
-    prior = param_asso[:sub_model_num].sum(axis=0)
-    current = param_asso[:sub_model_num+1].sum(axis=0)
+    def __init__(self, cfg, in_channel, out_channel, embedding_dim, key) -> None:
+        """Initialises the ResNet Block, see paper for further explanation of this class"""
 
-    # get the indexes for each type of parameter we need
-    conv_params_idx = range(prior[0],current[0])
-    s_lin_params = range(prior[1],current[1])
-    time_lin_params_idx = range(prior[2],current[2])
+        keys = jax.random.split(key, 4)
 
-    # Find which and amount parameters this model needs
-    # prior = param_asso[:sub_model_num].sum(axis=0)
-    # current = param_asso[:sub_model_num+1].sum(axis=0)
+        conv0 = eqx.nn.conv(num_spatial_dims = 2, in_channels = in_channel, out_channels = out_channel, key = keys[0])
+        conv1 = eqx.nn.conv(num_spatial_dims = 2, in_channels = out_channel, out_channels = out_channel, key = keys[1])
 
-    def resnet(x_in, embedding, parameters, subkey):
+        self.conv_layers = [conv0,conv1]
+
+        self.linear_layers = [
+            eqx.nn.Linear(embedding_dim, out_channel, key=keys[2]),
+            eqx.nn.Linear(in_channel, out_channel, key=keys[2])
+            ]
+
+    def __call__(self, x_in, embedding, parameters, subkey):
         # store local parameter "location" for use in forward 
 
         # Get linear parameters needed later
-        w_embed = parameters[2][0][time_lin_params_idx[local_num_shift]]
-        b_embed = parameters[2][1][time_lin_params_idx[local_num_shift]]
-
-        # skip connection parameters
-        w_skip = parameters[1][0][s_lin_params[0+local_num_shift]]
-        b_skip = parameters[1][1][s_lin_params[0+local_num_shift]]
 
         # Apply the function to the input data
         x = x_in+0.0 # to counter memory share problems
         # vmap(batchnorm0,axis_name="batch")(x_in.transpose(0,3,2,1)).transpose(0,3,2,1) # batchnorm
         x = nn.relu(x)
-        x = lax.conv_general_dilated( 
-                lhs = x,    
-                rhs = parameters[0][conv_params_idx[0+local_num_shift*2]], 
-                window_strides = [1,1], 
-                padding = 'same',
-                dimension_numbers = ('NHWC', 'HWIO', 'NHWC')
-                )
+        x = self.conv_layers[0](x)
         x = nn.relu(x)
-        x = x + (jnp.matmul(nn.relu(embedding), w_embed) + b_embed)[:, None, None, :] # introducing time embedding
+        x = x + self.linear_layers[0](x)[:, None, None, :] # introducing time embedding
         #x = vmap(batchnorm1,axis_name="batch")(x.transpose(0,3,2,1)).transpose(0,3,2,1) 
         x = nn.relu(x)
         #x = dropout(x,key = subkey)
-        x = lax.conv_general_dilated( 
-                lhs = x,    
-                rhs = parameters[0][conv_params_idx[1+local_num_shift*2]], 
-                window_strides = [1,1], 
-                padding = 'same',
-                dimension_numbers = ('NHWC', 'HWIO', 'NHWC')
-                )
+        x = self.conv_layers[1](x)
         
         # perform skip connection
-        x_in = jnp.einsum('bhwc,cC->bhwC', x_in, w_skip) + b_skip
+        x_in = self.linear_layers[1](x)
 
         # add skip connections
         return x+x_in
-
-    return resnet
-
-def resnet(x_in, embedding, parameters, subkey, cfg, param_asso, sub_model_num, local_num_shift):
-    # store local parameter "location" for use in forward 
-    # sub_model_num = sub_model_num
-    # local_num_shift = local_num_shift
-
-    # get shapes of all convolution channels, so we can extract the correct ones given our local parameter location
-    # conv_shapes = cfg.parameters.conv_channels
-
-    # Find which and amount parameters this model needs
-    prior = param_asso[:sub_model_num].sum(axis=0)
-    current = param_asso[:sub_model_num+1].sum(axis=0)
-
-    # get the indexes for each type of parameter we need
-    conv_params_idx = range(prior[0],current[0])
-    time_lin_params_idx = range(prior[2],current[2])
-
-    # Get linear parameters needed later
-    w = parameters[2][0][time_lin_params_idx[local_num_shift//2]]
-    b = parameters[2][1][time_lin_params_idx[local_num_shift//2]]
-
-    # Apply the function to the input data
-    x = x_in # vmap(batchnorm0,axis_name="batch")(x_in.transpose(0,3,2,1)).transpose(0,3,2,1) # batchnorm
-    x = nn.relu(x)
-    x = lax.conv_general_dilated( 
-            lhs = x,    
-            rhs = parameters[0][conv_params_idx[0+local_num_shift]], 
-            window_strides = [1,1], 
-            padding = 'same',
-            dimension_numbers = ('NHWC', 'HWIO', 'NHWC')
-            )
-    x = nn.relu(x)
-    x = x + (jnp.matmul(nn.relu(embedding), w)+b)[:, None, None, :] # introducing time embedding
-    #x = vmap(batchnorm1,axis_name="batch")(x.transpose(0,3,2,1)).transpose(0,3,2,1) 
-    x = nn.relu(x)
-    #x = dropout(x,key = subkey)
-    x = lax.conv_general_dilated( 
-            lhs = x,    
-            rhs = parameters[0][conv_params_idx[1+local_num_shift]], 
-            window_strides = [1,1], 
-            padding = 'same',
-            dimension_numbers = ('NHWC', 'HWIO', 'NHWC')
-            )
-    return x
-
-def resnet_ff(x_in, embedding, parameters, subkey, cfg, param_asso, sub_model_num, local_num_shift):
-    # store local parameter "location" for use in forward 
-    # sub_model_num = sub_model_num
-    # local_num_shift = local_num_shift
-    
-    # Find which and amount parameters this model needs
-    prior = param_asso[:sub_model_num].sum(axis=0)
-    current = param_asso[:sub_model_num+1].sum(axis=0)
-
-    # get the indexes for each type of parameter we need. 1 corresponds to skip connections
-    s_lin_params = range(prior[1],current[1])
-
-    w = parameters[1][0][s_lin_params[0+local_num_shift//2]]
-    b = parameters[1][1][s_lin_params[0+local_num_shift//2]]
-
-    # call chain, built on resnet
-    x = resnet(x_in, embedding, parameters, subkey, cfg, param_asso, sub_model_num, local_num_shift)
-
-    # perform skip connection
-    x_in = jnp.einsum('bhwc,cC->bhwC', x, w) + b
-
-    # add and return
-    return x+x_in
 
 def get_attention(cfg, param_asso, sub_model_num, local_num_shift):
     # store atten shapes for later use

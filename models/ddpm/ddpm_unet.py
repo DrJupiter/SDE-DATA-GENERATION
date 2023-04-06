@@ -9,17 +9,6 @@ from jax import lax
 # Equinox
 import equinox as eqx
 
-# TODO: register class with jax?
-# Inherit from equinox module to solve this
-
-# TODO: create smaller test model, maybe like down_resnet_attn -> up_resnet_attn, and see if it crashes 
-
-# TODO: Try to remove all batchnorm, and see if it works (this can make it all into pure functions)
-
-# TODO: Try with and without skip connections (just pass blank imgs in instead of correct imgs, so as to not have the loss propagate through those.)
-
-# TODO: Worst case reimplement with equinox. Shouldnt take too long, as i got all the info, and have basically done it before.
-
 ######################## MODEL ########################
 
 from models.ddpm.building_blocks.ddpm_class import down_resnet, down_resnet_attn, up_resnet, up_resnet_attn, upsample2d, resnet_ff, attention
