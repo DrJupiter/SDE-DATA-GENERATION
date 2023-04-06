@@ -76,6 +76,8 @@ class SUBVPSDE(SDE):
 
 if __name__ == "__main__":
     from utils.utils import get_hydra_config
+    from visualization.visualize import display_images
+    import sys
     config = get_hydra_config(overrides=["visualization.visualize_img=true","wandb.log.img=false"]) 
     subvpsde = SUBVPSDE(config)
     print(subvpsde)
@@ -85,17 +87,17 @@ if __name__ == "__main__":
     key = jax.random.PRNGKey(0)
     key, subkey = jax.random.split(key)
     data, label = next(iter_train) 
-    t = jax.random.uniform(subkey, (data.shape[0],), minval=0, maxval=1)
-    print(t)
-    print(key)
-
-    xt = subvpsde.sample(t, data, key)
-    print(jnp.where(xt<0))
-    from visualization.visualize import display_images
     if config.dataset.name == 'cifar10':
         label = [config.dataset.classes[int(idx)] for idx in label]
+    print(data)
+    data = jnp.array(data, dtype=jnp.float32)
+    print(data.shape)
+
+    t = jax.random.uniform(subkey, (data.shape[0],), minval=0, maxval=1)
+
+    xt = subvpsde.sample(t, data, key)
     display_images(config, xt, label)
     display_images(config, data, label)
-    print(key)
     from models.model import get_model
-    model = get_model(config)
+    key, subkey = jax.random.split(key)
+    model = get_model(config, subkey)
