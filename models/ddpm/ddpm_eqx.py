@@ -1,35 +1,56 @@
 import equinox as eqx
 import jax
 
-class MyModule(eqx.Module):
-    layers: list
-    extra_bias: jax.Array
+from models.ddpm.building_blocks.ddpm_eqx_blocks import time_embed, resnet_ff, attention, up_resnet, up_resnet_attn, down_resnet, down_resnet_attn
 
-    def __init__(self, key):
-        key1, key2, key3 = jax.random.split(key, 3)
-        self.layers = [eqx.nn.Linear(2, 8, key=key1),
-                       eqx.nn.Linear(8, 8, key=key2),
-                       eqx.nn.Linear(8, 2, key=key3)]
-        # This is a trainable parameter.
-        self.extra_bias = jax.numpy.ones(2)
+class ddpm(eqx.Module):
+    conv_layers: list
+    down_layers: list
+    # mid_layers: list
+    up_layers: list
+    time_embed_layers: list
 
-    def __call__(self, x):
-        for layer in self.layers[:-1]:
-            x = jax.nn.relu(layer(x))
-        return self.layers[-1](x) + self.extra_bias
+    def __init__(self, cfg, key) -> None:
+        key, *subkey = jax.random.split(key, 14)
+        
+        self.time_embed_layers = [time_embed(32, 128, key=subkey[12])]
 
-@jax.jit
-@jax.grad
-def loss(model, x, y):
-    pred_y = jax.vmap(model)(x)
-    return jax.numpy.mean((y - pred_y) ** 2)
+        conv0 = eqx.nn.Conv(num_spatial_dims = 2, key = subkey[0], kernel_size=[3,3],     in_channels = 3, out_channels = 32) # conv_layers
+        conv11 = eqx.nn.Conv(num_spatial_dims = 2, key = subkey[1], kernel_size=[3,3],      in_channels = 32, out_channels = 3) # conv_layers
+        self.conv_layers = [conv0,conv11]
 
-x_key, y_key, model_key = jax.random.split(jax.random.PRNGKey(0), 3)
-x = jax.random.normal(x_key, (100, 2))
-y = jax.random.normal(y_key, (100, 2))
-model = MyModule(model_key)
-grads = loss(model, x, y)
-learning_rate = 0.1
-model = jax.tree_util.tree_map(lambda m, g: m - learning_rate * g, model, grads)
+        d_resnet1 = down_resnet(cfg, key=subkey[2], maxpool_factor=2, in_channel= 32*(32**2), out_channel=64*(32**2), embedding_dim=128)
+        d_a_resnet2 = down_resnet_attn(cfg, key=subkey[3], maxpool_factor=1, in_channel= 64*(16**2), out_channel=64*(16**2), embedding_dim=128)
+        # d_resnet3 = down_resnet(cfg, key=subkey[4], maxpool_factor=2, in_channel= 32, out_channel=64, embedding_dim=128)
+        self.down_layers = [d_resnet1,d_a_resnet2]
 
-print("fisk")
+        # u_resnet9 = up_resnet(cfg, subkey[11], maxpool_factor=1, in_channel=64, out_channel=32, embedding_dim=128)
+        u_a_resnet10 = up_resnet_attn(cfg, key=subkey[10], maxpool_factor=2, in_channel=64, out_channel=64, embedding_dim=128)
+        u_resnet11 = up_resnet(cfg, key=subkey[11], maxpool_factor=1, in_channel=64, out_channel=32, embedding_dim=128)
+        self.up_layers = [u_a_resnet10,u_resnet11]
+
+
+    def __call__(self, x, timesteps, key):
+        
+        key, *subkey = jax.random.split(key, 13)
+
+        embed = self.time_embed_layers[0](timesteps, embedding_dims=32)
+
+        # start
+        x_32_0 = self.conv_layers[0](x)
+        
+        # Down
+        x_32_1, x_32_2, x_16_0 = self.down_layers[0](x_32_0, embedding=embed, parameters=None, subkey = subkey[0])
+        x_16_1, x_16_2, x = self.down_layers[1](x_16_0, embedding=embed, parameters=None, subkey = subkey[0])
+
+        # Mid
+        # x = self.mid_layers[0](x, embedding=embed, parameters=None, subkey = subkey[0])
+
+        # Up
+        x = self.up_layers[0](x, x_16_2, x_16_1, x_16_0, embedding=embed, parameters=None, subkey = subkey[0])
+        x = self.up_layers[1](x, x_32_2, x_32_1, x_32_0, embedding=embed, parameters=None, subkey = subkey[0])
+
+        # End
+        x = self.conv_layers[1](x)
+
+        return x

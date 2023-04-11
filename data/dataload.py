@@ -1,6 +1,6 @@
 import numpy as np
 from torch.utils import data
-from torchvision import transforms
+import torchvision.transforms as transforms
 from torch import flatten as t_flatten
 from torchvision.datasets import MNIST, CIFAR10
 import multiprocessing as mp

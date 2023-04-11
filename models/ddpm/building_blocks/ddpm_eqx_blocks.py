@@ -46,16 +46,18 @@ def get_timestep_embedding(timesteps, embedding_dim: int):
         Credit to DDPM (https://github.com/hojonathanho/diffusion/blob/1e0dceb3b3495bbe19116a5e1b3596cd0706c543/diffusion_tf/nn.py#L90)
         \n I just converted it to jax.
         """
-        assert len(timesteps.shape) == 1 # and timesteps.dtype == tf.int32
+        # assert len(timesteps.shape) == 1 # and timesteps.dtype == tf.int32
 
         half_dim = embedding_dim // 2
         emb = jnp.log(10000) / (half_dim - 1)
         emb = jnp.exp(jnp.arange(half_dim, dtype=jnp.int32) * -emb)
-        emb = jnp.int32(timesteps)[:, None] * emb[None, :]
-        emb = jnp.concatenate([jnp.sin(emb), jnp.cos(emb)], axis=1)
+        # emb = jnp.int32(timesteps)[:, None] * emb[None, :]
+        emb = jnp.int32(timesteps) * emb
+        emb = jnp.concatenate([jnp.sin(emb), jnp.cos(emb)], axis=0)
+        # emb = jnp.concatenate([jnp.sin(emb), jnp.cos(emb)], axis=1)
         if embedding_dim % 2 == 1:  # zero pad if uneven number
             emb = jnp.pad(emb, [[0, 0], [0, 1]])
-        assert emb.shape == (timesteps.shape[0], embedding_dim)
+        assert emb.shape == (embedding_dim,)
         return emb
 
 class resnet_ff(eqx.Module):
@@ -67,8 +69,8 @@ class resnet_ff(eqx.Module):
 
         keys = jax.random.split(key, 4)
 
-        conv0 = eqx.nn.conv(num_spatial_dims = 2, in_channels = in_channel, out_channels = out_channel, key = keys[0])
-        conv1 = eqx.nn.conv(num_spatial_dims = 2, in_channels = out_channel, out_channels = out_channel, key = keys[1])
+        conv0 = eqx.nn.Conv(num_spatial_dims = 2, kernel_size=[3,3], in_channels = in_channel, out_channels = out_channel, key = keys[0])
+        conv1 = eqx.nn.Conv(num_spatial_dims = 2, kernel_size=[3,3], in_channels = out_channel, out_channels = out_channel, key = keys[1])
 
         self.conv_layers = [conv0,conv1]
 
@@ -78,6 +80,7 @@ class resnet_ff(eqx.Module):
             ]
 
     def __call__(self, x_in, embedding, parameters, subkey):
+        C,H,W = x_in.shape
         # store local parameter "location" for use in forward 
 
         # Get linear parameters needed later
@@ -88,167 +91,165 @@ class resnet_ff(eqx.Module):
         x = nn.relu(x)
         x = self.conv_layers[0](x)
         x = nn.relu(x)
-        x = x + self.linear_layers[0](x)[:, None, None, :] # introducing time embedding
+        x = x + self.linear_layers[0](x.reshape(-1))[None, None, :] # introducing time embedding
+        x = x.reshap(-1,H,W)
         #x = vmap(batchnorm1,axis_name="batch")(x.transpose(0,3,2,1)).transpose(0,3,2,1) 
         x = nn.relu(x)
         #x = dropout(x,key = subkey)
         x = self.conv_layers[1](x)
         
         # perform skip connection
-        x_in = self.linear_layers[1](x)
+        x_in = self.linear_layers[1](x.reshape(-1))
+        x = x.reshap(-1,H,W)
 
         # add skip connections
         return x+x_in
 
-def get_attention(cfg, param_asso, sub_model_num, local_num_shift):
-    # store atten shapes for later use
-    # attn_shapes = cfg.parameters.attention_linear
+class attention(eqx.Module):
+    attn_layer: list
 
-    # Find which and amount parameters this model needs
-    prior = param_asso[:sub_model_num].sum(axis=0)
-    current = param_asso[:sub_model_num+1].sum(axis=0)
+    def __init__(self, cfg, in_channel, out_channel, embedding_dim, key) -> None:
 
-    # get the indexes for each type of parameter we need. 3 corresponds to attention
-    attn_lin_params_idx = range(prior[3],current[3])
+        self.attn_layer = [eqx.nn.MultiheadAttention(num_heads = 1, query_size = in_channel, dropout_p = 0.0, inference = False, key = key)]
 
-    def attn(x_in, embedding, parameters, subkey):
+    def __call__(self, x_in, embedding, parameters, subkey):
 
-        # Get shape for reshapes later
-        B, H, W, C = x_in.shape
-
-        # Get parameters needed for call
-        w1 = parameters[3][0][attn_lin_params_idx[0+local_num_shift*4]]
-        w2 = parameters[3][0][attn_lin_params_idx[1+local_num_shift*4]]
-        w3 = parameters[3][0][attn_lin_params_idx[2+local_num_shift*4]]
-        w4 = parameters[3][0][attn_lin_params_idx[3+local_num_shift*4]]
-
-        b1 = parameters[3][1][attn_lin_params_idx[0+local_num_shift*4]]
-        b2 = parameters[3][1][attn_lin_params_idx[1+local_num_shift*4]]
-        b3 = parameters[3][1][attn_lin_params_idx[2+local_num_shift*4]]
-        b4 = parameters[3][1][attn_lin_params_idx[3+local_num_shift*4]]
-
-        # normalization
-        x = x_in+0.0 #vmap(batchnorm0,axis_name="batch")(x_in.transpose(0,3,2,1)).transpose(0,3,2,1)
-
-        # qkv linear passes
-        q = jnp.einsum('bhwc,cC->bhwC', x, w1)+b1
-        k = jnp.einsum('bhwc,cC->bhwC', x, w2)+b2
-        v = jnp.einsum('bhwc,cC->bhwC', x, w3)+b3
-
-        # scaled dot production attention (sdpa)
-        sdpa = jnp.einsum('bhwc,bHWc->bhwHW', q, k) / (jnp.sqrt(C))
-        sdpa = sdpa.reshape(B, H, W, H * W)
-        sdpa = nn.softmax(sdpa, -1)
-        sdpa = sdpa.reshape(B, H, W, H, W)
-
-        # compute the final outputs
-        x = jnp.einsum('bhwHW,bHWc->bhwc', sdpa, v)
-        x = jnp.einsum('bhwc,cC->bhwC', x, w4)+b4
+        x = x_in+0.0 # batchnorm
+        x = self.attn_layer[0](query = x, key_ = x, value = x)
 
         # sum and return
         return x+x_in
 
-    return attn
+class time_embed(eqx.Module):
+    linear_layers: list
 
-def attention(x_in, embedding, parameters, subkey, cfg, param_asso, sub_model_num, local_num_shift):
-    # store atten shapes for later use
-    # attn_shapes = cfg.parameters.attention_linear
+    def __init__(self, embedding_in_dim, embedding_dim, key):
+        keys = jax.random.split(key, 2)
+        self.linear_layers = [
+            eqx.nn.Linear(embedding_in_dim, embedding_dim, key=keys[0]),
+            eqx.nn.Linear(embedding_dim, embedding_dim, key=keys[1])
+            ]
 
-    # Find which and amount parameters this model needs
-    prior = param_asso[:sub_model_num].sum(axis=0)
-    current = param_asso[:sub_model_num+1].sum(axis=0)
-
-    # get the indexes for each type of parameter we need. 3 corresponds to attention
-    attn_lin_params_idx = range(prior[3],current[3])
-
-    # Get shape for reshapes later
-    B, H, W, C = x_in.shape
-
-    # Get parameters needed for call
-    w1 = parameters[3][0][attn_lin_params_idx[0+local_num_shift]]
-    w2 = parameters[3][0][attn_lin_params_idx[1+local_num_shift]]
-    w3 = parameters[3][0][attn_lin_params_idx[2+local_num_shift]]
-    w4 = parameters[3][0][attn_lin_params_idx[3+local_num_shift]]
-
-    b1 = parameters[3][1][attn_lin_params_idx[0+local_num_shift]]
-    b2 = parameters[3][1][attn_lin_params_idx[1+local_num_shift]]
-    b3 = parameters[3][1][attn_lin_params_idx[2+local_num_shift]]
-    b4 = parameters[3][1][attn_lin_params_idx[3+local_num_shift]]
-
-    # normalization
-    x = x_in #vmap(batchnorm0,axis_name="batch")(x_in.transpose(0,3,2,1)).transpose(0,3,2,1)
-
-    # qkv linear passes
-    q = jnp.einsum('bhwc,cC->bhwC', x, w1)+b1
-    k = jnp.einsum('bhwc,cC->bhwC', x, w2)+b2
-    v = jnp.einsum('bhwc,cC->bhwC', x, w3)+b3
-
-    # scaled dot production attention (sdpa)
-    sdpa = jnp.einsum('bhwc,bHWc->bhwHW', q, k) / (jnp.sqrt(C))
-    sdpa = sdpa.reshape(B, H, W, H * W)
-    sdpa = nn.softmax(sdpa, -1)
-    sdpa = sdpa.reshape(B, H, W, H, W)
-
-    # compute the final outputs
-    x = jnp.einsum('bhwHW,bHWc->bhwc', sdpa, v)
-    x = jnp.einsum('bhwc,cC->bhwC', x, w4)+b4
-
-    # sum and return
-    return x+x_in
+    def __call__(self, timesteps, embedding_dims):
+        x = get_timestep_embedding(timesteps, embedding_dim = embedding_dims)
+        x = self.linear_layers[0](x)
+        x = self.linear_layers[1](x)
+        return x
 
 ######################## Advanced building blocks ########################
 
+class down_resnet(eqx.Module):
+    resnet_layers: list
+    maxpool_factor: int
 
-def down_resnet(x_in, embedding, parameters, subkey, cfg, param_asso, sub_model_num, local_num_shift, maxpool_factor):
-    # split keys to preserave randomness
-    subkey = random.split(subkey*sub_model_num,2)
+    def __init__(self, cfg, in_channel, out_channel, embedding_dim, key, maxpool_factor) -> None:
 
-    # pass thruogh resnets
-    x0 = resnet_ff(x_in,    embedding, parameters,subkey = subkey[0], local_num_shift = local_num_shift+0, cfg=cfg, param_asso=param_asso, sub_model_num=sub_model_num)
-    x1 = resnet_ff(x0,      embedding, parameters,subkey = subkey[1], local_num_shift = local_num_shift+2, cfg=cfg, param_asso= param_asso,sub_model_num=sub_model_num)
+        self.maxpool_factor = maxpool_factor
 
-    # maxpool (changes shape)
-    x2 = naive_downsample_2d(x1, factor = maxpool_factor)
+        resnet1 = resnet_ff(cfg, in_channel, out_channel, embedding_dim, key)
+        resnet2 = resnet_ff(cfg, out_channel, out_channel, embedding_dim, key)
 
-    return x0,x1,x2
+        self.resnet_layers = [resnet1, resnet2]
 
-def down_resnet_attn(x_in, embedding, parameters, subkey, cfg, param_asso, sub_model_num, local_num_shift, maxpool_factor):
-    # split randomness key
-    subkey = random.split(subkey*sub_model_num,2)
+    def __call__(self, x_in, embedding, parameters, subkey) :
 
-    # pass through resnet and attention in alternating manner
-    x00 = resnet_ff(x_in,   embedding, parameters, subkey = subkey[0], local_num_shift = local_num_shift+0, cfg=cfg, param_asso=param_asso, sub_model_num=sub_model_num)
-    x01 = attention(x00,    embedding, parameters, subkey = subkey[1], local_num_shift = local_num_shift+0, cfg=cfg, param_asso=param_asso, sub_model_num=sub_model_num)
-    x10 = resnet_ff(x01,    embedding, parameters, subkey = subkey[2], local_num_shift = local_num_shift+2, cfg=cfg, param_asso=param_asso, sub_model_num=sub_model_num)
-    x11 = attention(x10,    embedding, parameters, subkey = subkey[3], local_num_shift = local_num_shift+4, cfg=cfg, param_asso=param_asso, sub_model_num=sub_model_num)
+        keys = jax.random.split(subkey, 2)
 
-    # maxpool (changes shapes)
-    x2 = naive_downsample_2d(x11, factor = maxpool_factor)
+        x0 = self.resnet_layers[0](x_in, embedding, parameters, keys[0])
+        x1 = self.resnet_layers[1](x0, embedding, parameters, keys[1])
+        x2 = naive_downsample_2d(x1, factor = self.maxpool_factor)
 
-    # returns outputs from attention and maxpool
-    return x01,x11,x2
+        return x0,x1,x2
 
-def up_resnet(x_in, x_res0, x_res1, x_res2, embedding, parameters, subkey, cfg, param_asso, sub_model_num, local_num_shift):
-    # split randomness key
-    subkey = random.split(subkey*sub_model_num,3)
+class down_resnet_attn(eqx.Module):
+    resnet_layers: list
+    maxpool_factor: int
+    attn_layers: list
 
-    # pass through resnets with residual input concatenated to x:
-    x = resnet_ff(jnp.concatenate([x_in,x_res0],axis=-1), embedding, parameters,subkey=subkey[0], cfg=cfg, param_asso=param_asso, sub_model_num=sub_model_num, local_num_shift = 0+local_num_shift)
-    x = resnet_ff(jnp.concatenate([x,x_res1],axis=-1), embedding, parameters,subkey=subkey[1], cfg=cfg, param_asso=param_asso, sub_model_num=sub_model_num, local_num_shift = 2+local_num_shift)
-    x = resnet_ff(jnp.concatenate([x,x_res2],axis=-1), embedding, parameters,subkey=subkey[2], cfg=cfg, param_asso=param_asso, sub_model_num=sub_model_num, local_num_shift = 4+local_num_shift)
-    return x
+    def __init__(self, cfg, in_channel, out_channel, embedding_dim, key, maxpool_factor) -> None:
 
-def up_resnet_attn(x_in, x_res0, x_res1, x_res2, embedding, parameters, subkey, cfg, param_asso, sub_model_num, local_num_shift):
-    # split randomness key
-    subkey = random.split(subkey*sub_model_num,6)
+        keys = jax.random.split(key, 4)
+        self.maxpool_factor = maxpool_factor
 
-    # perform forward pass of up_resnet with attention excluding the upsampling.
-    x = resnet_ff(jnp.concatenate((x_in,x_res0),axis=-1), embedding, parameters,subkey=subkey[0], cfg=cfg, param_asso=param_asso, sub_model_num=sub_model_num, local_num_shift = 0+local_num_shift)
-    x = attention(x, embedding, parameters, subkey = subkey[1], local_num_shift = local_num_shift+0, cfg=cfg, param_asso=param_asso, sub_model_num=sub_model_num)
-    x = resnet_ff(jnp.concatenate((x,x_res1),axis=-1), embedding, parameters,subkey=subkey[2], cfg=cfg, param_asso=param_asso, sub_model_num=sub_model_num, local_num_shift = 2+local_num_shift)
-    x = attention(x, embedding, parameters, subkey = subkey[3], local_num_shift = local_num_shift+4, cfg=cfg, param_asso=param_asso, sub_model_num=sub_model_num)
-    x = resnet_ff(jnp.concatenate((x,x_res2),axis=-1), embedding, parameters,subkey=subkey[4], cfg=cfg, param_asso=param_asso, sub_model_num=sub_model_num, local_num_shift = 4+local_num_shift)
-    x = attention(x, embedding, parameters, subkey = subkey[5], local_num_shift = local_num_shift+8, cfg=cfg, param_asso=param_asso, sub_model_num=sub_model_num)
+        resnet1 = resnet_ff(cfg, in_channel, out_channel, embedding_dim, keys[0])
+        resnet2 = resnet_ff(cfg, out_channel, out_channel, embedding_dim, keys[1])
+        self.resnet_layers = [resnet1, resnet2]
 
-    return x
+        attn1 = attention(cfg, in_channel, out_channel, embedding_dim, keys[2])
+        attn2 = attention(cfg, out_channel, out_channel, embedding_dim, keys[3])
+        self.attn_layers = [attn1,attn2]
+
+    def __call__(self, x_in, embedding, parameters, subkey) :
+
+        keys = jax.random.split(subkey, 4)
+
+        x0_1 = self.resnet_layers[0](x_in, embedding, parameters, keys[0])
+        x0 = self.attn_layers[0](x0_1, embedding, parameters, keys[1])
+
+        x1_1 = self.resnet_layers[1](x0, embedding, parameters, keys[2])
+        x1 = self.attn_layers[1](x1_1, embedding, parameters, keys[3])
+        
+        x2 = naive_downsample_2d(x1, factor = self.maxpool_factor)
+
+        return x0,x1,x2
+
+class up_resnet(eqx.Module):
+    resnet_layers: list
+    maxpool_factor: int
+
+    def __init__(self, cfg, in_channel, out_channel, embedding_dim, key, maxpool_factor) -> None:
+
+        self.maxpool_factor = maxpool_factor
+
+        resnet1 = resnet_ff(cfg, in_channel, out_channel, embedding_dim, key)
+        resnet2 = resnet_ff(cfg, out_channel, out_channel, embedding_dim, key)
+        resnet3 = resnet_ff(cfg, out_channel, out_channel, embedding_dim, key)
+
+        self.resnet_layers = [resnet1, resnet2, resnet3]
+
+    def __call__(self, x_in, x_res0, x_res1, x_res2, embedding, parameters, subkey) :
+
+        x = self.resnet_layers[0](jnp.concatenate([x_in,x_res0],axis=-1), embedding, parameters, subkey)
+        x = self.resnet_layers[1](jnp.concatenate([x,x_res1],axis=-1), embedding, parameters, subkey)
+        x = self.resnet_layers[2](jnp.concatenate([x,x_res2],axis=-1), embedding, parameters, subkey)
+        x = upsample2d(x, factor = self.maxpool_factor)
+
+        return x
+
+class up_resnet_attn(eqx.Module):
+    resnet_layers: list
+    maxpool_factor: int
+    attn_layers: list
+
+    def __init__(self, cfg, in_channel, out_channel, embedding_dim, key, maxpool_factor) -> None:
+
+        keys = jax.random.split(key, 6)
+        self.maxpool_factor = maxpool_factor
+
+        resnet1 = resnet_ff(cfg, in_channel, out_channel, embedding_dim, keys[0])
+        resnet2 = resnet_ff(cfg, out_channel, out_channel, embedding_dim, keys[1])
+        resnet3 = resnet_ff(cfg, out_channel, out_channel, embedding_dim, keys[2])
+        self.resnet_layers = [resnet1, resnet2, resnet3]
+
+        attn1 = attention(cfg, in_channel, out_channel, embedding_dim, keys[3])
+        attn2 = attention(cfg, out_channel, out_channel, embedding_dim, keys[4])
+        attn3 = attention(cfg, out_channel, out_channel, embedding_dim, keys[5])
+        self.attn_layers = [attn1,attn2,attn3]
+
+    def __call__(self, x_in, x_res0, x_res1, x_res2, embedding, parameters, subkey) :
+
+        keys = jax.random.split(subkey, 6)
+
+        x = self.resnet_layers[0](jnp.concatenate([x_in,x_res0],axis=-1), embedding, parameters, keys[0])
+        x = self.attn_layers[0](x, embedding, parameters, keys[1])
+
+        x = self.resnet_layers[1](jnp.concatenate([x,x_res1],axis=-1), embedding, parameters, keys[2])
+        x = self.attn_layers[1](x, embedding, parameters, keys[3])
+
+        x = self.resnet_layers[2](jnp.concatenate([x,x_res2],axis=-1), embedding, parameters, keys[4])
+        x = self.attn_layers[2](x, embedding, parameters, keys[5])
+        
+        x = upsample2d(x, factor = self.maxpool_factor)
+
+        return x
 
