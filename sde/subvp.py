@@ -3,8 +3,8 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 
-# from sde_class import SDE
-from sde.sde_class import SDE
+from sde_class import SDE
+#from sde.sde_class import SDE
 import jax
 from jax import numpy as jnp
 
@@ -56,7 +56,8 @@ class SUBVPSDE(SDE):
         #-0.5 (inv_covariance + inv_covariance.T)(xt-x0)
 
         # As we have isotropic covariance, then we have
-        return -1/covariance * (xt-mu)
+        
+        return jax.vmap(lambda a,b: a*b)(-1/covariance , (xt-mu))
 
     def drift(self, x, t):
         return -0.5 * (self.beta_min + t * (self.beta_max-self.beta_min)) * x 
@@ -75,6 +76,8 @@ class SUBVPSDE(SDE):
         return self.description 
 
 if __name__ == "__main__":
+    import os
+    os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
     from utils.utils import get_hydra_config
     from visualization.visualize import display_images
     import sys
@@ -96,6 +99,8 @@ if __name__ == "__main__":
     t = jax.random.uniform(subkey, (data.shape[0],), minval=0, maxval=1)
 
     xt = subvpsde.sample(t, data, key)
+    subvpsde.score(data, t, xt)
+    
     display_images(config, xt, label)
     display_images(config, data, label)
     from models.model import get_model

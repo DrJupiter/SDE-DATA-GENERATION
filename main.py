@@ -79,7 +79,7 @@ def run_experiment(cfg):
     SDE = get_sde(cfg)
 
     # get loss functions and convert to grad function
-    loss_fn = get_loss(cfg) # loss_fn(func, function_parameters, data, time, key)
+    loss_fn = get_loss(cfg) # loss_fn(func, function_parameters, data, perturbed_data, time, key)
     grad_fn = jax.grad(loss_fn,1) # TODO: try to JIT function partial(jax.jit,static_argnums=0)(jax.grad(loss_fn,1))
 
     # start training for each epoch
@@ -103,7 +103,7 @@ def run_experiment(cfg):
 
             # get grad for this batch
               # loss_value, grads = jax.value_and_grad(loss_fn)(model_parameters, model_call, data, labels, t) # is this extra computation time
-            grads = grad_fn(model_call, model_parameters, perturbed_data, scaled_timesteps, subkey[2])
+            grads = grad_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, subkey[2])
 
             # get change in model_params and new optimizer params
               # optim_parameters, model_parameters = optim_alg(optim_parameters, model_parameters, t_data, labels)
@@ -115,7 +115,7 @@ def run_experiment(cfg):
             # Logging loss and an image
             if i % cfg.wandb.log.frequency == 0:
                   if cfg.wandb.log.loss:
-                    wandb.log({"loss": loss_fn(model_call, model_parameters, perturbed_data, scaled_timesteps, subkey[2])})
+                    wandb.log({"loss": loss_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, subkey[2])})
                     # wandb.log({"loss": loss_value})
                   if cfg.wandb.log.img:
                      display_images(cfg, model_call(perturbed_data, scaled_timesteps, model_parameters, subkey[2]), labels)
