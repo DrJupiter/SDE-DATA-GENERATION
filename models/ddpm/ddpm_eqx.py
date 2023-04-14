@@ -19,14 +19,14 @@ class ddpm(eqx.Module):
         conv11 = eqx.nn.Conv(num_spatial_dims = 2, key = subkey[1], kernel_size=[3,3],      in_channels = 32, out_channels = 3) # conv_layers
         self.conv_layers = [conv0,conv11]
 
-        d_resnet1 = down_resnet(cfg, key=subkey[2], maxpool_factor=2, in_channel= 32*(32**2), out_channel=64*(32**2), embedding_dim=128)
-        d_a_resnet2 = down_resnet_attn(cfg, key=subkey[3], maxpool_factor=1, in_channel= 64*(16**2), out_channel=64*(16**2), embedding_dim=128)
+        d_resnet1 = down_resnet(cfg, key=subkey[2], maxpool_factor=2, in_channel= [32,(32**2)], out_channel=[64,(32**2)], embedding_dim=128)
+        d_a_resnet2 = down_resnet_attn(cfg, key=subkey[3], maxpool_factor=1, in_channel= [64,(16**2)], out_channel=[64,(16**2)], embedding_dim=128)
         # d_resnet3 = down_resnet(cfg, key=subkey[4], maxpool_factor=2, in_channel= 32, out_channel=64, embedding_dim=128)
         self.down_layers = [d_resnet1,d_a_resnet2]
 
         # u_resnet9 = up_resnet(cfg, subkey[11], maxpool_factor=1, in_channel=64, out_channel=32, embedding_dim=128)
-        u_a_resnet10 = up_resnet_attn(cfg, key=subkey[10], maxpool_factor=2, in_channel=64, out_channel=64, embedding_dim=128)
-        u_resnet11 = up_resnet(cfg, key=subkey[11], maxpool_factor=1, in_channel=64, out_channel=32, embedding_dim=128)
+        u_a_resnet10 = up_resnet_attn(cfg, key=subkey[10], maxpool_factor=2, in_channel=[64,(16**2)], out_channel=[64,(16**2)], embedding_dim=128)
+        u_resnet11 = up_resnet(cfg, key=subkey[11], maxpool_factor=1, in_channel=[64,(32**2)], out_channel=[32,(32**2)], embedding_dim=128)
         self.up_layers = [u_a_resnet10,u_resnet11]
 
 

@@ -69,14 +69,14 @@ class resnet_ff(eqx.Module):
 
         keys = jax.random.split(key, 4)
 
-        conv0 = eqx.nn.Conv(num_spatial_dims = 2, kernel_size=[3,3], in_channels = in_channel, out_channels = out_channel, key = keys[0])
-        conv1 = eqx.nn.Conv(num_spatial_dims = 2, kernel_size=[3,3], in_channels = out_channel, out_channels = out_channel, key = keys[1])
+        conv0 = eqx.nn.Conv(num_spatial_dims = 2, kernel_size=[3,3], in_channels = in_channel[0], out_channels = out_channel[0], key = keys[0])
+        conv1 = eqx.nn.Conv(num_spatial_dims = 2, kernel_size=[3,3], in_channels = out_channel[0], out_channels = out_channel[0], key = keys[1])
 
         self.conv_layers = [conv0,conv1]
 
         self.linear_layers = [
-            eqx.nn.Linear(embedding_dim, out_channel, key=keys[2]),
-            eqx.nn.Linear(in_channel, out_channel, key=keys[2])
+            eqx.nn.Linear(embedding_dim, out_channel[0]*out_channel[1], key=keys[2]),
+            eqx.nn.Linear(in_channel[0]*in_channel[1], out_channel[0]*out_channel[1], key=keys[2])
             ]
 
     def __call__(self, x_in, embedding, parameters, subkey):
@@ -110,11 +110,12 @@ class attention(eqx.Module):
 
     def __init__(self, cfg, in_channel, out_channel, embedding_dim, key) -> None:
 
-        self.attn_layer = [eqx.nn.MultiheadAttention(num_heads = 1, query_size = in_channel, dropout_p = 0.0, inference = False, key = key)]
+        self.attn_layer = [eqx.nn.MultiheadAttention(num_heads = 1, query_size = in_channel[0], dropout_p = 0.0, inference = False, key = key)]
 
     def __call__(self, x_in, embedding, parameters, subkey):
 
         x = x_in+0.0 # batchnorm
+        x = x.reshape(1,-1)
         x = self.attn_layer[0](query = x, key_ = x, value = x)
 
         # sum and return
@@ -175,7 +176,7 @@ class down_resnet_attn(eqx.Module):
         resnet2 = resnet_ff(cfg, out_channel, out_channel, embedding_dim, keys[1])
         self.resnet_layers = [resnet1, resnet2]
 
-        attn1 = attention(cfg, in_channel, out_channel, embedding_dim, keys[2])
+        attn1 = attention(cfg, out_channel, out_channel, embedding_dim, keys[2])
         attn2 = attention(cfg, out_channel, out_channel, embedding_dim, keys[3])
         self.attn_layers = [attn1,attn2]
 
@@ -231,7 +232,7 @@ class up_resnet_attn(eqx.Module):
         resnet3 = resnet_ff(cfg, out_channel, out_channel, embedding_dim, keys[2])
         self.resnet_layers = [resnet1, resnet2, resnet3]
 
-        attn1 = attention(cfg, in_channel, out_channel, embedding_dim, keys[3])
+        attn1 = attention(cfg, out_channel, out_channel, embedding_dim, keys[3])
         attn2 = attention(cfg, out_channel, out_channel, embedding_dim, keys[4])
         attn3 = attention(cfg, out_channel, out_channel, embedding_dim, keys[5])
         self.attn_layers = [attn1,attn2,attn3]
