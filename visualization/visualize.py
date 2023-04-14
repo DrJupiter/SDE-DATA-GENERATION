@@ -66,22 +66,23 @@ if __name__ == "__main__":
 
 
     from utils.utils import get_hydra_config
+    if False:
+        cfg = get_hydra_config(overrides=['dataset=mnist', "visualization.visualize_img=true","wandb.log.img=false"])
+        mnist_dataset = MNIST(DATA_PATH, download=True, transform=FlattenAndCast())
+        training_generator = NumpyLoader(mnist_dataset, batch_size=10, num_workers=mp.cpu_count())
+        data_samples = iter(training_generator)
+        data_points, labels = next(data_samples)
+        display_images(cfg, data_points, labels)
 
-    cfg = get_hydra_config(overrides=['dataset=mnist', "visualization.visualize_img=true","wandb.log.img=false"])
-    mnist_dataset = MNIST(DATA_PATH, download=True, transform=FlattenAndCast())
-    training_generator = NumpyLoader(mnist_dataset, batch_size=10, num_workers=mp.cpu_count())
-    data_samples = iter(training_generator)
-    data_points, labels = next(data_samples)
-    display_images(cfg, data_points, labels)
+        cfg = get_hydra_config(overrides=['dataset=cifar10', "visualization.visualize_img=true","wandb.log.img=false"])
+        cifar10_dataset = CIFAR10(DATA_PATH, download=True, transform=FlattenAndCast())
+        training_generator = NumpyLoader(cifar10_dataset, batch_size=10, num_workers=mp.cpu_count())
+        data_samples = iter(training_generator)
+        data_points, labels = next(data_samples)
+        print(jax.numpy.max(data_points), jax.numpy.min(data_points))
+        display_images(cfg, (data_points/255 - 0.5) * 2, [cfg.dataset.classes[int(idx)] for idx in labels])
 
     cfg = get_hydra_config(overrides=['dataset=cifar10', "visualization.visualize_img=true","wandb.log.img=false"])
-    cifar10_dataset = CIFAR10(DATA_PATH, download=True, transform=FlattenAndCast())
-    training_generator = NumpyLoader(cifar10_dataset, batch_size=10, num_workers=mp.cpu_count())
-    data_samples = iter(training_generator)
-    data_points, labels = next(data_samples)
-    print(jax.numpy.max(data_points), jax.numpy.min(data_points))
-    display_images(cfg, (data_points/255 - 0.5) * 2, [cfg.dataset.classes[int(idx)] for idx in labels])
-
     from data.dataload import dataload
     training_generator, _test_generator = dataload(cfg)
     data_samples = iter(training_generator)
@@ -91,10 +92,10 @@ if __name__ == "__main__":
     
     import numpy as np
     def imshow(img):
-        img = img #/ 2 + 0.5     # unnormalize
+        img = img / 2 + 0.5     # unnormalize
         npimg = img.numpy()
         plt.imshow(np.transpose(npimg, (1, 2, 0)))
         plt.show()
     #imshow()
     print(jax.numpy.max(data_points), jax.numpy.min(data_points))
-    display_images(cfg, data_points, [cfg.dataset.classes[int(idx)] for idx in labels])
+    display_images(cfg, jax.numpy.transpose(data_points, (0, 2,3,1)) /255, [cfg.dataset.classes[int(idx)] for idx in labels])

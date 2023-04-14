@@ -101,7 +101,6 @@ def run_experiment(cfg):
             # scale timesteps for more significance
             scaled_timesteps = timesteps*999
 
-            print(model_call(perturbed_data, scaled_timesteps, model_parameters, subkey[2]))
             # get grad for this batch
               # loss_value, grads = jax.value_and_grad(loss_fn)(model_parameters, model_call, data, labels, t) # is this extra computation time
             grads = grad_fn(model_call, model_parameters, perturbed_data, scaled_timesteps, subkey[2])
