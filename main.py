@@ -50,6 +50,7 @@ import optax
 
 ## SDE
 from sde.sde import get_sde
+from sde.sample import sample
 
 ### Train loop:
 
@@ -118,7 +119,15 @@ def run_experiment(cfg):
                     wandb.log({"loss": loss_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, subkey[2])})
                     # wandb.log({"loss": loss_value})
                   if cfg.wandb.log.img:
-                     display_images(cfg, model_call(perturbed_data, scaled_timesteps, model_parameters, subkey[2]), labels)
+                     # dt0 = - 1/N
+                    drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
+                    diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
+                    get_sample = lambda t, key1, key0, xt: sample(0, 0, float(t), -1/1000, drift, diffusion, [model_call, model_parameters, key0], xt, key1) 
+                    image = get_sample(timesteps[0], subkey[2], subkey[2], perturbed_data[0])
+                    
+                    display_images(cfg, [image, perturbed_data[0], data[0]], ["sample", "perturbed", "original"])
+
+                    #display_images(cfg, model_call(perturbed_data, scaled_timesteps, model_parameters, subkey[2]), labels)
         # Test loop
         if epoch % cfg.wandb.log.epoch_frequency == 0:
             if cfg.wandb.log.FID: 
