@@ -41,7 +41,7 @@ def display_images(cfg, images, titles = [], rows = None, columns = 2, figsize= 
         if cfg.dataset.name == 'mnist':
             plt.imshow(img.reshape(28,28), cmap='gray')
         elif cfg.dataset.name == 'cifar10':
-            plt.imshow((img).reshape(32,32,3)/2 + 0.5)
+            plt.imshow((img).reshape(32,32,3)/255)
         plt.axis('off')
         if len(titles) == len(images):
             plt.title(titles[idx])
@@ -87,15 +87,5 @@ if __name__ == "__main__":
     training_generator, _test_generator = dataload(cfg)
     data_samples = iter(training_generator)
     data_points, labels = next(data_samples)
-    print(make_grid(data_points).shape)
-    data_points = data_points.numpy().astype(jax.numpy.float32)
-    
-    import numpy as np
-    def imshow(img):
-        img = img / 2 + 0.5     # unnormalize
-        npimg = img.numpy()
-        plt.imshow(np.transpose(npimg, (1, 2, 0)))
-        plt.show()
-    #imshow()
     print(jax.numpy.max(data_points), jax.numpy.min(data_points))
-    display_images(cfg, jax.numpy.transpose(data_points, (0, 2,3,1)) /255, [cfg.dataset.classes[int(idx)] for idx in labels])
+    display_images(cfg, (data_points), [cfg.dataset.classes[int(idx)] for idx in labels])

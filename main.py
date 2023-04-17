@@ -87,9 +87,6 @@ def run_experiment(cfg):
     for epoch in range(cfg.train_and_test.train.epochs): 
         for i, (data, labels) in enumerate(train_dataset): # batch training
 
-            # transform data into numpy, so jax will transform it into jax when used
-            data = jnp.array(data.numpy(), dtype=jnp.float32)
-
             # split key to keep randomness "random" for each training batch
             key, *subkey = jax.random.split(key, 4)
 
@@ -123,9 +120,17 @@ def run_experiment(cfg):
                     drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
                     diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
                     get_sample = lambda t, key1, key0, xt: sample(0, 0, float(t), -1/1000, drift, diffusion, [model_call, model_parameters, key0], xt, key1) 
+
                     image = get_sample(timesteps[0], subkey[2], subkey[2], perturbed_data[0])
-                    
-                    display_images(cfg, [image, perturbed_data[0], data[0]], ["sample", "perturbed", "original"])
+
+                    rescaled_perturbed = (perturbed_data[0]-jnp.min(perturbed_data[0]))/(jnp.max(perturbed_data[0])-jnp.min(perturbed_data[0]))*255
+
+                    random_noise = jax.random.normal(subkey[2], data[0].shape)*255
+                    image_from_random = get_sample(1, subkey[2], subkey[2], random_noise)
+
+                    random_noise_uniform = jax.random.uniform(subkey[2], data[0].shape)*255
+                    image_from_random_uniform = get_sample(1, subkey[2], subkey[2], random_noise_uniform)
+                    display_images(cfg, [image, perturbed_data[0], data[0], rescaled_perturbed, image_from_random, random_noise,image_from_random_uniform, random_noise_uniform], ["sample", "perturbed", "original", "rescaled", "image from random", "random image", "uniform sample image", "uniform image"])
 
                     #display_images(cfg, model_call(perturbed_data, scaled_timesteps, model_parameters, subkey[2]), labels)
         # Test loop
