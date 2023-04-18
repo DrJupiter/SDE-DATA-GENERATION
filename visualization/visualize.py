@@ -25,7 +25,7 @@ def setup_plot():
     print("Plot settings applied")
 
 
-def display_images(cfg, images, titles = [], rows = None, columns = 2, figsize= (7,7), pad=0.2):
+def display_images(cfg, images, titles = [], rows = None, columns = 2, figsize= (7,7), pad=0.2, log_title=None):
     """
     Takes a list of images and plots them
 
@@ -60,8 +60,10 @@ def display_images(cfg, images, titles = [], rows = None, columns = 2, figsize= 
     if cfg.wandb.log.img:
         if wandb.run is None:
             run = wandb.init(entity=cfg.wandb.setup.entity, project=cfg.wandb.setup.project)
-
-        wandb.log({f"plot {cfg.dataset.name}": fig})
+        if log_title is not None:
+            wandb.log({log_title: fig})
+        else:
+            wandb.log({f"plot {cfg.dataset.name}": fig})
     if cfg.visualization.visualize_img:
         plt.show()
     plt.close()

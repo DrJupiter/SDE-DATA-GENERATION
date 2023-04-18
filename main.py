@@ -3,6 +3,9 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
+# Saving and loading
+import pickle
+
 # convret to torch for FID
 import torch
 
@@ -70,8 +73,8 @@ def run_experiment(cfg):
 
     # Get model forward call and its parameters
     model_parameters, model_call = get_model(cfg, key = subkey) # model_call(x_in, timesteps, parameters)
-    wandb.log({"model parameters": model_parameters}) 
-    sys.exit(0)
+    #os.mkdir(wandb.run.dir)
+      
     # Get optimizer and its parameters
     optimizer, optim_parameters = get_optim(cfg, model_parameters)
 
@@ -80,6 +83,7 @@ def run_experiment(cfg):
 
     # get loss functions and convert to grad function
     loss_fn = get_loss(cfg) # loss_fn(func, function_parameters, data, perturbed_data, time, key)
+
     grad_fn = jax.grad(loss_fn,1) # TODO: try to JIT function partial(jax.jit,static_argnums=0)(jax.grad(loss_fn,1))
 
     # start training for each epoch
@@ -124,8 +128,17 @@ def run_experiment(cfg):
                     args = (timesteps.reshape(-1,1), jnp.array(subkey[:len(subkey)//2]), jnp.array(subkey[len(subkey)//2:]), perturbed_data)
 
                     images = jax.vmap(get_sample, (0, 0, 0, 0))(*args)
-                    display_images(cfg, images, labels)
 
+                    # Rescale images for plotting
+                    mins, maxs=jnp.min(perturbed_data, axis=1).reshape(-1, 1), jnp.max(perturbed_data, axis=1).reshape(-1,1)
+                    rescaled_images = (perturbed_data-mins)/(maxs-mins)*255
+                    display_images(cfg, images, labels)
+                    display_images(cfg, perturbed_data, labels, log_title="Perturbed images")
+                    display_images(cfg, rescaled_images, labels, log_title="Min-Max Rescaled")
+                  if cfg.wandb.log.parameters:
+                          with open(os.path.join(wandb.run.dir, "paremeters.pickle"), 'wb') as f:
+                            pickle.dump((epoch*len(train_dataset) + i, model_parameters, optim_parameters), f, pickle.HIGHEST_PROTOCOL)
+                          wandb.save("paramters.pickle")
                     #image = get_sample(timesteps[0], subkey[2], subkey[2], perturbed_data[0])
 
                     #rescaled_perturbed = (perturbed_data[0]-jnp.min(perturbed_data[0]))/(jnp.max(perturbed_data[0])-jnp.min(perturbed_data[0]))*255
