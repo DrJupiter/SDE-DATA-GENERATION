@@ -1,7 +1,7 @@
 
 
 import jax.numpy as jnp
-from jax import grad, jit, vmap 
+from jax import grad, jit, vmap, device_count, device_put 
 from jax import random
 from jax import nn
 
@@ -17,9 +17,18 @@ def get_parameters(cfg):
     key = random.PRNGKey(cfg.model.key)
     parameters = []
     sizes = cfg.model.parameter_sizes
+    if cfg.model.sharding:
+        from jax.experimental import mesh_utils
+        from jax.sharding import PositionalSharding
+        n = device_count()
+        sharding = PositionalSharding(mesh_utils.create_device_mesh((n,)))
     for size in sizes: 
         key, subkey = random.split(key)
-        parameters.append(random.normal(subkey, (size), dtype=jnp.float32))
+        parameter = random.normal(subkey, (size), dtype=jnp.float32)
+        if cfg.model.sharding:
+            parameter = device_put(parameter, sharding.reshape(n, 1))
+
+        parameters.append(parameter)
     return parameters
 
 @jit
