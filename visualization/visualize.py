@@ -5,6 +5,7 @@ import seaborn as sns
 import wandb
 import jax
 from torchvision.utils import make_grid
+import numpy as np
 
 def setup_plot():
     mpl.rcParams['lines.linewidth'] = 1
@@ -35,6 +36,13 @@ def display_images(cfg, images, titles = [], rows = None, columns = 2, figsize= 
         rows = len(images)
 
     fig = plt.figure(figsize=figsize)
+
+    # Title correction
+    if isinstance(titles, np.ndarray):
+        if cfg.dataset.name == 'cifar10':
+            if titles.dtype == np.int64:
+                titles = [cfg.dataset.classes[int(idx)] for idx in titles]
+
 
     for idx, img in enumerate(images):
         fig.add_subplot(rows, columns, idx+1) 

@@ -3,14 +3,13 @@ import jax.numpy as jnp
 from diffrax import diffeqsolve, ControlTerm, Euler, MultiTerm, ODETerm, SaveAt, VirtualBrownianTree
 
 def sample(t, t0, t1, dt0, drift, diffusion, args, y0, key, tol=1e-3, reverse=True):
-    print(t1)
     brownian_motion = VirtualBrownianTree(t0, t1, tol=tol, shape=y0.shape, key=key)
     terms = MultiTerm(ODETerm(drift), ControlTerm(diffusion, brownian_motion))
     solver = Euler() # Ito something 
     saveat = SaveAt(dense=True)
 
     if reverse:
-        sol = diffeqsolve(terms, solver, t1, t0, dt0=dt0, y0=y0, saveat=saveat, args=args, max_steps=20000)
+        sol = diffeqsolve(terms, solver, t1, t0, dt0=dt0, y0=y0, saveat=saveat, args=args)
         return sol.evaluate(t)
     
     sol = diffeqsolve(terms, solver, t0, t1, dt0=dt0, y0=y0, saveat=saveat, args=args)

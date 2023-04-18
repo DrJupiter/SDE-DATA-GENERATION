@@ -16,7 +16,6 @@ os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 
 import jax
 import jax.numpy as jnp
-from functools import partial
 
 # Data
 from data.dataload import dataload 
@@ -71,8 +70,8 @@ def run_experiment(cfg):
 
     # Get model forward call and its parameters
     model_parameters, model_call = get_model(cfg, key = subkey) # model_call(x_in, timesteps, parameters)
-    
-
+    wandb.log({"model parameters": model_parameters}) 
+    sys.exit(0)
     # Get optimizer and its parameters
     optimizer, optim_parameters = get_optim(cfg, model_parameters)
 
@@ -119,18 +118,24 @@ def run_experiment(cfg):
                      # dt0 = - 1/N
                     drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
                     diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
-                    get_sample = lambda t, key1, key0, xt: sample(0, 0, float(t), -1/1000, drift, diffusion, [model_call, model_parameters, key0], xt, key1) 
+                    get_sample = lambda t, key1, key0, xt: sample(0, 0, t.astype(float)[0], -1/1000, drift, diffusion, [model_call, model_parameters, key0], xt, key1) 
+                    key, *subkey = jax.random.split(key, len(perturbed_data)*2 + 1)
 
-                    image = get_sample(timesteps[0], subkey[2], subkey[2], perturbed_data[0])
+                    args = (timesteps.reshape(-1,1), jnp.array(subkey[:len(subkey)//2]), jnp.array(subkey[len(subkey)//2:]), perturbed_data)
 
-                    rescaled_perturbed = (perturbed_data[0]-jnp.min(perturbed_data[0]))/(jnp.max(perturbed_data[0])-jnp.min(perturbed_data[0]))*255
+                    images = jax.vmap(get_sample, (0, 0, 0, 0))(*args)
+                    display_images(cfg, images, labels)
 
-                    random_noise = jax.random.normal(subkey[2], data[0].shape)*255
-                    image_from_random = get_sample(1, subkey[2], subkey[2], random_noise)
+                    #image = get_sample(timesteps[0], subkey[2], subkey[2], perturbed_data[0])
 
-                    random_noise_uniform = jax.random.uniform(subkey[2], data[0].shape)*255
-                    image_from_random_uniform = get_sample(1, subkey[2], subkey[2], random_noise_uniform)
-                    display_images(cfg, [image, perturbed_data[0], data[0], rescaled_perturbed, image_from_random, random_noise,image_from_random_uniform, random_noise_uniform], ["sample", "perturbed", "original", "rescaled", "image from random", "random image", "uniform sample image", "uniform image"])
+                    #rescaled_perturbed = (perturbed_data[0]-jnp.min(perturbed_data[0]))/(jnp.max(perturbed_data[0])-jnp.min(perturbed_data[0]))*255
+
+                    #random_noise = jax.random.normal(subkey[2], data[0].shape)*255
+                    #image_from_random = get_sample(1, subkey[2], subkey[2], random_noise)
+
+                    #random_noise_uniform = jax.random.uniform(subkey[2], data[0].shape)*255
+                    #image_from_random_uniform = get_sample(1, subkey[2], subkey[2], random_noise_uniform)
+                    #display_images(cfg, [image, perturbed_data[0], data[0], rescaled_perturbed, image_from_random, random_noise,image_from_random_uniform, random_noise_uniform], ["sample", "perturbed", "original", "rescaled", "image from random", "random image", "uniform sample image", "uniform image"])
 
                     #display_images(cfg, model_call(perturbed_data, scaled_timesteps, model_parameters, subkey[2]), labels)
         # Test loop
