@@ -69,7 +69,7 @@ def run_experiment(cfg):
     train_dataset, test_dataset = dataload(cfg) 
 
     # Get model forward call and its parameters
-    model_parameters, model_call = get_model(cfg, key = subkey) # model_call(x_in, timesteps, parameters)
+    model_parameters, model_call = get_model(cfg, key = subkey, sharding = sharding) # model_call(x_in, timesteps, parameters)
     wandb.log({"model parameters": model_parameters}) 
     sys.exit(0)
     # Get optimizer and its parameters
