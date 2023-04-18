@@ -85,11 +85,17 @@ def run_experiment(cfg):
     loss_fn = get_loss(cfg) # loss_fn(func, function_parameters, data, perturbed_data, time, key)
 
     grad_fn = jax.grad(loss_fn,1) # TODO: try to JIT function partial(jax.jit,static_argnums=0)(jax.grad(loss_fn,1))
-
+    if cfg.model.sharding:
+      from jax.experimental import mesh_utils
+      from jax.sharding import PositionalSharding
+      print("Sharding")
+      n = jax.device_count()
+      sharding = PositionalSharding(mesh_utils.create_device_mesh((n,)))
     # start training for each epoch
     for epoch in range(cfg.train_and_test.train.epochs): 
         for i, (data, labels) in enumerate(train_dataset): # batch training
 
+            data = jax.device_put(data, sharding.reshape(n, 1))
             # split key to keep randomness "random" for each training batch
             key, *subkey = jax.random.split(key, 4)
 
