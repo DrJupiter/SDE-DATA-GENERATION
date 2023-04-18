@@ -19,12 +19,12 @@ from models.ddpm.get_params import get_parameters
 from models.ddpm.ddpm_unet import ddpm_unet as class_ddpm_unet
 
 
-def get_model(cfg, key, sharding):
+def get_model(cfg, key):
     if cfg.model.name == "dummy_jax":
         return dummy_jax.get_parameters(cfg), dummy_jax.model_call
     elif cfg.model.name == "ddpm_unet":
         if cfg.model.type == "function":
-            params, key = get_parameters(cfg, key, sharding)
+            params, key = get_parameters(cfg, key, None)
             return params, get_ddpm_unet(cfg) 
         elif cfg.model.type == "class":
             model = class_ddpm_unet(cfg)
