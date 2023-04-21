@@ -27,7 +27,7 @@ from models.ddpm.ddpm_unet import ddpm_unet as class_ddpm_unet
 def get_model(cfg, key):
     if cfg.model.name == "dummy_jax":
         return dummy_jax.get_parameters(cfg), dummy_jax.model_call
-    
+     
     elif cfg.model.name == "ddpm_unet":
         if cfg.model.type == "function":
             sharding = PositionalSharding(mesh_utils.create_device_mesh(jax.local_devices()))
@@ -43,6 +43,12 @@ def get_model(cfg, key):
             return get_ddpm_unet_new(cfg, key)
         else:
             raise ValueError(f"Model type {cfg.model.type} not found for {cfg.model.name}")
+
+    elif cfg.model.name == "sde": 
+        from sde.sde import get_sde
+        sde = get_sde(cfg)
+        return [jax.numpy.ones(1)], lambda xt, t, x0, key: sde.score(x0, t, xt)
+
 
     raise ValueError(f"Model {cfg.model.name} not found")
 
