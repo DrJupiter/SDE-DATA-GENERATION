@@ -81,6 +81,11 @@ def run_experiment(cfg):
     # get sde
     SDE = get_sde(cfg)
 
+    # reverse sde sampling
+    drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
+    diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
+    get_sample = lambda t, key1, key0, xt: sample(0, 0, t.astype(float)[0], -1/1000, drift, diffusion, [model_call, model_parameters, key0], xt, key1) 
+
     # get loss functions and convert to grad function
     loss_fn = get_loss(cfg) # loss_fn(func, function_parameters, data, perturbed_data, time, key)
 
@@ -121,22 +126,24 @@ def run_experiment(cfg):
                     # wandb.log({"loss": loss_value})
                   if cfg.wandb.log.img:
                      # dt0 = - 1/N
-                    drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
-                    diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
-                    get_sample = lambda t, key1, key0, xt: sample(0, 0, t.astype(float)[0], -1/1000, drift, diffusion, [model_call, model_parameters, key0], xt, key1) 
+
+                    n = len(perturbed_data) 
+                    if cfg.wandb.log.n_images < n:
+                        n = cfg.wandb.log.n_images 
+
                     key, *subkey = jax.random.split(key, len(perturbed_data)*2 + 1)
 
-                    args = (timesteps.reshape(-1,1), jnp.array(subkey[:len(subkey)//2]), jnp.array(subkey[len(subkey)//2:]), perturbed_data)
+                    args = (timesteps.reshape(-1,1)[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], perturbed_data[:n])
                     images = jax.vmap(get_sample, (0, 0, 0, 0))(*args)
 
-                    args = (jnp.ones_like(timesteps.reshape(-1,1)), jnp.array(subkey[:len(subkey)//2]), jnp.array(subkey[len(subkey)//2:]), jax.random.normal(subkey[2], data.shape)*255)
+                    args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], (jax.random.normal(subkey[2], data.shape)*255)[:n])
                     normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0))(*args)
 
                     # Rescale images for plotting
-                    mins, maxs=jnp.min(perturbed_data, axis=1).reshape(-1, 1), jnp.max(perturbed_data, axis=1).reshape(-1,1)
-                    rescaled_images = (perturbed_data-mins)/(maxs-mins)*255
+                    mins, maxs=jnp.min(perturbed_data, axis=1).reshape(-1, 1)[:n], jnp.max(perturbed_data, axis=1)[:n].reshape(-1,1)
+                    rescaled_images = (perturbed_data[:n]-mins)/(maxs-mins)*255
                     display_images(cfg, images, labels)
-                    display_images(cfg, perturbed_data, labels, log_title="Perturbed images")
+                    display_images(cfg, perturbed_data[:n], labels, log_title="Perturbed images")
                     display_images(cfg, rescaled_images, labels, log_title="Min-Max Rescaled")
                     display_images(cfg, normal_distribution, labels, log_title="Noraml distribution noise sample N(0,I)")
                   if cfg.wandb.log.parameters:
