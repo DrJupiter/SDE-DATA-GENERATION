@@ -1,2 +1,2 @@
 name: "denoising_score_matching"
-    
+lambda_scale: true
