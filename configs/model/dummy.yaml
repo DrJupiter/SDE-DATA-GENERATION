@@ -1,6 +1,6 @@
 name: dummy_jax
 key: 42
-sharding: true
+sharding: false
 parameter_sizes:
   - [128, 3072]
   - [256, 128]

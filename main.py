@@ -90,12 +90,12 @@ def run_experiment(cfg):
     for epoch in range(cfg.train_and_test.train.epochs): 
         for i, (data, labels) in enumerate(train_dataset): # batch training
 
-            data = jax.device_put(data, sharding.reshape(n, 1))
             # split key to keep randomness "random" for each training batch
             key, *subkey = jax.random.split(key, 4)
 
             # get timesteps given random key for this batch and data shape
-            timesteps = jax.random.uniform(subkey[0], (data.shape[0],), minval=0, maxval=1)
+            # TODO: Strictly this changes from sde to sde
+            timesteps = jax.random.uniform(subkey[0], (data.shape[0],), minval=1e-5, maxval=1)
 
             # Perturb the data with the timesteps trhough sampling sde trick (for speed, see paper for explanation)
             perturbed_data = SDE.sample(timesteps, data, subkey[1])
@@ -127,8 +127,10 @@ def run_experiment(cfg):
                     key, *subkey = jax.random.split(key, len(perturbed_data)*2 + 1)
 
                     args = (timesteps.reshape(-1,1), jnp.array(subkey[:len(subkey)//2]), jnp.array(subkey[len(subkey)//2:]), perturbed_data)
-
                     images = jax.vmap(get_sample, (0, 0, 0, 0))(*args)
+
+                    args = (jnp.ones_like(timesteps.reshape(-1,1)), jnp.array(subkey[:len(subkey)//2]), jnp.array(subkey[len(subkey)//2:]), jax.random.normal(subkey[2], data.shape)*255)
+                    normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0))(*args)
 
                     # Rescale images for plotting
                     mins, maxs=jnp.min(perturbed_data, axis=1).reshape(-1, 1), jnp.max(perturbed_data, axis=1).reshape(-1,1)
@@ -136,6 +138,7 @@ def run_experiment(cfg):
                     display_images(cfg, images, labels)
                     display_images(cfg, perturbed_data, labels, log_title="Perturbed images")
                     display_images(cfg, rescaled_images, labels, log_title="Min-Max Rescaled")
+                    display_images(cfg, normal_distribution, labels, log_title="Noraml distribution noise sample N(0,I)")
                   if cfg.wandb.log.parameters:
                           with open(os.path.join(wandb.run.dir, "paremeters.pickle"), 'wb') as f:
                             pickle.dump((epoch*len(train_dataset) + i, model_parameters, optim_parameters), f, pickle.HIGHEST_PROTOCOL)
