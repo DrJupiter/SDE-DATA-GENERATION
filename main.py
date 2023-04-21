@@ -136,18 +136,21 @@ def run_experiment(cfg):
 
                     args = (timesteps.reshape(-1,1)[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], perturbed_data[:n])
                     images = jax.vmap(get_sample, (0, 0, 0, 0))(*args)
-
-                    args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], (jax.random.normal(subkey[2], data.shape)*255)[:n])
+                    
+                    Z = (jax.random.normal(subkey[2], data.shape)*255)[:n]
+                    args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], Z)
                     normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0))(*args)
 
                     # Rescale images for plotting
                     mins, maxs=jnp.min(perturbed_data, axis=1).reshape(-1, 1)[:n], jnp.max(perturbed_data, axis=1)[:n].reshape(-1,1)
                     rescaled_images = (perturbed_data[:n]-mins)/(maxs-mins)*255
-                    display_images(cfg, images, labels, log_title="Reverse Sample x(t) -> x(0)")
-                    display_images(cfg, perturbed_data[:n], labels, log_title="Perturbed images")
-                    display_images(cfg, rescaled_images, labels, log_title="Min-Max Rescaled")
-                    display_images(cfg, normal_distribution, labels, log_title="Noraml distribution noise sample N(0,I)")
-                    display_images(cfg, data[:n], labels, log_title="Original Images: x(0)")
+
+                    display_images(cfg, images, labels[:n], log_title="Reverse Sample x(t) -> x(0)")
+                    display_images(cfg, perturbed_data[:n], labels[:n], log_title="Perturbed images")
+                    display_images(cfg, rescaled_images, labels[:n], log_title="Min-Max Rescaled")
+                    display_images(cfg, normal_distribution, labels[:n], log_title="N(0,I) -> x(0)")
+                    display_images(cfg, Z, labels[:n], log_title="N(0,I)")
+                    display_images(cfg, data[:n], labels[:n], log_title="Original Images: x(0)")
                   if cfg.wandb.log.parameters:
                           with open(os.path.join(wandb.run.dir, "paremeters.pickle"), 'wb') as f:
                             pickle.dump((epoch*len(train_dataset) + i, model_parameters, optim_parameters), f, pickle.HIGHEST_PROTOCOL)

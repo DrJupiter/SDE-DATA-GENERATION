@@ -4,7 +4,7 @@ setup:
 log:
         loss: true
         img: true
-        n_images: 1
+        n_images: 4
         frequency: 1000
         FID: false
         epoch_frequency: 1
