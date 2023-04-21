@@ -1,11 +1,13 @@
 import jax.random as jrandom
 import jax.numpy as jnp
-from diffrax import diffeqsolve, ControlTerm, Euler, MultiTerm, ODETerm, SaveAt, VirtualBrownianTree
+from diffrax import diffeqsolve, ControlTerm, Euler, MultiTerm, ODETerm, SaveAt, VirtualBrownianTree, ItoMilstein
 
 def sample(t, t0, t1, dt0, drift, diffusion, args, y0, key, tol=1e-3, reverse=True):
     brownian_motion = VirtualBrownianTree(t0, t1, tol=tol, shape=y0.shape, key=key)
-    terms = MultiTerm(ODETerm(drift), ControlTerm(diffusion, brownian_motion))
-    solver = Euler() # Ito something 
+    #terms = MultiTerm(ODETerm(drift), ControlTerm(diffusion, brownian_motion))
+    terms = (ODETerm(drift), ControlTerm(diffusion, brownian_motion))
+    solver = ItoMilstein()
+    #solver = Euler() 
     saveat = SaveAt(dense=True)
 
     if reverse:

@@ -81,10 +81,7 @@ def run_experiment(cfg):
     # get sde
     SDE = get_sde(cfg)
 
-    # reverse sde sampling
-    drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
-    diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
-    get_sample = lambda t, key1, key0, xt: sample(0, 0, t.astype(float)[0], -1/1000, drift, diffusion, [model_call, model_parameters, key0], xt, key1) 
+
 
     # get loss functions and convert to grad function
     loss_fn = get_loss(cfg) # loss_fn(func, function_parameters, data, perturbed_data, time, key)
@@ -125,7 +122,11 @@ def run_experiment(cfg):
                     wandb.log({"loss": loss_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, subkey[2])})
                     # wandb.log({"loss": loss_value})
                   if cfg.wandb.log.img:
-                     # dt0 = - 1/N
+                    # reverse sde sampling
+                    drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
+                    diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
+                    get_sample = lambda t, key1, key0, xt: sample(0, 0, t.astype(float)[0], -1/1000, drift, diffusion, [model_call, model_parameters, key0], xt, key1) 
+                                     # dt0 = - 1/N
 
                     n = len(perturbed_data) 
                     if cfg.wandb.log.n_images < n:
@@ -142,10 +143,11 @@ def run_experiment(cfg):
                     # Rescale images for plotting
                     mins, maxs=jnp.min(perturbed_data, axis=1).reshape(-1, 1)[:n], jnp.max(perturbed_data, axis=1)[:n].reshape(-1,1)
                     rescaled_images = (perturbed_data[:n]-mins)/(maxs-mins)*255
-                    display_images(cfg, images, labels)
+                    display_images(cfg, images, labels, log_title="Reverse Sample x(t) -> x(0)")
                     display_images(cfg, perturbed_data[:n], labels, log_title="Perturbed images")
                     display_images(cfg, rescaled_images, labels, log_title="Min-Max Rescaled")
                     display_images(cfg, normal_distribution, labels, log_title="Noraml distribution noise sample N(0,I)")
+                    display_images(cfg, data[:n], labels, log_title="Original Images: x(0)")
                   if cfg.wandb.log.parameters:
                           with open(os.path.join(wandb.run.dir, "paremeters.pickle"), 'wb') as f:
                             pickle.dump((epoch*len(train_dataset) + i, model_parameters, optim_parameters), f, pickle.HIGHEST_PROTOCOL)
