@@ -51,6 +51,10 @@ import optax
 from sde.sde import get_sde
 from sde.sample import sample
 
+# TEST SHARDING TODO: REMOVE
+import os
+os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
+
 ### Train loop:
 
 # Gets config
@@ -69,9 +73,8 @@ def run_experiment(cfg):
     train_dataset, test_dataset = dataload(cfg) 
 
     # Get model forward call and its parameters
-    model_parameters, model_call = get_model(cfg, key = subkey, sharding = sharding) # model_call(x_in, timesteps, parameters)
-    wandb.log({"model parameters": model_parameters}) 
-    sys.exit(0)
+    model_parameters, model_call = get_model(cfg, key = subkey) # model_call(x_in, timesteps, parameters)
+    wandb.log({"model parameters": model_parameters})
     # Get optimizer and its parameters
     optimizer, optim_parameters = get_optim(cfg, model_parameters)
 
@@ -100,6 +103,9 @@ def run_experiment(cfg):
 
             # get grad for this batch
               # loss_value, grads = jax.value_and_grad(loss_fn)(model_parameters, model_call, data, labels, t) # is this extra computation time
+            jit_forward = jax.jit(model_call)
+            print(jit_forward(perturbed_data, scaled_timesteps, model_parameters, key))
+            
             grads = grad_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, subkey[2])
 
             # get change in model_params and new optimizer params

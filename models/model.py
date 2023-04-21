@@ -1,8 +1,13 @@
-## Needed for Andras to import in a subfolder from a subfolder
+## Needed for Andreas to import in a subfolder from a subfolder
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 ##
+
+# SHARDING
+from jax.experimental import mesh_utils
+from jax.sharding import PositionalSharding
+import jax
 
 from models.dummy import dummy_jax
 # import optax
@@ -11,24 +16,31 @@ from models.dummy import dummy_jax
 # from models.ddpm.ddpm_unet_functional_small import get_ddpm_unet as get_ddpm_unet_small, get_parameters as get_parameters_small
 
 from models.ddpm.ddpm_func_deconstruct import get_ddpm_unet 
+from models.ddpm.ddpm_func_new import get_ddpm_unet as get_ddpm_unet_new
 # from models.ddpm.ddpm_unet_functional import get_ddpm_unet
 
 from models.ddpm.get_params import get_parameters
 
-
 from models.ddpm.ddpm_unet import ddpm_unet as class_ddpm_unet
 
 
-def get_model(cfg, key, sharding):
+def get_model(cfg, key):
     if cfg.model.name == "dummy_jax":
         return dummy_jax.get_parameters(cfg), dummy_jax.model_call
+    
     elif cfg.model.name == "ddpm_unet":
         if cfg.model.type == "function":
+            sharding = PositionalSharding(mesh_utils.create_device_mesh(jax.local_devices()))
+            # sharding = PositionalSharding(jax.devices())
             params, key = get_parameters(cfg, key, sharding)
             return params, get_ddpm_unet(cfg) 
+        
         elif cfg.model.type == "class":
             model = class_ddpm_unet(cfg)
             return model.get_parameters(cfg, key), model.forward
+        
+        elif cfg.model.type == "independent_func":
+            return get_ddpm_unet_new(cfg, key)
         else:
             raise ValueError(f"Model type {cfg.model.type} not found for {cfg.model.name}")
 
