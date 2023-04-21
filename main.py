@@ -84,8 +84,6 @@ def run_experiment(cfg):
     # get sde
     SDE = get_sde(cfg)
 
-
-
     # get loss functions and convert to grad function
     loss_fn = get_loss(cfg) # loss_fn(func, function_parameters, data, perturbed_data, time, key)
 
@@ -110,8 +108,6 @@ def run_experiment(cfg):
 
             # get grad for this batch
               # loss_value, grads = jax.value_and_grad(loss_fn)(model_parameters, model_call, data, labels, t) # is this extra computation time
-            jit_forward = jax.jit(model_call)
-            print(jit_forward(perturbed_data, scaled_timesteps, model_parameters, key))
             
             grads = grad_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, subkey[2])
 
