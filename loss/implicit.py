@@ -22,7 +22,6 @@ def implicit_score_matching(func, function_parameters, _data , perturbed_data, t
     div = lambda x, t, k: jnp.sum(jnp.diag((hess(x, t, function_parameters, k))))
     divergence = vmap(div, (0, 0, 0), 0)(perturbed_data, time.reshape(-1,1), keys) # TODO: is vmap good here?, ask Paul?
     print("Computed divergence")
-    jdebug.visualize_array_sharding(divergence)
 
 
     # TODO do new keys
