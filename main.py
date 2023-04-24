@@ -114,7 +114,7 @@ def run_experiment(cfg):
 
             # Perturb the data with the timesteps trhough sampling sde trick (for speed, see paper for explanation)
             perturbed_data = SDE.sample(timesteps, data, subkey[1])
-            jax.debug.visualize_array_sharding(perturbed_data)
+            
             #perturbed_data = jax.device_put(perturbed_data,sharding.reshape((1,len(jax.devices()))))
 
 
