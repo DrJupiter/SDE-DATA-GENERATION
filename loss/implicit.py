@@ -32,11 +32,16 @@ def implicit_score_matching(func, function_parameters, _data , perturbed_data, t
     #print(divergence)
 
     score = func(perturbed_data, time, function_parameters, key)
-    #print(score.shape)
+    print(score.shape)
+    dot = []
+    for i, s in enumerate(score):
+        dot.append(jnp.dot(s,s))
+    dot = jnp.array(dot)
     #print(batch_matmul(score, score) - jnp.einsum("bc,bc->b",score,score))
-
-    #batch_matmul(score, score) 
-    return jnp.mean(0.5 *jnp.einsum("bc,bc->b",score,score) + divergence)
+    
+    #print(batch_matmul(score, score)-dot) 
+    # jnp.einsum("bc,bc->b",score,score)
+    return jnp.mean(0.5 *dot + divergence)
 
 if __name__ == "__main__":
     import os
