@@ -1,10 +1,14 @@
 
-from jax import jacfwd, vmap, jacrev
+from jax import jacfwd, vmap, jacrev, devices
+import jax
 import jax.debug as jdebug
 import jax.numpy as jnp
 from jax import random as jrandom
 from utils.utils import batch_matmul
 
+# sharding
+from jax.experimental import mesh_utils
+from jax.sharding import PositionalSharding
 
 def implicit_score_matching(func, function_parameters, _data , perturbed_data, time, key):
     """
@@ -33,6 +37,9 @@ def implicit_score_matching(func, function_parameters, _data , perturbed_data, t
 
     score = func(perturbed_data, time, function_parameters, key)
     #score = jax.device_put(score, )
+    sharding = PositionalSharding(mesh_utils.create_device_mesh((len(devices()),1)))
+    score = jax.device_put(score, sharding.replicate(0))
+    
     
 #    dot = []
 #    for i, s in enumerate(score):
