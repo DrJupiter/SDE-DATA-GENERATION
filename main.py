@@ -54,10 +54,6 @@ import optax
 from sde.sde import get_sde
 from sde.sample import sample
 
-# TEST SHARDING TODO: REMOVE
-import os
-os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
-
 ### Train loop:
 
 # Gets config
