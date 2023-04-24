@@ -32,16 +32,17 @@ def implicit_score_matching(func, function_parameters, _data , perturbed_data, t
     #print(divergence)
 
     score = func(perturbed_data, time, function_parameters, key)
-    print(score.shape)
-    dot = []
-    for i, s in enumerate(score):
-        dot.append(jnp.dot(s,s))
-    dot = jnp.array(dot)
+    #score = jax.device_put(score, )
+    
+#    dot = []
+#    for i, s in enumerate(score):
+#        dot.append(jnp.dot(s,s))
+#    dot = jnp.array(dot)
     #print(batch_matmul(score, score) - jnp.einsum("bc,bc->b",score,score))
     
     #print(batch_matmul(score, score)-dot) 
     # jnp.einsum("bc,bc->b",score,score)
-    return jnp.mean(0.5 *dot + divergence)
+    return jnp.mean(0.5 * batch_matmul(score, jnp.array(score, copy=True)) + divergence)
 
 if __name__ == "__main__":
     import os
