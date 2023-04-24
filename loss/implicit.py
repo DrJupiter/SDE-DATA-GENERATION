@@ -1,5 +1,5 @@
 
-from jax import jacfwd, vmap, jacrev, devices
+from jax import vmap, jacrev 
 import jax
 import jax.debug as jdebug
 import jax.numpy as jnp
@@ -10,44 +10,82 @@ from utils.utils import batch_matmul
 from jax.experimental import mesh_utils
 from jax.sharding import PositionalSharding
 
-def implicit_score_matching(func, function_parameters, _data , perturbed_data, time, key):
-    """
-    func: The function, f, is assumed to be the score of a function, f = ∇_x log(p(x;θ)).
+def get_implicit_score_matching(cfg):
 
-    x = data
-    θ = function_parameters
-
-    The loss that is computed is a numerical estimate of 
-        E_(p_D(x))[1/2 ||f(x,θ)||^2 + Div_x(f(x,θ))]
-    """
-    keys = jrandom.split(key, num=int(perturbed_data.shape[0]))
-    hess = jacrev(func, 0)
-
-    div = lambda x, t, k: jnp.sum(jnp.diag((hess(x, t, function_parameters, k))))
-    divergence = vmap(div, (0, 0, 0), 0)(perturbed_data, time.reshape(-1,1), keys) # TODO: is vmap good here?, ask Paul?
-    print("Computed divergence")
-
-
-    # TODO do new keys
-    #divergence = div(data[0], time.reshape(-1,1)[0], key)
-    #divergence = jnp.array([div(x, t, key) for (x,t) in zip(data, time.reshape(-1,1))])
-    #divergence = div(data[0], time.reshape(-1,1)[0])
-    #print(f"The divergence {divergence}")
-    #print(divergence)
-
-    score = func(perturbed_data, time, function_parameters, key)
-    #score = jax.device_put(score, )
-    score = jax.device_put(score, score.sharding.replicate(0))
+    if cfg.loss.sharding:
+        sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
+        def implicit_score_matching(func, function_parameters, _data , perturbed_data, time, key):
+            """
+            func: The function, f, is assumed to be the score of a function, f = ∇_x log(p(x;θ)).
     
-#    dot = []
-#    for i, s in enumerate(score):
-#        dot.append(jnp.dot(s,s))
-#    dot = jnp.array(dot)
-    #print(batch_matmul(score, score) - jnp.einsum("bc,bc->b",score,score))
+            x = data
+            θ = function_parameters
     
-    #print(batch_matmul(score, score)-dot) 
-    # jnp.einsum("bc,bc->b",score,score)
-    return jnp.mean(0.5 * batch_matmul(score, jnp.array(score, copy=True)) + divergence)
+            The loss that is computed is a numerical estimate of 
+                E_(p_D(x))[1/2 ||f(x,θ)||^2 + Div_x(f(x,θ))]
+            """
+            keys = jrandom.split(key, num=int(perturbed_data.shape[0]))
+            hess = jacrev(func, 0)
+    
+            div = lambda x, t, k: jnp.sum(jnp.diag((hess(x, t, function_parameters, k))))
+            divergence = vmap(div, (0, 0, 0), 0)(perturbed_data, time.reshape(-1,1), keys) # TODO: is vmap good here?, ask Paul?
+    
+    
+            # TODO do new keys
+            #divergence = div(data[0], time.reshape(-1,1)[0], key)
+            #divergence = jnp.array([div(x, t, key) for (x,t) in zip(data, time.reshape(-1,1))])
+            #divergence = div(data[0], time.reshape(-1,1)[0])
+            #print(f"The divergence {divergence}")
+            #print(divergence)
+    
+            score = jax.device_put(func(perturbed_data, time, function_parameters, key), sharding.replicate(0))
+    
+        #    dot = []
+        #    for i, s in enumerate(score):
+        #        dot.append(jnp.dot(s,s))
+        #    dot = jnp.array(dot)
+            #print(batch_matmul(score, score) - jnp.einsum("bc,bc->b",score,score))
+    
+            #print(batch_matmul(score, score)-dot) 
+            # jnp.einsum("bc,bc->b",score,score)
+            return jnp.mean(0.5 * batch_matmul(score, jnp.array(score, copy=True)) + divergence)
+    else:
+
+        def implicit_score_matching(func, function_parameters, _data , perturbed_data, time, key):
+            """
+            func: The function, f, is assumed to be the score of a function, f = ∇_x log(p(x;θ)).
+
+            x = data
+            θ = function_parameters
+
+            The loss that is computed is a numerical estimate of 
+                E_(p_D(x))[1/2 ||f(x,θ)||^2 + Div_x(f(x,θ))]
+            """
+            keys = jrandom.split(key, num=int(perturbed_data.shape[0]))
+            hess = jacrev(func, 0)
+
+            div = lambda x, t, k: jnp.sum(jnp.diag((hess(x, t, function_parameters, k))))
+            divergence = vmap(div, (0, 0, 0), 0)(perturbed_data, time.reshape(-1,1), keys) # TODO: is vmap good here?, ask Paul?
+
+            # TODO do new keys
+            #divergence = div(data[0], time.reshape(-1,1)[0], key)
+            #divergence = jnp.array([div(x, t, key) for (x,t) in zip(data, time.reshape(-1,1))])
+            #divergence = div(data[0], time.reshape(-1,1)[0])
+            #print(f"The divergence {divergence}")
+            #print(divergence)
+
+            score = func(perturbed_data, time, function_parameters, key)
+
+        #    dot = []
+        #    for i, s in enumerate(score):
+        #        dot.append(jnp.dot(s,s))
+        #    dot = jnp.array(dot)
+            #print(batch_matmul(score, score) - jnp.einsum("bc,bc->b",score,score))
+
+            #print(batch_matmul(score, score)-dot) 
+            # jnp.einsum("bc,bc->b",score,score)
+            return jnp.mean(0.5 * batch_matmul(score, jnp.array(score, copy=True)) + divergence)
+    return implicit_score_matching
 
 if __name__ == "__main__":
     import os
@@ -57,7 +95,8 @@ if __name__ == "__main__":
         
         return a*x**2 
     from utils.utils import get_hydra_config
-    config = get_hydra_config() 
+    config = get_hydra_config(overrides=["loss=implicit_sm"]) 
+    implicit_score_matching = get_implicit_score_matching(config)
     from data.dataload import dataload
     train, _ = dataload(config)
     iter_train = iter(train)
