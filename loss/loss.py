@@ -7,4 +7,6 @@ def get_loss(cfg):
         return get_denosing_score_matching(cfg)
     elif cfg.loss.name == "implicit_score_matching":
         return implicit_score_matching
+    elif cfg.loss.name == "none":
+        return lambda *args: 0
     raise NotImplementedError(f"The loss {cfg.loss.name} is not implemented")
