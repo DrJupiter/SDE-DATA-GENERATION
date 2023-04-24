@@ -1,7 +1,7 @@
 #!/bin/bash
 #BSUB -J bsc_test
-#BSUB -o bsc_t_%J.out
-#BSUB -e bsc_t_%J.err
+#BSUB -o bsub_log/bsc_t_%J.out
+#BSUB -e bsub_log/bsc_t_%J.err
 #BSUB -q gpuv100
 #BSUB -gpu "num=4"
 #BSUB -n 1
