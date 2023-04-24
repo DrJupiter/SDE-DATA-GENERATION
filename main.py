@@ -104,12 +104,18 @@ def run_experiment(cfg):
             # split key to keep randomness "random" for each training batch
             key, *subkey = jax.random.split(key, 4)
 
+            
+            data = jax.device_put(data ,sharding.reshape((1,len(jax.devices()))))
+
             # get timesteps given random key for this batch and data shape
             # TODO: Strictly this changes from sde to sde
             timesteps = jax.random.uniform(subkey[0], (data.shape[0],), minval=1e-5, maxval=1)
+            timesteps = jax.device_put(timesteps,sharding.reshape((1,len(jax.devices()))))
 
             # Perturb the data with the timesteps trhough sampling sde trick (for speed, see paper for explanation)
-            perturbed_data = jax.device_put(SDE.sample(timesteps, data, subkey[1]),sharding.reshape((1,len(jax.devices()))))
+            perturbed_data = SDE.sample(timesteps, data, subkey[1])
+            jax.debug.visualize_array_sharding(perturbed_data)
+            #perturbed_data = jax.device_put(perturbed_data,sharding.reshape((1,len(jax.devices()))))
 
 
 
