@@ -32,7 +32,7 @@ def implicit_score_matching(func, function_parameters, _data , perturbed_data, t
     #print(divergence)
 
     score = func(perturbed_data, time, function_parameters, key)
-    jdebug.visualize_array_sharding(score)
+    print(score.shape)
 
     return jnp.mean(0.5 * batch_matmul(score, score) + divergence)
 
