@@ -46,6 +46,7 @@ def get_model(cfg, key):
 
     elif cfg.model.name == "sde": 
         from sde.sde import get_sde
+        #from sde import get_sde
         sde = get_sde(cfg)
         def model_call(xt, t, x0, key):
 
@@ -55,7 +56,10 @@ def get_model(cfg, key):
                 t = t if len(t.shape) != 1 else t.reshape(1,-1)
                 xt = xt if len(xt.shape) != 1 else xt.reshape(1,-1)
                 x0 = x0 if len(x0.shape) != 1 else x0.reshape(1,-1)
-                return sde.score(x0, t, xt)
+                out = sde.score(x0, t, xt)
+                if out.shape[0] == 1:
+                    return out.reshape(-1)
+                return out
 
         return [jax.numpy.ones(1)], model_call 
     raise ValueError(f"Model {cfg.model.name} not found")

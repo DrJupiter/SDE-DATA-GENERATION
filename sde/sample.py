@@ -32,7 +32,6 @@ if __name__ == "__main__":
     data, label = next(iter_train) 
     if config.dataset.name == 'cifar10':
         label = [config.dataset.classes[int(idx)] for idx in label]
-    data = jnp.array(data.numpy(), dtype=jnp.float32)
     t = jrandom.uniform(subkey, (data.shape[0],), minval=0, maxval=1).reshape(-1, 1)
     print(t)
     key, subkey = jrandom.split(key)
@@ -45,9 +44,9 @@ if __name__ == "__main__":
     key, subkey = jrandom.split(key)
     print(xt.shape)
     #print(model(data, t, param, subkey))
-    print(sde.reverse_drift(xt[0], t.reshape(-1,1)[0], [model, param, subkey]))
-    print(sde.reverse_diffusion(xt[0], t.reshape(-1,1)[0], [model, param, subkey]))
-    
+    rev_drift = sde.reverse_drift(xt[0], t.reshape(-1,1)[0], [model, param if config.model.name != "sde" else data[0], subkey])
+    rev_diffusion = sde.reverse_diffusion(xt[0], t.reshape(-1,1)[0], [model, param if config.model.name != "sde" else data[0], subkey])
+    print(rev_drift.shape, rev_diffusion.shape)
     key, *subkey = jrandom.split(key, 3)
     drift = lambda t,y, args: sde.reverse_drift(y, jnp.array([t]), args)
     diffusion = lambda t,y, args: sde.reverse_diffusion(y, jnp.array([t]), args)
@@ -56,7 +55,7 @@ if __name__ == "__main__":
     from utils.utils import rescale_logit_to_img, rescale_to_logit
     #x_in  = rescale_to_logit(config, xt[0])
     x_in = xt[0]
-    x0 = sample(0, 0, float(t[0]), -1/1000, drift , diffusion, [model, param, subkey[0]], x_in, subkey[1] )
+    x0 = sample(0, 0, float(t[0]), -1/1000, drift , diffusion, [model, param if config.model.name != "sde" else data[0], subkey[0]], x_in, subkey[1] )
     from visualization.visualize import display_images
     display_images(config, [data[0], x_in, x0], titles=label*3)
     

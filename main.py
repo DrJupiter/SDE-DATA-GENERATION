@@ -77,7 +77,7 @@ def run_experiment(cfg):
 
     # Get model forward call and its parameters
     model_parameters, model_call = get_model(cfg, key = subkey) # model_call(x_in, timesteps, parameters)
-    wandb.log({"model parameters": model_parameters})
+   
     # Get optimizer and its parameters
     optimizer, optim_parameters = get_optim(cfg, model_parameters)
 
