@@ -34,8 +34,10 @@ def get_ddpm_unet(cfg, key):
     # get time embedding func and params
     apply_timestep_embedding, p_embed = get_timestep_embedding(cfg, key, embedding_dim=c_s[0], sharding = sharding)
 
+    print("getting params")
+
     # get model funcs and params
-    conv1, p_c1 =       get_conv(cfg, key, data_c, c_s[0], sharding)
+    conv1, p_c1 =       get_conv(cfg, key, data_c, c_s[0], sharding.reshape((1,1,1,len(jax.devices()))))
 
     down1, p_d1 =       get_down(cfg, key, c_s[0], c_s[0], sharding)
     down2_attn, p_da2 = get_down_attn(cfg, key, c_s[0], c_s[1], sharding)
@@ -51,7 +53,7 @@ def get_ddpm_unet(cfg, key):
     up_attn3, p_ua3 =   get_up_attn(cfg, key, c_s[2], c_s[1], residual_C = [c_s[1],c_s[1],c_s[0]], sharding = sharding)
     up4, p_u4 =         get_up(cfg, key, c_s[1], c_s[0], residual_C = [c_s[0],c_s[0],c_s[0]], sharding = sharding)
 
-    conv2, p_c2 =       get_conv(cfg, key, c_s[0], data_c, sharding)
+    conv2, p_c2 =       get_conv(cfg, key, c_s[0], data_c, sharding.reshape((1,1,len(jax.devices()),1)))
 
     # define all the aprams in a dict
     params = {"p_d1":p_d1, "p_da2":p_da2, "p_d3":p_d3, "p_d4":p_d4,  # down

@@ -127,11 +127,11 @@ def get_timestep_embedding(cfg, key, embedding_dim: int, sharding):
     ## 2x Linear
     # skip:
     params["w0"] = jax.device_put(abf*random.normal(subkey[0], (embedding_dim,time_dims), dtype=jnp.float32), sharding)
-    params["b0"] = jax.device_put(abf*random.normal(subkey[1], (1, time_dims), dtype=jnp.float32), sharding)
+    params["b0"] = jax.device_put(abf*random.normal(subkey[1], (1,time_dims), dtype=jnp.float32), sharding.reshape((1,len(jax.devices()))))
 
     # time:
     params["w1"] = jax.device_put(abf*random.normal(subkey[2], (time_dims,time_dims), dtype=jnp.float32), sharding)
-    params["b1"] = jax.device_put(abf*random.normal(subkey[3], (1, time_dims), dtype=jnp.float32), sharding)
+    params["b1"] = jax.device_put(abf*random.normal(subkey[3], (1,time_dims), dtype=jnp.float32), sharding.reshape((1,len(jax.devices()))))
 
 
     def apply_timestep_embedding(timesteps, params):
@@ -189,15 +189,15 @@ def get_resnet_ff(cfg, key, in_C, out_C, sharding):
     ## 2x Linear
     # skip: 
     params["skip_w"] = jax.device_put(abf*random.normal(subkey[0], (in_C,out_C), dtype=jnp.float32), sharding)
-    params["skip_b"] = jax.device_put(abf*random.normal(subkey[1], (1, out_C), dtype=jnp.float32), sharding)
+    params["skip_b"] = jax.device_put(abf*random.normal(subkey[1], (1,out_C), dtype=jnp.float32), sharding.reshape((1,len(jax.devices()))))
 
     # time:
     params["time_w"] = jax.device_put(abf*random.normal(subkey[2], (time_dims,out_C), dtype=jnp.float32), sharding)
-    params["time_b"] = jax.device_put(abf*random.normal(subkey[3], (1, out_C), dtype=jnp.float32), sharding)
+    params["time_b"] = jax.device_put(abf*random.normal(subkey[3], (1,out_C), dtype=jnp.float32), sharding.reshape((1,len(jax.devices()))))
 
     # 2x Conv
-    params["conv1_w"] = jax.device_put(abf*random.normal(subkey[4], ((kernel_size, kernel_size, in_C, out_C)), dtype=jnp.float32), sharding)
-    params["conv2_w"] = jax.device_put(abf*random.normal(subkey[5], ((kernel_size, kernel_size, out_C, out_C)), dtype=jnp.float32), sharding)
+    params["conv1_w"] = jax.device_put(abf*random.normal(subkey[4], ((kernel_size, kernel_size, in_C, out_C)), dtype=jnp.float32), sharding.reshape((1,1,1,len(jax.devices()))))
+    params["conv2_w"] = jax.device_put(abf*random.normal(subkey[5], ((kernel_size, kernel_size, out_C, out_C)), dtype=jnp.float32), sharding.reshape((1,1,1,len(jax.devices()))))
 
 
     def resnet(x_in, embedding, params, subkey):
@@ -240,19 +240,19 @@ def get_attention(cfg, key, in_C, out_C, sharding):
     ## 4x Linear
     # q:
     params["q_w"] = jax.device_put(abf*random.normal(subkey[0], (in_C,out_C), dtype=jnp.float32), sharding)
-    params["q_b"] = jax.device_put(abf*random.normal(subkey[1], (1, out_C), dtype=jnp.float32), sharding)
+    params["q_b"] = jax.device_put(abf*random.normal(subkey[1], (1,out_C), dtype=jnp.float32), sharding.reshape((1,len(jax.devices()))))
 
     # k:
     params["k_w"] = jax.device_put(abf*random.normal(subkey[2], (in_C,out_C), dtype=jnp.float32), sharding)
-    params["k_b"] = jax.device_put(abf*random.normal(subkey[3], (1, out_C), dtype=jnp.float32), sharding)
+    params["k_b"] = jax.device_put(abf*random.normal(subkey[3], (1,out_C), dtype=jnp.float32), sharding.reshape((1,len(jax.devices()))))
 
     # v:
     params["v_w"] = jax.device_put(abf*random.normal(subkey[4], (in_C,out_C), dtype=jnp.float32), sharding)
-    params["v_b"] = jax.device_put(abf*random.normal(subkey[5], (1, out_C), dtype=jnp.float32), sharding)
+    params["v_b"] = jax.device_put(abf*random.normal(subkey[5], (1,out_C), dtype=jnp.float32), sharding.reshape((1,len(jax.devices()))))
 
     # final
     params["f_w"] = jax.device_put(abf*random.normal(subkey[6], (out_C,out_C), dtype=jnp.float32), sharding)
-    params["f_b"] = jax.device_put(abf*random.normal(subkey[7], (1, out_C), dtype=jnp.float32), sharding)
+    params["f_b"] = jax.device_put(abf*random.normal(subkey[7], (1,out_C), dtype=jnp.float32), sharding.reshape((1,len(jax.devices()))))
 
 
     def attn(x_in, embedding, params, subkey):
