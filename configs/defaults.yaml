@@ -6,4 +6,4 @@ defaults:
         - visualization: visualize
         - optimizer: adam
         - sde: paper_subvp
-        - loss: none #denoise_sm #implicit_smi #none
+        - loss: implicit_sm #denoise_sm #implicit_sm #none
