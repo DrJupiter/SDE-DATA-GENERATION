@@ -70,6 +70,7 @@ def run_experiment(cfg):
 
     # initialize Weights and Biases
     print(cfg)
+    print(jax.devices())
     wandb.init(entity=cfg.wandb.setup.entity, project=cfg.wandb.setup.project)
 
     # Get randomness key
