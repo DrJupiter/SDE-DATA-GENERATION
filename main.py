@@ -108,11 +108,12 @@ def run_experiment(cfg):
 
             # get grad for this batch
               # loss_value, grads = jax.value_and_grad(loss_fn)(model_parameters, model_call, data, labels, t) # is this extra computation time
-            
+
+                
             grads = grad_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, subkey[2])
 
             # get change in model_params and new optimizer params
-              # optim_parameters, model_parameters = optim_alg(optim_parameters, model_parameters, t_data, labels)
+            # optim_parameters, model_parameters = optim_alg(optim_parameters, model_parameters, t_data, labels)
             updates, optim_parameters = optimizer.update(grads, optim_parameters, model_parameters)
 
             # update model params
@@ -127,7 +128,7 @@ def run_experiment(cfg):
                     # reverse sde sampling
                     drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
                     diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
-                    get_sample = lambda t, key1, key0, xt: sample(0, 0, t.astype(float)[0], -1/1000, drift, diffusion, [model_call, model_parameters, key0], xt, key1) 
+                    get_sample = lambda t, key1, key0, xt: sample(0, 0, t.astype(float)[0], -1/1000, drift, diffusion, [model_call, model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1) 
                                      # dt0 = - 1/N
 
                     n = len(perturbed_data) 

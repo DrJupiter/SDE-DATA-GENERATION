@@ -47,9 +47,17 @@ def get_model(cfg, key):
     elif cfg.model.name == "sde": 
         from sde.sde import get_sde
         sde = get_sde(cfg)
-        return [jax.numpy.ones(1)], lambda xt, t, x0, key: sde.score(x0, t, xt)
+        def model_call(xt, t, x0, key):
 
+            if isinstance(x0, list):
+                return xt
+            else:
+                t = t if len(t.shape) != 1 else t.reshape(1,-1)
+                xt = xt if len(xt.shape) != 1 else xt.reshape(1,-1)
+                x0 = x0 if len(x0.shape) != 1 else x0.reshape(1,-1)
+                return sde.score(x0, t, xt)
 
+        return [jax.numpy.ones(1)], model_call 
     raise ValueError(f"Model {cfg.model.name} not found")
 
 # def get_optim(cfg,params=None):
