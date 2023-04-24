@@ -54,9 +54,13 @@ import optax
 from sde.sde import get_sde
 from sde.sample import sample
 
+# sharding
+from jax.experimental import mesh_utils
+from jax.sharding import PositionalSharding
+
 # TEST SHARDING TODO: REMOVE
-import os
-os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
+# import os
+# os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
 
 ### Train loop:
 
@@ -89,6 +93,10 @@ def run_experiment(cfg):
 
     grad_fn = jax.grad(loss_fn,1) # TODO: try to JIT function partial(jax.jit,static_argnums=0)(jax.grad(loss_fn,1))
 
+
+    # get shard
+    sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
+
     # start training for each epoch
     for epoch in range(cfg.train_and_test.train.epochs): 
         for i, (data, labels) in enumerate(train_dataset): # batch training
@@ -101,7 +109,9 @@ def run_experiment(cfg):
             timesteps = jax.random.uniform(subkey[0], (data.shape[0],), minval=1e-5, maxval=1)
 
             # Perturb the data with the timesteps trhough sampling sde trick (for speed, see paper for explanation)
-            perturbed_data = SDE.sample(timesteps, data, subkey[1])
+            perturbed_data = jax.device_put(SDE.sample(timesteps, data, subkey[1]),sharding.reshape((1,len(jax.devices()))))
+
+
 
             # scale timesteps for more significance
             scaled_timesteps = timesteps*999
