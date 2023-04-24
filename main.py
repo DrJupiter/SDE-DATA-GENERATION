@@ -101,7 +101,6 @@ def run_experiment(cfg):
     # start training for each epoch
     for epoch in range(cfg.train_and_test.train.epochs): 
         for i, (data, labels) in enumerate(train_dataset): # batch training
-
             # split key to keep randomness "random" for each training batch
             key, *subkey = jax.random.split(key, 4)
 
