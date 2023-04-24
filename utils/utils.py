@@ -20,10 +20,10 @@ def get_hydra_config(config_path='../configs', job_name='test', version_base='1.
     return cfg
 
 import jax.numpy as jnp
-from jax import vmap, jit
+from jax import vmap, jit, pmap
 from jax.nn import sigmoid
 
-batch_matmul = vmap(lambda a,b: jnp.matmul(a.T, b), (0, 0) , 0)
+batch_matmul = pmap(lambda a,b: jnp.matmul(a.T, b), (0, 0) , 0)
 """
     dim(a): B x W x L1 | B x L1 
     dim(b): B x W x L2 | B x L1 
