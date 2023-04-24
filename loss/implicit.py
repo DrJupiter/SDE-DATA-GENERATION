@@ -40,7 +40,8 @@ def implicit_score_matching(func, function_parameters, _data , perturbed_data, t
     #score = jax.device_put(score, )
     sharding = PositionalSharding(mesh_utils.create_device_mesh((len(devices()),1)))
     score = jax.device_put(score, sharding.replicate(0))
-    
+    import sys
+    sys.exit(0)
     
 #    dot = []
 #    for i, s in enumerate(score):
