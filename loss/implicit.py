@@ -36,6 +36,7 @@ def implicit_score_matching(func, function_parameters, _data , perturbed_data, t
     #print(divergence)
 
     score = func(perturbed_data, time, function_parameters, key)
+    print(score.addressable_shards)
     #score = jax.device_put(score, )
     sharding = PositionalSharding(mesh_utils.create_device_mesh((len(devices()),1)))
     score = jax.device_put(score, sharding.replicate(0))
