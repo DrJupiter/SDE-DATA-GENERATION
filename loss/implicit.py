@@ -1,5 +1,6 @@
 
 from jax import jacfwd, vmap, jacrev
+import jax.debug as jdebug
 import jax.numpy as jnp
 from jax import random as jrandom
 from utils.utils import batch_matmul
@@ -20,6 +21,8 @@ def implicit_score_matching(func, function_parameters, _data , perturbed_data, t
 
     div = lambda x, t, k: jnp.sum(jnp.diag((hess(x, t, function_parameters, k))))
     divergence = vmap(div, (0, 0, 0), 0)(perturbed_data, time.reshape(-1,1), keys) # TODO: is vmap good here?, ask Paul?
+    print("Computed divergence")
+    jdebug.visualize_array_sharding(divergence)
 
 
     # TODO do new keys
@@ -30,6 +33,7 @@ def implicit_score_matching(func, function_parameters, _data , perturbed_data, t
     #print(divergence)
 
     score = func(perturbed_data, time, function_parameters, key)
+    jdebug.visualize_array_sharding(score)
 
     return jnp.mean(0.5 * batch_matmul(score, score) + divergence)
 
