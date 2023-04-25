@@ -19,7 +19,7 @@ from models.ddpm.building_blocks.ddpm_func_new import get_resnet_ff, get_attenti
 ######################## MODEL ########################
 
 
-def get_ddpm_unet(cfg, key):
+def get_ddpm_unet(cfg, key, inference=False):
 
     data_c = cfg.dataset.shape[-1]
     c_s = cfg.model.parameters.Channel_sizes
@@ -37,19 +37,19 @@ def get_ddpm_unet(cfg, key):
     # get model funcs and params
     conv1, p_c1 =       get_conv(cfg, key, data_c, c_s[0], sharding.reshape((1,1,1,len(jax.devices()))))
 
-    down1, p_d1 =       get_down(cfg, key, c_s[0], c_s[0], sharding)
-    down2_attn, p_da2 = get_down_attn(cfg, key, c_s[0], c_s[1], sharding)
-    down3, p_d3 =       get_down(cfg, key, c_s[1], c_s[2], sharding)
-    down4, p_d4 =       get_down(cfg, key, c_s[2], c_s[3], sharding)
+    down1, p_d1 =       get_down(cfg, key, c_s[0], c_s[0], sharding, inference=inference)
+    down2_attn, p_da2 = get_down_attn(cfg, key, c_s[0], c_s[1], sharding, inference=inference)
+    down3, p_d3 =       get_down(cfg, key, c_s[1], c_s[2], sharding, inference=inference)
+    down4, p_d4 =       get_down(cfg, key, c_s[2], c_s[3], sharding, inference=inference)
 
-    r1, p_mr1 = get_resnet_ff(cfg, key, c_s[3], c_s[3], sharding)
-    a1, p_ma2 = get_attention(cfg, key, c_s[3], c_s[3], sharding)
-    r2, p_mr3 = get_resnet_ff(cfg, key, c_s[3], c_s[3], sharding)
+    r1, p_mr1 = get_resnet_ff(cfg, key, c_s[3], c_s[3], sharding, inference=inference)
+    a1, p_ma2 = get_attention(cfg, key, c_s[3], c_s[3], sharding, inference=inference)
+    r2, p_mr3 = get_resnet_ff(cfg, key, c_s[3], c_s[3], sharding, inference=inference)
 
-    up1, p_u1 =         get_up(cfg, key, c_s[3], c_s[2], residual_C = [c_s[3],c_s[3],c_s[2]], sharding = sharding)
-    up2, p_u2 =         get_up(cfg, key, c_s[2], c_s[2], residual_C = [c_s[2],c_s[2],c_s[1]], sharding = sharding)
-    up_attn3, p_ua3 =   get_up_attn(cfg, key, c_s[2], c_s[1], residual_C = [c_s[1],c_s[1],c_s[0]], sharding = sharding)
-    up4, p_u4 =         get_up(cfg, key, c_s[1], c_s[0], residual_C = [c_s[0],c_s[0],c_s[0]], sharding = sharding)
+    up1, p_u1 =         get_up(cfg, key, c_s[3], c_s[2], residual_C = [c_s[3],c_s[3],c_s[2]], sharding = sharding, inference=inference)
+    up2, p_u2 =         get_up(cfg, key, c_s[2], c_s[2], residual_C = [c_s[2],c_s[2],c_s[1]], sharding = sharding, inference=inference)
+    up_attn3, p_ua3 =   get_up_attn(cfg, key, c_s[2], c_s[1], residual_C = [c_s[1],c_s[1],c_s[0]], sharding = sharding, inference=inference)
+    up4, p_u4 =         get_up(cfg, key, c_s[1], c_s[0], residual_C = [c_s[0],c_s[0],c_s[0]], sharding = sharding, inference=inference)
 
     conv2, p_c2 =       get_conv(cfg, key, c_s[0], data_c, sharding.reshape((1,1,len(jax.devices()),1)))
 

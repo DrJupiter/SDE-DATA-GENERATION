@@ -36,3 +36,14 @@ a = jax.device_put(a,sharding.replicate(1))
 jax.debug.visualize_array_sharding(a)
 
 print(sharding)
+#%%
+
+import numpy as np
+
+r = 2000/2001
+var = 0
+for i,x in enumerate(np.random.random(10000)):
+    var = var*r+(x-0.5)/2001
+
+    if i % 100==0:
+        print(var)
