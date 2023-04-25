@@ -20,7 +20,7 @@ def get_hydra_config(config_path='../configs', job_name='test', version_base='1.
     return cfg
 
 import jax.numpy as jnp
-from jax import vmap, jit
+from jax import vmap, jit, pmap
 from jax.nn import sigmoid
 
 batch_matmul = vmap(lambda a,b: jnp.matmul(a.T, b), (0, 0) , 0)

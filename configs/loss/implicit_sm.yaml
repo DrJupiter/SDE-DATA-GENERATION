@@ -1,1 +1,2 @@
 name: "implicit_score_matching"
+sharding: true

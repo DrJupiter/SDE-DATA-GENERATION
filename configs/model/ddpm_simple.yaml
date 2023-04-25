@@ -14,7 +14,7 @@ hyperparameters:
   kernel_size: 3
 parameters:
   Channel_sizes:
-    - 128
-    - 256
-    - 256
-    - 256
+    - 16
+    - 16
+    - 16
+    - 16

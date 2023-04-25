@@ -8,4 +8,4 @@ log:
         frequency: 1000
         FID: false
         epoch_frequency: 1
-        parameters: false
+        parameters: true

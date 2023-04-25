@@ -70,6 +70,7 @@ def run_experiment(cfg):
 
     # initialize Weights and Biases
     print(cfg)
+    print(jax.devices())
     wandb.init(entity=cfg.wandb.setup.entity, project=cfg.wandb.setup.project)
 
     # Get randomness key
@@ -92,7 +93,7 @@ def run_experiment(cfg):
     loss_fn = get_loss(cfg) # loss_fn(func, function_parameters, data, perturbed_data, time, key)
 
     grad_fn = jax.grad(loss_fn,1) # TODO: try to JIT function partial(jax.jit,static_argnums=0)(jax.grad(loss_fn,1))
-
+    grad_fn = jax.jit(grad_fn, static_argnums=0)
 
     # get shard
     sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
@@ -100,16 +101,20 @@ def run_experiment(cfg):
     # start training for each epoch
     for epoch in range(cfg.train_and_test.train.epochs): 
         for i, (data, labels) in enumerate(train_dataset): # batch training
-
             # split key to keep randomness "random" for each training batch
             key, *subkey = jax.random.split(key, 4)
+
+            
+            data = jax.device_put(data ,sharding.reshape((1,len(jax.devices()))))
 
             # get timesteps given random key for this batch and data shape
             # TODO: Strictly this changes from sde to sde
             timesteps = jax.random.uniform(subkey[0], (data.shape[0],), minval=1e-5, maxval=1)
 
             # Perturb the data with the timesteps trhough sampling sde trick (for speed, see paper for explanation)
-            perturbed_data = jax.device_put(SDE.sample(timesteps, data, subkey[1]),sharding.reshape((1,len(jax.devices()))))
+            perturbed_data = SDE.sample(timesteps, data, subkey[1])
+            
+            #perturbed_data = jax.device_put(perturbed_data,sharding.reshape((1,len(jax.devices()))))
 
 
 
@@ -150,7 +155,7 @@ def run_experiment(cfg):
                     args = (timesteps.reshape(-1,1)[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], perturbed_data[:n])
                     images = jax.vmap(get_sample, (0, 0, 0, 0))(*args)
                     
-                    Z = (jax.random.normal(subkey[2], data.shape)*255)[:n]
+                    Z = (jax.random.normal(key, data.shape)*255)[:n]
                     args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], Z)
                     normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0))(*args)
 

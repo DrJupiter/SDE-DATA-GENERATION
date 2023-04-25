@@ -34,8 +34,6 @@ def get_ddpm_unet(cfg, key):
     # get time embedding func and params
     apply_timestep_embedding, p_embed = get_timestep_embedding(cfg, key, embedding_dim=c_s[0], sharding = sharding)
 
-    print("getting params")
-
     # get model funcs and params
     conv1, p_c1 =       get_conv(cfg, key, data_c, c_s[0], sharding.reshape((1,1,1,len(jax.devices()))))
 
