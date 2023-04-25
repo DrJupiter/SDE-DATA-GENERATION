@@ -93,7 +93,7 @@ def run_experiment(cfg):
     loss_fn = get_loss(cfg) # loss_fn(func, function_parameters, data, perturbed_data, time, key)
 
     grad_fn = jax.grad(loss_fn,1) # TODO: try to JIT function partial(jax.jit,static_argnums=0)(jax.grad(loss_fn,1))
-
+    grad_fn = jax.jit(grad_fn, static_argnums=0)
 
     # get shard
     sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
@@ -155,7 +155,7 @@ def run_experiment(cfg):
                     args = (timesteps.reshape(-1,1)[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], perturbed_data[:n])
                     images = jax.vmap(get_sample, (0, 0, 0, 0))(*args)
                     
-                    Z = (jax.random.normal(subkey[2], data.shape)*255)[:n]
+                    Z = (jax.random.normal(key, data.shape)*255)[:n]
                     args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], Z)
                     normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0))(*args)
 
