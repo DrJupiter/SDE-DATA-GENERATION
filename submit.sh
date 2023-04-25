@@ -13,8 +13,8 @@
 echo "starts working"
 
 
-module swap cuda/11.8
-module load cudnn/v8.8.0-prod-cuda-11.X
+module swap cuda/12.1
+module load cudnn/v8.8.0-prod-cuda-12.X
 
 source /zhome/59/e/156513/BSCvenv/bin/activate || source /zhome/33/4/155714/bsc-venv/bin/activate
 
