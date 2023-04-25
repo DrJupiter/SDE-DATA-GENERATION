@@ -26,21 +26,23 @@ from models.ddpm.ddpm_unet import ddpm_unet as class_ddpm_unet
 
 def get_model(cfg, key):
     if cfg.model.name == "dummy_jax":
-        return dummy_jax.get_parameters(cfg), dummy_jax.model_call
+        return dummy_jax.get_parameters(cfg), dummy_jax.model_call, dummy_jax.model_call
      
     elif cfg.model.name == "ddpm_unet":
         if cfg.model.type == "function":
             sharding = PositionalSharding(mesh_utils.create_device_mesh(jax.local_devices()))
             # sharding = PositionalSharding(jax.devices())
             params, key = get_parameters(cfg, key, sharding)
-            return params, get_ddpm_unet(cfg) 
+            return params, get_ddpm_unet(cfg), get_ddpm_unet(cfg) 
         
         elif cfg.model.type == "class":
             model = class_ddpm_unet(cfg)
-            return model.get_parameters(cfg, key), model.forward
+            return model.get_parameters(cfg, key), model.forward, model.forward
         
         elif cfg.model.type == "independent_func":
-            return get_ddpm_unet_new(cfg, key)
+            params, ddpm_unet = get_ddpm_unet_new(cfg, key)
+            params, ddpm_unet_inference = get_ddpm_unet_new(cfg, key, inference=True)
+            return params, ddpm_unet, ddpm_unet_inference
         else:
             raise ValueError(f"Model type {cfg.model.type} not found for {cfg.model.name}")
 
@@ -61,7 +63,7 @@ def get_model(cfg, key):
                     return out.reshape(-1)
                 return out
 
-        return [jax.numpy.ones(1)], model_call 
+        return [jax.numpy.ones(1)], model_call, model_call
     raise ValueError(f"Model {cfg.model.name} not found")
 
 # def get_optim(cfg,params=None):

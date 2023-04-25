@@ -60,8 +60,6 @@ from sde.sample import sample
 from jax.experimental import mesh_utils
 from jax.sharding import PositionalSharding
 
-# TEST SHARDING TODO: REMOVE
-# import os
 
 ### Train loop:
 
@@ -82,7 +80,7 @@ def run_experiment(cfg):
     train_dataset, test_dataset = dataload(cfg) 
 
     # Get model forward call and its parameters
-    model_parameters, model_call = get_model(cfg, key = subkey) # model_call(x_in, timesteps, parameters)
+    model_parameters, model_call, inference_model = get_model(cfg, key = subkey) # model_call(x_in, timesteps, parameters)
    
     # Get optimizer and its parameters
     optimizer, optim_parameters = get_optim(cfg, model_parameters)
@@ -121,12 +119,13 @@ def run_experiment(cfg):
             #perturbed_data = jax.device_put(perturbed_data,sharding.reshape((1,len(jax.devices()))))
 
 
-
             # scale timesteps for more significance
             scaled_timesteps = timesteps*999
 
             # get grad for this batch
               # loss_value, grads = jax.value_and_grad(loss_fn)(model_parameters, model_call, data, labels, t) # is this extra computation time
+
+            print(model_call(perturbed_data, scaled_timesteps, model_parameters, key))
 
                 
             grads = grad_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, subkey[2])

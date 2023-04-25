@@ -169,6 +169,60 @@ def get_timestep_embedding(cfg, key, embedding_dim: int, sharding):
 
 ######################## Basic building blocks ########################
 
+def get_dropout(cfg, key, in_C, out_C, sharding):
+
+    p = cfg.model.hyperparameters.dropout_p
+    
+
+    def dropout(x_in, embedding, params, subkey):
+
+
+        dropout_m = random.bernoulli(subkey, p=1-p, shape = x_in.shape)+0.0
+
+        return jnp.multiply(x_in, dropout_m)
+    
+    return dropout, "_"
+
+def get_batchnorm(cfg, key, in_C, out_C, sharding, inference = False):
+    """
+    The following paper, says its like this during training: https://arxiv.org/pdf/1502.03167.pdf\\
+    But other sources say that gamma and beta are scalars, som im a little confused.
+    """
+    subkey = random.split(key,2)
+    abf = cfg.model.hyperparameters.anti_blowup_factor
+    avg_length = cfg.model.hyperparameters.avg_length
+
+    params = {}
+
+    ## 1x Linear
+    # correction: 
+    params["l"] = jax.device_put(abf*random.normal(subkey[0], (in_C,out_C), dtype=jnp.float32), sharding)
+    params["b"] = jax.device_put(abf*random.normal(subkey[1], (1,out_C), dtype=jnp.float32), sharding.reshape((1,len(jax.devices()))))
+
+    # shifting terms:
+    params["running_mu"] = jnp.zeroes((1), dtype=jnp.float32)
+    params["running_var"] = jnp.zeroes((1), dtype=jnp.float32)
+
+    def batchnorm(x_in, embedding, params, subkey):
+
+        mu = jnp.mean(x_in,0)
+        var = jnp.var(x_in,0)
+
+        params["running_mu"] = params["running_mu"]*(avg_length/(avg_length+1))+mu/avg_length
+        params["running_var"] = params["running_var"]*(avg_length/(avg_length+1))+var/avg_length
+
+        return linear((x_in-mu)/jnp.sqrt(var+1e-5),params["l"],params["b"])
+
+    def inference_batchnorm(x_in, embedding, params, subkey):
+
+        return linear((x_in-params["running_mu"])/jnp.sqrt(params["running_var"]+1e-5),params["l"],params["b"])
+
+    # return alternate version if we are running inference. This does not affect JIT as this called it not jitted.
+    if inference:
+        return inference_batchnorm, params
+    else:
+        return batchnorm, params
+
 def get_conv(cfg, key, in_C, out_C, sharding):
     kernel_size = cfg.model.hyperparameters.kernel_size
     abf = cfg.model.hyperparameters.anti_blowup_factor
@@ -176,7 +230,7 @@ def get_conv(cfg, key, in_C, out_C, sharding):
 
     return conv2d, params
 
-def get_resnet_ff(cfg, key, in_C, out_C, sharding):
+def get_resnet_ff(cfg, key, in_C, out_C, sharding, inference=inference):
     
     abf = cfg.model.hyperparameters.anti_blowup_factor
     kernel_size = cfg.model.hyperparameters.kernel_size
@@ -184,7 +238,7 @@ def get_resnet_ff(cfg, key, in_C, out_C, sharding):
     subkey = random.split(key,6)
     
     ### Define parameters for the model
-    params = {} # change to jnp array and use jax.numpy.append?
+    params = {}
 
     ## 2x Linear
     # skip: 
@@ -199,25 +253,21 @@ def get_resnet_ff(cfg, key, in_C, out_C, sharding):
     params["conv1_w"] = jax.device_put(abf*random.normal(subkey[4], ((kernel_size, kernel_size, in_C, out_C)), dtype=jnp.float32), sharding.reshape((1,1,1,len(jax.devices()))))
     params["conv2_w"] = jax.device_put(abf*random.normal(subkey[5], ((kernel_size, kernel_size, out_C, out_C)), dtype=jnp.float32), sharding.reshape((1,1,1,len(jax.devices()))))
 
+    batchnorm, params["btchN1"] = get_batchnorm(cfg, key, in_C, in_C, sharding, inference=inference)
+    batchnorm2, params["btchN2"] = get_batchnorm(cfg, key, out_C, out_C, sharding, inference=inference)
+    dropout, _ = get_dropout(cfg, key, in_C, out_C, sharding)
 
     def resnet(x_in, embedding, params, subkey):
 
         ### Apply the function to the input data
-        #x = x_in+0.0 # to counter memory share problems
-        # vmap(batchnorm0,axis_name="batch")(x_in.transpose(0,3,2,1)).transpose(0,3,2,1) # batchnorm
-        x = nonlin(x_in)
-        # print(x.shape)
-        # print(params["conv1_w"].shape)
-        # print(conv2d(x[0],params["conv1_w"]))
-        # print(jnp.sum(pmap(lambda x,w: conv2d(x,w), in_axes = (0,None))(x,params["conv1_w"])))
+        x = batchnorm(x_in, embedding, params["btchN1"], subkey)
+        x = nonlin(x)
         x = conv2d(x, params["conv1_w"])
         x = nonlin(x)
-        # x = x + linear(nonlin(embedding), params["time_w"], params["time_b"])[:, None, None, :] # introducing time embedding
         x = x + (jnp.einsum('wc,cC->wC',nonlin(embedding),params["time_w"])+params["time_b"])[:,None,None,:]
-        # x = p_add(x, p_add(p_linear(p_nonlin(embedding), params["time_w"]), params["time_b"])[:, None, None, :]) # introducing time embedding
-        #x = vmap(batchnorm1,axis_name="batch")(x.transpose(0,3,2,1)).transpose(0,3,2,1) 
+        x = batchnorm2(x, embedding, params["btchN2"], subkey)
         x = nonlin(x)
-        #x = dropout(x,key = subkey)
+        x = dropout(x, embedding, None, subkey)
         x = conv2d(x, w = params["conv2_w"])
 
         # perform skip connection
@@ -228,14 +278,14 @@ def get_resnet_ff(cfg, key, in_C, out_C, sharding):
 
     return resnet, params
 
-def get_attention(cfg, key, in_C, out_C, sharding):
+def get_attention(cfg, key, in_C, out_C, sharding, inference=inference):
     assert in_C == out_C, "in and out channels should be identical"
 
     abf = cfg.model.hyperparameters.anti_blowup_factor
     subkey = random.split(key,8)
     
     ### Define parameters for the model
-    params = {} # change to jnp array and use jax.numpy.append?
+    params = {}
 
     ## 4x Linear
     # q:
@@ -254,6 +304,8 @@ def get_attention(cfg, key, in_C, out_C, sharding):
     params["f_w"] = jax.device_put(abf*random.normal(subkey[6], (out_C,out_C), dtype=jnp.float32), sharding)
     params["f_b"] = jax.device_put(abf*random.normal(subkey[7], (1,out_C), dtype=jnp.float32), sharding.reshape((1,len(jax.devices()))))
 
+    batchnorm, params["btchN1"] = get_batchnorm(cfg, key, in_C, out_C, sharding, inference=inference)
+
 
     def attn(x_in, embedding, params, subkey):
 
@@ -261,7 +313,7 @@ def get_attention(cfg, key, in_C, out_C, sharding):
         B, H, W, C = x_in.shape
 
         # normalization
-        #vmap(batchnorm0,axis_name="batch")(x_in.transpose(0,3,2,1)).transpose(0,3,2,1)
+        x = batchnorm(x_in, embedding, params["btchN1"], subkey)
 
         # qkv linear passes
         q = linear(x_in, params["q_w"], params["q_b"])
@@ -285,10 +337,10 @@ def get_attention(cfg, key, in_C, out_C, sharding):
 
 ######################## Advanced building blocks ########################
 
-def get_down(cfg, key, in_C, out_C, sharding):
+def get_down(cfg, key, in_C, out_C, sharding, inference=False):
 
-    resnet1, params1 = get_resnet_ff(cfg, key, in_C, out_C, sharding)
-    resnet2, params2 = get_resnet_ff(cfg, key, out_C, out_C, sharding)
+    resnet1, params1 = get_resnet_ff(cfg, key, in_C, out_C, sharding, inference=inference)
+    resnet2, params2 = get_resnet_ff(cfg, key, out_C, out_C, sharding, inference=inference)
 
     params = {"r1":params1, "r2": params2}
 
@@ -301,12 +353,12 @@ def get_down(cfg, key, in_C, out_C, sharding):
 
     return down, params
 
-def get_down_attn(cfg, key, in_C, out_C, sharding):
+def get_down_attn(cfg, key, in_C, out_C, sharding, inference=False):
 
-    resnet1, params1 = get_resnet_ff(cfg, key, in_C, out_C, sharding)
-    attn1, params_a1 = get_attention(cfg, key, out_C, out_C, sharding)
-    resnet2, params2 = get_resnet_ff(cfg, key, out_C, out_C, sharding)
-    attn2, params_a2 = get_attention(cfg, key, out_C, out_C, sharding)
+    resnet1, params1 = get_resnet_ff(cfg, key, in_C, out_C, sharding, inference=inference)
+    attn1, params_a1 = get_attention(cfg, key, out_C, out_C, sharding, inference=inference)
+    resnet2, params2 = get_resnet_ff(cfg, key, out_C, out_C, sharding, inference=inference)
+    attn2, params_a2 = get_attention(cfg, key, out_C, out_C, sharding, inference=inference)
 
     params = {"r1":params1, "r2": params2,"a1": params_a1,"a2": params_a2}
 
@@ -321,11 +373,11 @@ def get_down_attn(cfg, key, in_C, out_C, sharding):
 
     return down_attn, params
 
-def get_up(cfg, key, in_C, out_C, residual_C: list, sharding):
+def get_up(cfg, key, in_C, out_C, residual_C: list, sharding, inference=False):
 
-    resnet1, params1 = get_resnet_ff(cfg, key, int(in_C+residual_C[0]), out_C, sharding)
-    resnet2, params2 = get_resnet_ff(cfg, key, int(out_C+residual_C[1]), out_C, sharding)
-    resnet3, params3 = get_resnet_ff(cfg, key, int(out_C+residual_C[2]), out_C, sharding)
+    resnet1, params1 = get_resnet_ff(cfg, key, int(in_C+residual_C[0]), out_C, sharding, inference=inference)
+    resnet2, params2 = get_resnet_ff(cfg, key, int(out_C+residual_C[1]), out_C, sharding, inference=inference)
+    resnet3, params3 = get_resnet_ff(cfg, key, int(out_C+residual_C[2]), out_C, sharding, inference=inference)
 
     params = {"r1":params1, "r2": params2,"r3": params3}
 
@@ -339,14 +391,14 @@ def get_up(cfg, key, in_C, out_C, residual_C: list, sharding):
 
     return up, params
 
-def get_up_attn(cfg, key, in_C, out_C, residual_C: list, sharding):
+def get_up_attn(cfg, key, in_C, out_C, residual_C: list, sharding, inference=False):
 
-    resnet1, params1 = get_resnet_ff(cfg, key, int(in_C+residual_C[0]), out_C, sharding)
-    resnet2, params2 = get_resnet_ff(cfg, key, int(out_C+residual_C[1]), out_C, sharding)
-    resnet3, params3 = get_resnet_ff(cfg, key, int(out_C+residual_C[2]), out_C, sharding)
-    attn1, params_a1 = get_attention(cfg, key, out_C, out_C, sharding)
-    attn2, params_a2 = get_attention(cfg, key, out_C, out_C, sharding)
-    attn3, params_a3 = get_attention(cfg, key, out_C, out_C, sharding)
+    resnet1, params1 = get_resnet_ff(cfg, key, int(in_C+residual_C[0]), out_C, sharding, inference=inference)
+    resnet2, params2 = get_resnet_ff(cfg, key, int(out_C+residual_C[1]), out_C, sharding, inference=inference)
+    resnet3, params3 = get_resnet_ff(cfg, key, int(out_C+residual_C[2]), out_C, sharding, inference=inference)
+    attn1, params_a1 = get_attention(cfg, key, out_C, out_C, sharding, inference=inference)
+    attn2, params_a2 = get_attention(cfg, key, out_C, out_C, sharding, inference=inference)
+    attn3, params_a3 = get_attention(cfg, key, out_C, out_C, sharding, inference=inference)
 
     params = {"r1":params1, "r2": params2,"r3": params3,"a1": params_a1,"a2": params_a2,"a3": params_a3}
 
@@ -366,9 +418,16 @@ def get_up_attn(cfg, key, in_C, out_C, residual_C: list, sharding):
 if __name__ == "__main__":
 
     import os
+    os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
+
+    import os
     os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 
+    from jax.experimental import mesh_utils
+    from jax.sharding import PositionalSharding
+    sharding = PositionalSharding(mesh_utils.create_device_mesh(4,)).reshape(4,1)
 
+    print(jax.devices())
 
     from hydra import compose, initialize
     import hydra
@@ -390,8 +449,20 @@ if __name__ == "__main__":
         return cfg
     
     cfg = get_hydra_config()
+    key = jax.random.PRNGKey(2332)
 
-    resnet, params = get_attention(cfg, jax.random.PRNGKey(22), 3, 3)
+    xx = jax.device_put(jnp.ones((4,4,8,4),dtype=jnp.float32)*10,sharding.reshape(len(jax.devices()),1,1,1))
+    ww = jax.device_put(jnp.ones((4,128),dtype=jnp.float32)*10,sharding.reshape(len(jax.devices()),1))
 
-    out = resnet(jnp.ones((2,4,5,3),dtype=jnp.float32), jnp.ones((2,128),dtype=jnp.float32), params, jax.random.PRNGKey(2332))
-    print(out.shape)
+    resnet, paramsr = get_resnet_ff(cfg, key, 4, 4, sharding)
+    attn, paramsa = get_attention(cfg, key, 4, 4, sharding)
+    down, paramsd = get_down_attn(cfg, key, 4, 4, sharding)
+    up, paramsu = get_up_attn(cfg, key, 4, 4, residual_C=[0,0,0], sharding=sharding)
+
+    outr = resnet(xx, ww, paramsr, key)
+    outa = attn(xx, ww, paramsa, key)
+    print(outr.shape, outa.shape)
+
+    outd = down(xx, ww, paramsd, key, factor=1)
+    outu = up(xx,xx,xx,xx, ww, paramsu, key, factor=1)
+    print(outd.shape, outu.shape)
