@@ -1,6 +1,5 @@
 import jax.numpy as jnp
 import optax
-from models.dummy import dummy_jax
 
 # https://github.com/deepmind/optax
 

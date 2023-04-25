@@ -16,9 +16,11 @@ import os
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 #os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION']='0.5'
 #os.environ['XLA_PYTHON_CLIENT_ALLOCATOR']='platform'
+os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
 
 import jax
 import jax.numpy as jnp
+jax.config.update('jax_platform_name', 'cpu')
 
 # Data
 from data.dataload import dataload 
@@ -60,7 +62,6 @@ from jax.sharding import PositionalSharding
 
 # TEST SHARDING TODO: REMOVE
 # import os
-# os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
 
 ### Train loop:
 
@@ -111,6 +112,9 @@ def run_experiment(cfg):
             # TODO: Strictly this changes from sde to sde
             timesteps = jax.random.uniform(subkey[0], (data.shape[0],), minval=1e-5, maxval=1)
 
+            # TODO: Potentially not memory efficient in terms of how this replication is done
+            #timesteps = jax.device_put(timesteps, sharding.reshape(-1).replicate(0))
+
             # Perturb the data with the timesteps trhough sampling sde trick (for speed, see paper for explanation)
             perturbed_data = SDE.sample(timesteps, data, subkey[1])
             
@@ -154,6 +158,7 @@ def run_experiment(cfg):
 
                     args = (timesteps.reshape(-1,1)[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], perturbed_data[:n])
                     images = jax.vmap(get_sample, (0, 0, 0, 0))(*args)
+                    jax.debug.visualize_array_sharding(images)
                     
                     Z = (jax.random.normal(key, data.shape)*255)[:n]
                     args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], Z)
