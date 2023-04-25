@@ -59,8 +59,8 @@ from jax.experimental import mesh_utils
 from jax.sharding import PositionalSharding
 
 # TEST SHARDING TODO: REMOVE
-# import os
-# os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
+import os
+os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
 
 ### Train loop:
 
@@ -117,12 +117,13 @@ def run_experiment(cfg):
             #perturbed_data = jax.device_put(perturbed_data,sharding.reshape((1,len(jax.devices()))))
 
 
-
             # scale timesteps for more significance
             scaled_timesteps = timesteps*999
 
             # get grad for this batch
               # loss_value, grads = jax.value_and_grad(loss_fn)(model_parameters, model_call, data, labels, t) # is this extra computation time
+
+            print(model_call(perturbed_data, scaled_timesteps, model_parameters, key))
 
                 
             grads = grad_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, subkey[2])
