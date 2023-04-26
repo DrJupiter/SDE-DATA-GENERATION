@@ -230,7 +230,7 @@ def get_conv(cfg, key, in_C, out_C, sharding):
 
     return conv2d, params
 
-def get_resnet_ff(cfg, key, in_C, out_C, sharding, inference=inference):
+def get_resnet_ff(cfg, key, in_C, out_C, sharding, inference=False):
     
     abf = cfg.model.hyperparameters.anti_blowup_factor
     kernel_size = cfg.model.hyperparameters.kernel_size
@@ -278,7 +278,7 @@ def get_resnet_ff(cfg, key, in_C, out_C, sharding, inference=inference):
 
     return resnet, params
 
-def get_attention(cfg, key, in_C, out_C, sharding, inference=inference):
+def get_attention(cfg, key, in_C, out_C, sharding, inference=False):
     assert in_C == out_C, "in and out channels should be identical"
 
     abf = cfg.model.hyperparameters.anti_blowup_factor
