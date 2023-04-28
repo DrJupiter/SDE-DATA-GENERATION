@@ -3,7 +3,7 @@
 #BSUB -o bsub_log/bsc_t_%J.out
 #BSUB -e bsub_log/bsc_t_%J.err
 #BSUB -q gpuv100
-#BSUB -gpu "num=4:mode=exclusive_process"
+#BSUB -gpu "num=4:mode=shared"
 #BSUB -n 1
 #BSUB -R "rusage[mem=160G]"
 #BSUB -R "span[hosts=1]"
