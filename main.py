@@ -16,11 +16,11 @@ import os
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 #os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION']='0.5'
 #os.environ['XLA_PYTHON_CLIENT_ALLOCATOR']='platform'
-# os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
+#os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
 
 import jax
 import jax.numpy as jnp
-jax.config.update('jax_platform_name', 'cpu')
+#jax.config.update('jax_platform_name', 'cpu')
 
 # Data
 from data.dataload import dataload 
@@ -62,8 +62,11 @@ from jax.sharding import PositionalSharding
 
 # time the process so we cant stop before termination with the goal of allowing WANDB to save our weights
 from time import time
-start_time = time()
-time_exeeded = False
+START_TIME = time()
+TIME_EXCEEDED = False
+
+# Paramter loading
+from utils.utils import load_paramters
 
 ### Train loop:
 
@@ -98,16 +101,18 @@ def run_experiment(cfg):
     grad_fn = jax.grad(loss_fn,1) # TODO: try to JIT function partial(jax.jit,static_argnums=0)(jax.grad(loss_fn,1))
     grad_fn = jax.jit(grad_fn, static_argnums=0)
 
+    model_parameters, optim_parameters = load_paramters(cfg, model_paramters=model_parameters, optimizer_paramters=optim_parameters)
+    jax.debug.visualize_array_sharding(model_parameters[0])
+
     # get shard
     sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
 
     # start training for each epoch
     for epoch in range(cfg.train_and_test.train.epochs): 
         for i, (data, labels) in enumerate(train_dataset): # batch training
-            
             # Check if we should terminate early, so we can properly log Wandb before being killed.
-            if cfg.time.time_termination and time()-start_time >= cfg.time.time_of_termination_h*60*60: # convert hours into seconds.
-                time_exeeded = True
+            if cfg.time.time_termination and time()-START_TIME >= cfg.time.time_of_termination_h*60*60: # convert hours into seconds.
+                TIME_EXCEEDED = True
                 break
 
             # split key to keep randomness "random" for each training batch
@@ -123,7 +128,7 @@ def run_experiment(cfg):
             # TODO: Potentially not memory efficient in terms of how this replication is done
             #timesteps = jax.device_put(timesteps, sharding.reshape(-1).replicate(0))
 
-            # Perturb the data with the timesteps trhough sampling sde trick (for speed, see paper for explanation)
+            # Perturb the data with the timesteps through sampling sde trick (for speed, see paper for explanation)
             perturbed_data = SDE.sample(timesteps, data, subkey[1])
             
             #perturbed_data = jax.device_put(perturbed_data,sharding.reshape((1,len(jax.devices()))))
@@ -135,8 +140,8 @@ def run_experiment(cfg):
             # get grad for this batch
               # loss_value, grads = jax.value_and_grad(loss_fn)(model_parameters, model_call, data, labels, t) # is this extra computation time
 
-            print(model_call(perturbed_data, scaled_timesteps, model_parameters, key))
 
+            # print(model_call(perturbed_data, scaled_timesteps, model_parameters, key))
                 
             grads = grad_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, subkey[2])
 
@@ -167,7 +172,7 @@ def run_experiment(cfg):
 
                     args = (timesteps.reshape(-1,1)[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], perturbed_data[:n])
                     images = jax.vmap(get_sample, (0, 0, 0, 0))(*args)
-                    # jax.debug.visualize_array_sharding(images)
+                 
                     
                     Z = (jax.random.normal(key, data.shape)*255)[:n]
                     args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], Z)
@@ -185,9 +190,12 @@ def run_experiment(cfg):
                     display_images(cfg, data[:n], labels[:n], log_title="Original Images: x(0)")
 
                   if cfg.wandb.log.parameters:
-                          with open(os.path.join(wandb.run.dir, "paremeters.pickle"), 'wb') as f:
-                            pickle.dump((epoch*len(train_dataset) + i, model_parameters, optim_parameters), f, pickle.HIGHEST_PROTOCOL)
-                          wandb.save("paramters.pickle")
+                          with open(os.path.join(wandb.run.dir, f"{cfg.model.name}-parameters.pickle"), 'wb') as f:
+                            pickle.dump((epoch*len(train_dataset) + i, model_parameters), f, pickle.HIGHEST_PROTOCOL)
+                          wandb.save(f"{cfg.model.name}-parameters.pickle")
+                          with open(os.path.join(wandb.run.dir, f"{cfg.model.name}-{cfg.optimizer.name}-parameters.pickle"), 'wb') as f:
+                            pickle.dump((epoch*len(train_dataset) + i, optim_parameters), f, pickle.HIGHEST_PROTOCOL)
+                          wandb.save(f"{cfg.model.name}-{cfg.optimizer.name}-parameters.pickle")
                     #image = get_sample(timesteps[0], subkey[2], subkey[2], perturbed_data[0])
 
                     #rescaled_perturbed = (perturbed_data[0]-jnp.min(perturbed_data[0]))/(jnp.max(perturbed_data[0])-jnp.min(perturbed_data[0]))*255
@@ -203,7 +211,7 @@ def run_experiment(cfg):
             
             
         # Test loop
-        if epoch % cfg.wandb.log.epoch_frequency == 0 and not time_exeeded:
+        if epoch % cfg.wandb.log.epoch_frequency == 0 and not TIME_EXCEEDED:
             if cfg.wandb.log.FID: 
                 # generate pictures before this can be run
 
