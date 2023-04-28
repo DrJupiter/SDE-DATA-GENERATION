@@ -2,8 +2,9 @@ defaults:
         - wandb : defaults
         - dataset: cifar10
         - train_and_test: default
-        - model : sde #ddpm_simple # dummy #dummy #ddpm_unet_mega_downscaled # dummy_giant # dummy 
+        - model : dummy #ddpm_simple # dummy #dummy #ddpm_unet_mega_downscaled # dummy_giant # dummy 
         - visualization: visualize
         - optimizer: adam
         - sde: paper_subvp
         - loss: implicit_sm #denoise_sm #implicit_sm #none
+        - parameter_loading: default

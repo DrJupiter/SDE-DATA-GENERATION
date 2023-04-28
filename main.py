@@ -60,6 +60,7 @@ from sde.sample import sample
 from jax.experimental import mesh_utils
 from jax.sharding import PositionalSharding
 
+from utils.utils import load_paramters
 
 ### Train loop:
 
@@ -94,6 +95,9 @@ def run_experiment(cfg):
     grad_fn = jax.grad(loss_fn,1) # TODO: try to JIT function partial(jax.jit,static_argnums=0)(jax.grad(loss_fn,1))
     grad_fn = jax.jit(grad_fn, static_argnums=0)
 
+    model_parameters, optim_parameters = load_paramters(cfg, model_paramters=model_parameters, optimizer_paramters=optim_parameters)
+    jax.debug.visualize_array_sharding(model_parameters[0])
+
     # get shard
     sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
 
@@ -113,7 +117,7 @@ def run_experiment(cfg):
             # TODO: Potentially not memory efficient in terms of how this replication is done
             #timesteps = jax.device_put(timesteps, sharding.reshape(-1).replicate(0))
 
-            # Perturb the data with the timesteps trhough sampling sde trick (for speed, see paper for explanation)
+            # Perturb the data with the timesteps through sampling sde trick (for speed, see paper for explanation)
             perturbed_data = SDE.sample(timesteps, data, subkey[1])
             
             #perturbed_data = jax.device_put(perturbed_data,sharding.reshape((1,len(jax.devices()))))
@@ -125,8 +129,8 @@ def run_experiment(cfg):
             # get grad for this batch
               # loss_value, grads = jax.value_and_grad(loss_fn)(model_parameters, model_call, data, labels, t) # is this extra computation time
 
-            print(model_call(perturbed_data, scaled_timesteps, model_parameters, key))
 
+            # print(model_call(perturbed_data, scaled_timesteps, model_parameters, key))
                 
             grads = grad_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, subkey[2])
 
@@ -157,7 +161,7 @@ def run_experiment(cfg):
 
                     args = (timesteps.reshape(-1,1)[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], perturbed_data[:n])
                     images = jax.vmap(get_sample, (0, 0, 0, 0))(*args)
-                    jax.debug.visualize_array_sharding(images)
+                 
                     
                     Z = (jax.random.normal(key, data.shape)*255)[:n]
                     args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], Z)
@@ -174,9 +178,12 @@ def run_experiment(cfg):
                     display_images(cfg, Z, labels[:n], log_title="N(0,I)")
                     display_images(cfg, data[:n], labels[:n], log_title="Original Images: x(0)")
                   if cfg.wandb.log.parameters:
-                          with open(os.path.join(wandb.run.dir, "paremeters.pickle"), 'wb') as f:
-                            pickle.dump((epoch*len(train_dataset) + i, model_parameters, optim_parameters), f, pickle.HIGHEST_PROTOCOL)
-                          wandb.save("paramters.pickle")
+                          with open(os.path.join(wandb.run.dir, f"{cfg.model.name}-parameters.pickle"), 'wb') as f:
+                            pickle.dump((epoch*len(train_dataset) + i, model_parameters), f, pickle.HIGHEST_PROTOCOL)
+                          wandb.save(f"{cfg.model.name}-parameters.pickle")
+                          with open(os.path.join(wandb.run.dir, f"{cfg.optimizer.name}-parameters.pickle"), 'wb') as f:
+                            pickle.dump((epoch*len(train_dataset) + i, optim_parameters), f, pickle.HIGHEST_PROTOCOL)
+                          wandb.save(f"{cfg.optimizer.name}-parameters.pickle")
                     #image = get_sample(timesteps[0], subkey[2], subkey[2], perturbed_data[0])
 
                     #rescaled_perturbed = (perturbed_data[0]-jnp.min(perturbed_data[0]))/(jnp.max(perturbed_data[0])-jnp.min(perturbed_data[0]))*255

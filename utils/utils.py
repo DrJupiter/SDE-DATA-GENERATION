@@ -55,3 +55,35 @@ def rescale_sigmoid_img(x):
     factor = 0.05 # -500;500 -> 0;10
     max_val = 255
     return max_val/(1+jnp.exp(-1,factor))
+import pickle
+import os
+
+def load_paramters(cfg, model_paramters, optimizer_paramters):
+
+    if cfg.parameter_loading.model:
+        if os.path.isdir(cfg.parameter_loading.model_path):
+            with open(os.path.join(cfg.parameter_loading.model_path, f"{cfg.model.name}-parameters.pickle"), "rb") as mp:
+                iteration, model_paramters = pickle.load(mp)
+        
+        elif os.path.isfile(cfg.parameter_loading.model_path):
+            with open(cfg.parameter_loading.model_path, "rb") as mp:
+                iteration, model_paramters = pickle.load(mp)
+        else:
+            raise FileNotFoundError(f"Unable to find {cfg.parameter_loading.model_path}")
+
+        print(f"Loaded model: {cfg.model.name} paramters @ checkpoint iteration {iteration}")
+
+    if cfg.parameter_loading.optimizer:
+        if os.path.isdir(cfg.parameter_loading.optimizer_path):
+            with open(os.path.join(cfg.parameter_loading.optimizer_path, f"{cfg.optimizer.name}-parameters.pickle"), "rb") as op:
+                iteration, optimizer_paramters = pickle.load(op)
+
+        elif os.path.isfile(cfg.parameter_loading.optimizer_path):
+            with open(cfg.parameter_loading.optimizer_path, "rb") as op:
+                iteration, optimizer_paramters = pickle.load(op)
+        else:
+            raise FileNotFoundError(f"Unable to find {cfg.parameter_loading.optimizer_path}")
+
+        print(f"Loaded optimizer: {cfg.optimizer.name} paramters @ checkpoint iteration {iteration}")
+
+    return model_paramters, optimizer_paramters

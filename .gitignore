@@ -136,3 +136,4 @@ imgs
 cifar-10-batches-py
 
 tmp/*
+saved-parameters/*
