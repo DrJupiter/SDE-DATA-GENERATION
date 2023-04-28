@@ -10,6 +10,9 @@ from jax import nn
 from jax import lax
 import jax
 
+# sharding
+from utils.utils import get_model_sharding
+
 ######################## Basic building blocks ########################
 
 from models.ddpm.building_blocks.ddpm_func_new import get_resnet_ff, get_attention, get_timestep_embedding, get_conv, get_down, get_down_attn, get_up, get_up_attn
@@ -25,22 +28,20 @@ def get_ddpm_unet(cfg, key, inference=False):
     # get new kets
     key, subkey = random.split(key,2)
 
-    # if cfg.model.hyperparameters.sharding:
-
     # get time embedding func and params
     apply_timestep_embedding, p_embed = get_timestep_embedding(cfg, key, embedding_dim=c_s[0])
 
     # get model funcs and params
     conv1, p_c1 =       get_conv(cfg, key, data_c, c_s[0])
 
-    down1, p_d1 =       get_down(cfg, key, c_s[0], c_s[0], inference)
-    down2_attn, p_da2 = get_down_attn(cfg, key, c_s[0], c_s[1], inference)
-    down3, p_d3 =       get_down(cfg, key, c_s[1], c_s[2], inference)
-    down4, p_d4 =       get_down(cfg, key, c_s[2], c_s[3], inference)
+    down1, p_d1 =       get_down(cfg, key, c_s[0], c_s[0], inference=inference)
+    down2_attn, p_da2 = get_down_attn(cfg, key, c_s[0], c_s[1], inference=inference)
+    down3, p_d3 =       get_down(cfg, key, c_s[1], c_s[2], inference=inference)
+    down4, p_d4 =       get_down(cfg, key, c_s[2], c_s[3], inference=inference)
 
-    r1, p_mr1 = get_resnet_ff(cfg, key, c_s[3], c_s[3],  inference)
-    a1, p_ma2 = get_attention(cfg, key, c_s[3], c_s[3],  inference)
-    r2, p_mr3 = get_resnet_ff(cfg, key, c_s[3], c_s[3],  inference)
+    r1, p_mr1 = get_resnet_ff(cfg, key, c_s[3], c_s[3], inference=inference)
+    a1, p_ma2 = get_attention(cfg, key, c_s[3], c_s[3], inference=inference)
+    r2, p_mr3 = get_resnet_ff(cfg, key, c_s[3], c_s[3], inference=inference)
 
     up1, p_u1 =         get_up(cfg, key, c_s[3], c_s[2], residual_C = [c_s[3],c_s[3],c_s[2]], inference=inference)
     up2, p_u2 =         get_up(cfg, key, c_s[2], c_s[2], residual_C = [c_s[2],c_s[2],c_s[1]], inference=inference)
@@ -55,6 +56,9 @@ def get_ddpm_unet(cfg, key, inference=False):
               "p_mr1":p_mr1, "p_ma2":p_ma2, "p_mr3":p_mr3, # middle
               "p_c1":p_c1, "p_c2":p_c2, # conv
               "p_embed": p_embed}  # time embedding
+
+    if cfg.model.sharding:
+        params = get_model_sharding(cfg)(params)
 
     # forward ini:
     def ddpm_unet(x_in, timesteps, params, key):
