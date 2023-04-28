@@ -16,11 +16,11 @@ import os
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 #os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION']='0.5'
 #os.environ['XLA_PYTHON_CLIENT_ALLOCATOR']='platform'
-# os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
+#os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
 
 import jax
 import jax.numpy as jnp
-jax.config.update('jax_platform_name', 'cpu')
+#jax.config.update('jax_platform_name', 'cpu')
 
 # Data
 from data.dataload import dataload 
@@ -64,6 +64,9 @@ from jax.sharding import PositionalSharding
 from time import time
 START_TIME = time()
 TIME_EXCEEDED = False
+
+# Paramter loading
+from utils.utils import load_paramters
 
 ### Train loop:
 
