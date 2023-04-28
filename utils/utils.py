@@ -90,7 +90,7 @@ def load_paramters(cfg, model_paramters, optimizer_paramters):
 
     return model_paramters, optimizer_paramters
 
-from models.dummy.dummy_jax import shard_parameters
+from models.dummy.shard import shard_parameters
 from models.ddpm.shard_parameters import shard_ddpm_unet
 
 def get_model_sharding(cfg):
