@@ -2,8 +2,8 @@
 #BSUB -J bsc_test
 #BSUB -o bsub_log/bsc_t_%J.out
 #BSUB -e bsub_log/bsc_t_%J.err
-#BSUB -q gpua100
-#BSUB -gpu "num=2"
+#BSUB -q gpuv100
+#BSUB -gpu "num=4"
 #BSUB -n 1
 #BSUB -R "rusage[mem=160G]"
 #BSUB -R "span[hosts=1]"
