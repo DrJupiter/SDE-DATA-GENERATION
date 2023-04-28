@@ -113,33 +113,33 @@ def shard_up_attn(params, sharding):
 
 ###### FULL MODEL ######
 
-def get_ddpm_unet(params, sharding):
+def shard_ddpm_unet(params, sharding):
 
     # if cfg.model.hyperparameters.sharding:
     n_devices = len(jax.devices())
     sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,1)))
 
     # get time embedding func and params
-    params["p_embed"] = shard_timestep_embedding(params, sharding)
+    params["p_embed"] = shard_timestep_embedding(params["p_embed"], sharding)
 
     # get model funcs and params
-    params["p_c1"] =       shard_conv(params, sharding)
+    params["p_c1"] =       shard_conv(params["p_c1"], sharding)
 
-    params["p_d1"] =       shard_down(params, sharding)
-    params["p_da2"] = shard_down_attn(params, sharding)
-    params["p_d3"] =       shard_down(params, sharding)
-    params["p_d4"] =       shard_down(params, sharding)
+    params["p_d1"] =       shard_down(params["p_d1"], sharding)
+    params["p_da2"] = shard_down_attn(params["p_da2"], sharding)
+    params["p_d3"] =       shard_down(params["p_d3"], sharding)
+    params["p_d4"] =       shard_down(params["p_d4"], sharding)
 
-    params["p_mr1"] = shard_resnet_ff(params, sharding)
-    params["p_ma2"] = shard_attention(params, sharding)
-    params["p_mr3"] = shard_resnet_ff(params, sharding)
+    params["p_mr1"] = shard_resnet_ff(params["p_mr1"], sharding)
+    params["p_ma2"] = shard_attention(params["p_ma2"], sharding)
+    params["p_mr3"] = shard_resnet_ff(params["p_mr3"], sharding)
 
-    params["p_u1"] =         shard_up(params, sharding)
-    params["p_u2"] =         shard_up(params, sharding)
-    params["p_ua3"] =   shard_up_attn(params, sharding)
-    params["p_u4"] =         shard_up(params, sharding)
+    params["p_u1"] =         shard_up(params["p_u1"], sharding)
+    params["p_u2"] =         shard_up(params["p_u2"], sharding)
+    params["p_ua3"] =   shard_up_attn(params["p_ua3"], sharding)
+    params["p_u4"] =         shard_up(params["p_u4"], sharding)
 
-    params["p_c2"] =       shard_conv(params, sharding)
+    params["p_c2"] =       shard_conv(params["p_c2"], sharding)
 
     # define all the aprams in a dict
     # params = {"p_d1":p_d1, "p_da2":p_da2, "p_d3":p_d3, "p_d4":p_d4,  # down
