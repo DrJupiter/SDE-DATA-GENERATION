@@ -1,5 +1,4 @@
 
-
 import jax.numpy as jnp
 from jax import grad, jit, device_count, device_put 
 import jax
