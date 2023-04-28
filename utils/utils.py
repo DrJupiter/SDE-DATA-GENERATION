@@ -75,7 +75,7 @@ def load_paramters(cfg, model_paramters, optimizer_paramters):
 
     if cfg.parameter_loading.optimizer:
         if os.path.isdir(cfg.parameter_loading.optimizer_path):
-            with open(os.path.join(cfg.parameter_loading.optimizer_path, f"{cfg.optimizer.name}-parameters.pickle"), "rb") as op:
+            with open(os.path.join(cfg.parameter_loading.optimizer_path, f"{cfg.model.name}-{cfg.optimizer.name}-parameters.pickle"), "rb") as op:
                 iteration, optimizer_paramters = pickle.load(op)
 
         elif os.path.isfile(cfg.parameter_loading.optimizer_path):

@@ -194,9 +194,9 @@ def run_experiment(cfg):
                           with open(os.path.join(wandb.run.dir, f"{cfg.model.name}-parameters.pickle"), 'wb') as f:
                             pickle.dump((epoch*len(train_dataset) + i, model_parameters), f, pickle.HIGHEST_PROTOCOL)
                           wandb.save(f"{cfg.model.name}-parameters.pickle")
-                          with open(os.path.join(wandb.run.dir, f"{cfg.optimizer.name}-parameters.pickle"), 'wb') as f:
+                          with open(os.path.join(wandb.run.dir, f"{cfg.model.name}-{cfg.optimizer.name}-parameters.pickle"), 'wb') as f:
                             pickle.dump((epoch*len(train_dataset) + i, optim_parameters), f, pickle.HIGHEST_PROTOCOL)
-                          wandb.save(f"{cfg.optimizer.name}-parameters.pickle")
+                          wandb.save(f"{cfg.model.name}-{cfg.optimizer.name}-parameters.pickle")
                     #image = get_sample(timesteps[0], subkey[2], subkey[2], perturbed_data[0])
 
                     #rescaled_perturbed = (perturbed_data[0]-jnp.min(perturbed_data[0]))/(jnp.max(perturbed_data[0])-jnp.min(perturbed_data[0]))*255
