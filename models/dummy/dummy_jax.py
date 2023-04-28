@@ -5,6 +5,9 @@ import jax
 from jax import random
 from jax import nn
 
+from jax.experimental import mesh_utils
+from jax.sharding import PositionalSharding
+
 # %%
 # TODO: Specify the dynamic arguments for jit
 
@@ -17,21 +20,26 @@ def get_parameters(cfg):
     key = random.PRNGKey(cfg.model.key)
     parameters = []
     sizes = cfg.model.parameter_sizes
-    if cfg.model.sharding:
-        from jax.experimental import mesh_utils
-        from jax.sharding import PositionalSharding
-        print("Sharding")
-        n = device_count()
-        sharding = PositionalSharding(mesh_utils.create_device_mesh((n,)))
     for size in sizes: 
         key, subkey = random.split(key)
         parameter = random.normal(subkey, (size), dtype=jnp.float32)
-        if cfg.model.sharding:
-            parameter = device_put(parameter, sharding.reshape(n, 1))
-            jax.debug.visualize_array_sharding(parameter)
-
         parameters.append(parameter)
+    if cfg.model.sharding:
+        parameters = shard_parameters(parameters)
     return parameters
+
+def shard_parameters(parameters):
+    print("Sharding model")
+    n = device_count()
+    sharding = PositionalSharding(mesh_utils.create_device_mesh((n,)))
+    for i in range(len(parameters)):
+        parameters[i] = device_put(parameters[i], sharding.reshape(n, 1))
+        jax.debug.visualize_array_sharding(parameters[i])
+    return parameters
+
+
+
+
 
 @jit
 def model_call(data, _time, parameters, _key):
