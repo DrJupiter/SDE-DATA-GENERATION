@@ -93,21 +93,21 @@ def shard_down_attn(params, sharding):
 
 def shard_up(params, sharding):
 
-    params["r1"] = shard_resnet_ff(params, sharding)
-    params["r2"] = shard_resnet_ff(params, sharding)
-    params["r3"] = shard_resnet_ff(params, sharding)
+    params["r1"] = shard_resnet_ff(params["r1"], sharding)
+    params["r2"] = shard_resnet_ff(params["r2"], sharding)
+    params["r3"] = shard_resnet_ff(params["r3"], sharding)
 
     return params
 
 def shard_up_attn(params, sharding):
 
-    params["r1"] = shard_resnet_ff(params, sharding)
-    params["r2"] = shard_resnet_ff(params, sharding)
-    params["r3"] = shard_resnet_ff(params, sharding)
+    params["r1"] = shard_resnet_ff(params["r1"], sharding)
+    params["r2"] = shard_resnet_ff(params["r2"], sharding)
+    params["r3"] = shard_resnet_ff(params["r3"], sharding)
 
-    params["a1"] = shard_attention(params, sharding)
-    params["a2"] = shard_attention(params, sharding)
-    params["a3"] = shard_attention(params, sharding)
+    params["a1"] = shard_attention(params["a1"], sharding)
+    params["a2"] = shard_attention(params["a2"], sharding)
+    params["a3"] = shard_attention(params["a3"], sharding)
 
     return params
 
@@ -166,4 +166,5 @@ if __name__ == "__main__":
     param = shard_batchnorm(param2["s"], sharding)
 
     jax.debug.visualize_array_sharding(param2["s"]["l"])
+
 
