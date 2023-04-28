@@ -66,7 +66,7 @@ START_TIME = time()
 TIME_EXCEEDED = False
 
 # Paramter loading
-from utils.utils import load_paramters
+from utils.utils import load_paramters, get_wandb_input
 
 ### Train loop:
 
@@ -77,7 +77,7 @@ def run_experiment(cfg):
     # initialize Weights and Biases
     print(cfg)
     print(jax.devices())
-    wandb.init(entity=cfg.wandb.setup.entity, project=cfg.wandb.setup.project)
+    wandb.init(**get_wandb_input(cfg))
 
     # Get randomness key
     key = jax.random.PRNGKey(cfg.model.key)

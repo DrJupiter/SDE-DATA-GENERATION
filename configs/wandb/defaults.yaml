@@ -1,6 +1,7 @@
 setup:
         project: test-project
         entity: ai-dtu
+        experiment: "model_size"
 log:
         loss: true
         img: false

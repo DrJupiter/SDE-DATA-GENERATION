@@ -100,4 +100,23 @@ def get_model_sharding(cfg):
         return shard_ddpm_unet
     raise NotImplementedError(f"Sharding not implemented for {cfg.model.name}")
 
+def get_wandb_input(cfg):
+    args = {}
+    args["entity"] = cfg.wandb.setup.entity
+    args["project"] = cfg.wandb.setup.project
+
+    tags = [cfg.wandb.setup.experiment, cfg.loss.name, cfg.model.name, cfg.sde.name]
+    if cfg.wandb.setup.experiment == "train":
+        pass
+    elif cfg.wandb.setup.experiment == "model_size":
+        additional_tags = []
+        if cfg.model.name == "ddpm_unet":
+            sizes = cfg.model.parameters.Channel_sizes
+            additional_tags += [f"channel{i}-{size}" for i,size in enumerate(sizes)]
+        tags += additional_tags
+    elif cfg.wandb.setup.experiment == "batch_size":
+        additional_tags = [f"{cfg.train_and_test.train.batch_size}"]
+        tags += additional_tags
     
+    args["tags"] = tags
+    return args 
