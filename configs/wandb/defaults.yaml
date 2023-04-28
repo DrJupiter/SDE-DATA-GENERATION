@@ -3,7 +3,7 @@ setup:
         entity: ai-dtu
 log:
         loss: true
-        img: true
+        img: False
         n_images: 10
         frequency: 1000
         FID: false
