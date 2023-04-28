@@ -9,8 +9,6 @@ from jax import random
 from jax import nn
 from jax import lax
 import jax
-from jax.experimental import mesh_utils
-from jax.sharding import PositionalSharding
 
 ######################## Basic building blocks ########################
 
@@ -28,30 +26,28 @@ def get_ddpm_unet(cfg, key, inference=False):
     key, subkey = random.split(key,2)
 
     # if cfg.model.hyperparameters.sharding:
-    n_devices = len(jax.devices())
-    sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,1)))
 
     # get time embedding func and params
-    apply_timestep_embedding, p_embed = get_timestep_embedding(cfg, key, embedding_dim=c_s[0], sharding = sharding)
+    apply_timestep_embedding, p_embed = get_timestep_embedding(cfg, key, embedding_dim=c_s[0])
 
     # get model funcs and params
-    conv1, p_c1 =       get_conv(cfg, key, data_c, c_s[0], sharding.reshape((1,1,1,len(jax.devices()))))
+    conv1, p_c1 =       get_conv(cfg, key, data_c, c_s[0])
 
-    down1, p_d1 =       get_down(cfg, key, c_s[0], c_s[0], sharding, inference=inference)
-    down2_attn, p_da2 = get_down_attn(cfg, key, c_s[0], c_s[1], sharding, inference=inference)
-    down3, p_d3 =       get_down(cfg, key, c_s[1], c_s[2], sharding, inference=inference)
-    down4, p_d4 =       get_down(cfg, key, c_s[2], c_s[3], sharding, inference=inference)
+    down1, p_d1 =       get_down(cfg, key, c_s[0], c_s[0], inference)
+    down2_attn, p_da2 = get_down_attn(cfg, key, c_s[0], c_s[1], inference)
+    down3, p_d3 =       get_down(cfg, key, c_s[1], c_s[2], inference)
+    down4, p_d4 =       get_down(cfg, key, c_s[2], c_s[3], inference)
 
-    r1, p_mr1 = get_resnet_ff(cfg, key, c_s[3], c_s[3], sharding, inference=inference)
-    a1, p_ma2 = get_attention(cfg, key, c_s[3], c_s[3], sharding, inference=inference)
-    r2, p_mr3 = get_resnet_ff(cfg, key, c_s[3], c_s[3], sharding, inference=inference)
+    r1, p_mr1 = get_resnet_ff(cfg, key, c_s[3], c_s[3],  inference)
+    a1, p_ma2 = get_attention(cfg, key, c_s[3], c_s[3],  inference)
+    r2, p_mr3 = get_resnet_ff(cfg, key, c_s[3], c_s[3],  inference)
 
-    up1, p_u1 =         get_up(cfg, key, c_s[3], c_s[2], residual_C = [c_s[3],c_s[3],c_s[2]], sharding = sharding, inference=inference)
-    up2, p_u2 =         get_up(cfg, key, c_s[2], c_s[2], residual_C = [c_s[2],c_s[2],c_s[1]], sharding = sharding, inference=inference)
-    up_attn3, p_ua3 =   get_up_attn(cfg, key, c_s[2], c_s[1], residual_C = [c_s[1],c_s[1],c_s[0]], sharding = sharding, inference=inference)
-    up4, p_u4 =         get_up(cfg, key, c_s[1], c_s[0], residual_C = [c_s[0],c_s[0],c_s[0]], sharding = sharding, inference=inference)
+    up1, p_u1 =         get_up(cfg, key, c_s[3], c_s[2], residual_C = [c_s[3],c_s[3],c_s[2]], inference=inference)
+    up2, p_u2 =         get_up(cfg, key, c_s[2], c_s[2], residual_C = [c_s[2],c_s[2],c_s[1]], inference=inference)
+    up_attn3, p_ua3 =   get_up_attn(cfg, key, c_s[2], c_s[1], residual_C = [c_s[1],c_s[1],c_s[0]], inference=inference)
+    up4, p_u4 =         get_up(cfg, key, c_s[1], c_s[0], residual_C = [c_s[0],c_s[0],c_s[0]], inference=inference)
 
-    conv2, p_c2 =       get_conv(cfg, key, c_s[0], data_c, sharding.reshape((1,1,len(jax.devices()),1)))
+    conv2, p_c2 =       get_conv(cfg, key, c_s[0], data_c)
 
     # define all the aprams in a dict
     params = {"p_d1":p_d1, "p_da2":p_da2, "p_d3":p_d3, "p_d4":p_d4,  # down

@@ -102,7 +102,6 @@ def run_experiment(cfg):
     grad_fn = jax.jit(grad_fn, static_argnums=0)
 
     model_parameters, optim_parameters = load_paramters(cfg, model_paramters=model_parameters, optimizer_paramters=optim_parameters)
-    jax.debug.visualize_array_sharding(model_parameters[0])
 
     # get shard
     sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
@@ -141,7 +140,7 @@ def run_experiment(cfg):
               # loss_value, grads = jax.value_and_grad(loss_fn)(model_parameters, model_call, data, labels, t) # is this extra computation time
 
 
-            # print(model_call(perturbed_data, scaled_timesteps, model_parameters, key))
+            print(model_call(perturbed_data, scaled_timesteps, model_parameters, key))
                 
             grads = grad_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, subkey[2])
 

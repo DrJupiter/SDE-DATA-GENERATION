@@ -13,6 +13,7 @@ hyperparameters:
   inference: False
   anti_blowup_factor: 0.03
   kernel_size: 3
+  avg_length: 200
 parameters:
   Channel_sizes:
     - 16
