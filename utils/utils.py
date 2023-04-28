@@ -71,6 +71,8 @@ def load_paramters(cfg, model_paramters, optimizer_paramters):
         else:
             raise FileNotFoundError(f"Unable to find {cfg.parameter_loading.model_path}")
 
+        if cfg.model.sharding:
+            model_paramters = get_model_sharding(cfg)(model_paramters)
         print(f"Loaded model: {cfg.model.name} paramters @ checkpoint iteration {iteration}")
 
     if cfg.parameter_loading.optimizer:
@@ -87,3 +89,15 @@ def load_paramters(cfg, model_paramters, optimizer_paramters):
         print(f"Loaded optimizer: {cfg.optimizer.name} paramters @ checkpoint iteration {iteration}")
 
     return model_paramters, optimizer_paramters
+
+from models.dummy.dummy_jax import shard_parameters
+from models.ddpm.shard_parameters import shard_ddpm_unet
+
+def get_model_sharding(cfg):
+    if cfg.model.name == "dummy_jax":
+        return shard_parameters 
+    elif cfg.model.name == "ddpm_unet":
+        return shard_ddpm_unet
+    raise NotImplementedError(f"Sharding not implemented for {cfg.model.name}")
+
+    
