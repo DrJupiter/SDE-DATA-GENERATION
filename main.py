@@ -110,10 +110,9 @@ def run_experiment(cfg):
     # start training for each epoch
     for epoch in range(cfg.train_and_test.train.epochs): 
         for i, (data, labels) in enumerate(train_dataset): # batch training
-            
             # Check if we should terminate early, so we can properly log Wandb before being killed.
             if cfg.time.time_termination and time()-START_TIME >= cfg.time.time_of_termination_h*60*60: # convert hours into seconds.
-                time_exeeded = True
+                TIME_EXCEEDED = True
                 break
 
             # split key to keep randomness "random" for each training batch
@@ -212,7 +211,7 @@ def run_experiment(cfg):
             
             
         # Test loop
-        if epoch % cfg.wandb.log.epoch_frequency == 0 and not time_exeeded:
+        if epoch % cfg.wandb.log.epoch_frequency == 0 and not TIME_EXCEEDED:
             if cfg.wandb.log.FID: 
                 # generate pictures before this can be run
 
