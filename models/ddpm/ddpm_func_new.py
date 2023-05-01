@@ -58,6 +58,7 @@ def get_ddpm_unet(cfg, key, inference=False):
               "p_embed": p_embed}  # time embedding
 
     if cfg.model.sharding:
+        print("Sharding")
         params = get_model_sharding(cfg)(params)
 
     # forward ini:
