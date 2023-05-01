@@ -81,6 +81,7 @@ def get_implicit_score_matching(cfg):
             #print(divergence)
 
             score = func(perturbed_data, time, function_parameters, key)
+            score_length = jnp.square(jnp.linalg.norm(score))
 
         #    dot = []
         #    for i, s in enumerate(score):
@@ -90,7 +91,7 @@ def get_implicit_score_matching(cfg):
 
             #print(batch_matmul(score, score)-dot) 
             # jnp.einsum("bc,bc->b",score,score)
-            return jnp.mean(0.5 * batch_matmul(score, jnp.array(score, copy=True)) + divergence)
+            return jnp.mean(0.5 * score_length + divergence)
     return implicit_score_matching
 
 if __name__ == "__main__":
