@@ -41,8 +41,10 @@ def get_implicit_score_matching(cfg):
             #divergence = div(data[0], time.reshape(-1,1)[0])
             #print(f"The divergence {divergence}")
             #print(divergence)
-    
-            score = jax.device_put(func(perturbed_data, time, function_parameters, key), sharding.replicate(0))
+            score = func(perturbed_data, time, function_parameters, key)
+            score_length = jnp.square(jnp.linalg.norm(score))
+            #print((jnp.linalg.norm(out)**2).shape)    
+            #score = jax.device_put(func(perturbed_data, time, function_parameters, key), sharding.replicate(0))
     
         #    dot = []
         #    for i, s in enumerate(score):
@@ -52,7 +54,7 @@ def get_implicit_score_matching(cfg):
     
             #print(batch_matmul(score, score)-dot) 
             # jnp.einsum("bc,bc->b",score,score)
-            return jnp.mean(0.5 * batch_matmul(score, jnp.array(score, copy=True)) + divergence)
+            return jnp.mean(0.5 * score_length + divergence)
     else:
 
         def implicit_score_matching(func, function_parameters, _data , perturbed_data, time, key):

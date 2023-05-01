@@ -15,12 +15,12 @@ import torch
 import os
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 #os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION']='0.5'
-os.environ['XLA_PYTHON_CLIENT_ALLOCATOR']='platform'
-#os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
+#os.environ['XLA_PYTHON_CLIENT_ALLOCATOR']='platform'
+os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
 
 import jax
 import jax.numpy as jnp
-#jax.config.update('jax_platform_name', 'cpu')
+jax.config.update('jax_platform_name', 'cpu')
 
 # Data
 from data.dataload import dataload 
@@ -149,7 +149,7 @@ def run_experiment(cfg):
 
             # update model params
             model_parameters = optax.apply_updates(model_parameters, updates)
-            
+
             # Logging loss and an image
             if i % cfg.wandb.log.frequency == 0:
                   if cfg.wandb.log.loss:
