@@ -105,7 +105,7 @@ def get_wandb_input(cfg):
     args["entity"] = cfg.wandb.setup.entity
     args["project"] = cfg.wandb.setup.project
 
-    tags = [cfg.wandb.setup.experiment, cfg.loss.name, cfg.model.name, cfg.sde.name]
+    tags = [cfg.wandb.setup.experiment, cfg.loss.name, cfg.model.name, cfg.sde.name, cfg.dataset.name]
     if cfg.wandb.setup.experiment == "train":
         pass
     elif cfg.wandb.setup.experiment == "model_size":

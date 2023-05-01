@@ -62,8 +62,7 @@ from jax.sharding import PositionalSharding
 
 # time the process so we cant stop before termination with the goal of allowing WANDB to save our weights
 from time import time
-START_TIME = time()
-TIME_EXCEEDED = False
+
 
 # Paramter loading
 from utils.utils import load_paramters, get_wandb_input
@@ -73,7 +72,8 @@ from utils.utils import load_paramters, get_wandb_input
 # Gets config
 @hydra.main(config_path="configs/", config_name="defaults", version_base='1.3')
 def run_experiment(cfg):
-
+    START_TIME = time()
+    TIME_EXCEEDED = False
     # initialize Weights and Biases
     print(cfg)
     print(jax.devices())
