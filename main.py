@@ -103,7 +103,8 @@ def run_experiment(cfg):
 
     model_parameters, optim_parameters = load_paramters(cfg, model_paramters=model_parameters, optimizer_paramters=optim_parameters)
     jax.debug.visualize_array_sharding(model_parameters["p_c1"][0,0])
-
+    import sys
+    sys.exit(0)
     # get shard
     sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
 
