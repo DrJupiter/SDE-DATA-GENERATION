@@ -12,7 +12,8 @@ from jax.sharding import PositionalSharding
 
 def get_implicit_score_matching(cfg):
 
-    if cfg.loss.sharding:
+    if cfg.loss.sharding and cfg.model.sharding:
+        print("Sharding loss")
         sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
         def implicit_score_matching(func, function_parameters, _data , perturbed_data, time, key):
             """
@@ -28,9 +29,12 @@ def get_implicit_score_matching(cfg):
             hess = jacrev(func, 0)
     
             div = lambda x, t, k: jnp.sum(jnp.diag((hess(x, t, function_parameters, k))))
-            divergence = vmap(div, (0, 0, 0), 0)(perturbed_data, time.reshape(-1,1), keys) # TODO: is vmap good here?, ask Paul?
+            #divergence = vmap(div, (0, 0, 0), 0)(perturbed_data, time.reshape(-1,1), keys) # TODO: is vmap good here?, ask Paul?
+            divergence = []
+            for x, t, k in zip(perturbed_data, time.reshape(-1,1), keys):
+                divergence.append(jnp.sum(jnp.diag(hess(x,t, function_parameters, k))))
     
-    
+            divergence = jnp.array(divergence) 
             # TODO do new keys
             #divergence = div(data[0], time.reshape(-1,1)[0], key)
             #divergence = jnp.array([div(x, t, key) for (x,t) in zip(data, time.reshape(-1,1))])

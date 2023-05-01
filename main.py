@@ -15,7 +15,7 @@ import torch
 import os
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 #os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION']='0.5'
-#os.environ['XLA_PYTHON_CLIENT_ALLOCATOR']='platform'
+os.environ['XLA_PYTHON_CLIENT_ALLOCATOR']='platform'
 #os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
 
 import jax
@@ -62,8 +62,7 @@ from jax.sharding import PositionalSharding
 
 # time the process so we cant stop before termination with the goal of allowing WANDB to save our weights
 from time import time
-START_TIME = time()
-TIME_EXCEEDED = False
+
 
 # Paramter loading
 from utils.utils import load_paramters, get_wandb_input
@@ -73,7 +72,8 @@ from utils.utils import load_paramters, get_wandb_input
 # Gets config
 @hydra.main(config_path="configs/", config_name="defaults", version_base='1.3')
 def run_experiment(cfg):
-
+    START_TIME = time()
+    TIME_EXCEEDED = False
     # initialize Weights and Biases
     print(cfg)
     print(jax.devices())
@@ -99,7 +99,7 @@ def run_experiment(cfg):
     loss_fn = get_loss(cfg) # loss_fn(func, function_parameters, data, perturbed_data, time, key)
 
     grad_fn = jax.grad(loss_fn,1) # TODO: try to JIT function partial(jax.jit,static_argnums=0)(jax.grad(loss_fn,1))
-    grad_fn = jax.jit(grad_fn, static_argnums=0)
+    #grad_fn = jax.jit(grad_fn, static_argnums=0)
 
     model_parameters, optim_parameters = load_paramters(cfg, model_paramters=model_parameters, optimizer_paramters=optim_parameters)
 
@@ -149,7 +149,7 @@ def run_experiment(cfg):
 
             # update model params
             model_parameters = optax.apply_updates(model_parameters, updates)
-
+            jax.debug.visualize_array_sharding(model_parameters["p_d1"]["r1"]["skip_w"])
             # Logging loss and an image
             if i % cfg.wandb.log.frequency == 0:
                   if cfg.wandb.log.loss:

@@ -1,10 +1,10 @@
 train:
-   batch_size: 10
+   batch_size: 1
    mode: train # eval
    epochs: 100
    shuffle: true
 test:
-   batch_size: 1
+   batch_size: 10
    shuffle: true
    img_save_loc: "gen_imgs/"
    
