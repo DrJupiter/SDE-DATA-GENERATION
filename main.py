@@ -15,7 +15,7 @@ import torch
 import os
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 #os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION']='0.5'
-os.environ['XLA_PYTHON_CLIENT_ALLOCATOR']='platform'
+#os.environ['XLA_PYTHON_CLIENT_ALLOCATOR']='platform'
 #os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
 
 import jax
@@ -102,7 +102,7 @@ def run_experiment(cfg):
     grad_fn = jax.jit(grad_fn, static_argnums=0)
 
     model_parameters, optim_parameters = load_paramters(cfg, model_paramters=model_parameters, optimizer_paramters=optim_parameters)
-    jax.debug.visualize_array_sharding(model_parameters["p_c1"][0,0])
+    jax.debug.visualize_array_sharding(model_parameters["p_d1"]["r1"]["skip_w"])
     import sys
     sys.exit(0)
     # get shard
