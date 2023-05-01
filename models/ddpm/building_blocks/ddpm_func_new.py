@@ -253,19 +253,19 @@ def get_resnet_ff(cfg, key, in_C, out_C, inference=False):
     params["conv1_w"] = abf*random.normal(subkey[4], ((kernel_size, kernel_size, in_C, out_C)), dtype=jnp.float32)
     params["conv2_w"] = abf*random.normal(subkey[5], ((kernel_size, kernel_size, out_C, out_C)), dtype=jnp.float32)
 
-    batchnorm, params["btchN1"] = get_batchnorm(cfg, key, in_C, in_C, inference)
-    batchnorm2, params["btchN2"] = get_batchnorm(cfg, key, out_C, out_C, inference)
+    # batchnorm, params["btchN1"] = get_batchnorm(cfg, key, in_C, in_C, inference)
+    # batchnorm2, params["btchN2"] = get_batchnorm(cfg, key, out_C, out_C, inference)
     dropout, _ = get_dropout(cfg, key, in_C, out_C)
 
     def resnet(x_in, embedding, params, subkey):
 
         ### Apply the function to the input data
-        x = batchnorm(x_in, embedding, params["btchN1"], subkey)
-        x = nonlin(x)
+        # x = batchnorm(x_in, embedding, params["btchN1"], subkey)
+        x = nonlin(x_in)
         x = conv2d(x, params["conv1_w"])
         x = nonlin(x)
         x = x + (jnp.einsum('wc,cC->wC',nonlin(embedding),params["time_w"])+params["time_b"])[:,None,None,:]
-        x = batchnorm2(x, embedding, params["btchN2"], subkey)
+        # x = batchnorm2(x, embedding, params["btchN2"], subkey)
         x = nonlin(x)
         x = dropout(x, embedding, None, subkey)
         x = conv2d(x, w = params["conv2_w"])
@@ -304,7 +304,7 @@ def get_attention(cfg, key, in_C, out_C, inference=False):
     params["f_w"] = abf*random.normal(subkey[6], (out_C,out_C), dtype=jnp.float32)
     params["f_b"] = abf*random.normal(subkey[7], (1,out_C), dtype=jnp.float32)
 
-    batchnorm, params["btchN1"] = get_batchnorm(cfg, key, in_C, out_C, inference=inference)
+    # batchnorm, params["btchN1"] = get_batchnorm(cfg, key, in_C, out_C, inference=inference)
 
 
     def attn(x_in, embedding, params, subkey):
@@ -313,7 +313,7 @@ def get_attention(cfg, key, in_C, out_C, inference=False):
         B, H, W, C = x_in.shape
 
         # normalization
-        x = batchnorm(x_in, embedding, params["btchN1"], subkey)
+        # x = batchnorm(x_in, embedding, params["btchN1"], subkey)
 
         # qkv linear passes
         q = linear(x_in, params["q_w"], params["q_b"])

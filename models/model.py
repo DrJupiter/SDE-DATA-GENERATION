@@ -41,9 +41,9 @@ def get_model(cfg, key):
         
         elif cfg.model.type == "independent_func":
             params, ddpm_unet = get_ddpm_unet_new(cfg, key)
-            params, ddpm_unet_inference = get_ddpm_unet_new(cfg, key, inference=True)
+            # params, ddpm_unet_inference = get_ddpm_unet_new(cfg, key, inference=True)
 
-            return params, ddpm_unet, ddpm_unet_inference
+            return params, ddpm_unet, None # ddpm_unet_inference
         else:
             raise ValueError(f"Model type {cfg.model.type} not found for {cfg.model.name}")
 
