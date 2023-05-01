@@ -84,7 +84,7 @@ def run_experiment(cfg):
     key, subkey = jax.random.split(key)
 
     # Load train and test sets
-    train_dataset, test_dataset = dataload(cfg) 
+    #train_dataset, test_dataset = dataload(cfg) 
 
     # Get model forward call and its parameters
     model_parameters, model_call, inference_model = get_model(cfg, key = subkey) # model_call(x_in, timesteps, parameters)
@@ -104,6 +104,7 @@ def run_experiment(cfg):
     model_parameters, optim_parameters = load_paramters(cfg, model_paramters=model_parameters, optimizer_paramters=optim_parameters)
     jax.debug.visualize_array_sharding(model_parameters["p_d1"]["r1"]["skip_w"])
     import sys
+    input("exit")
     sys.exit(0)
     # get shard
     sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
