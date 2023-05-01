@@ -44,8 +44,8 @@ def shard_resnet_ff(params, sharding):
     params["conv1_w"] = jax.device_put(params["conv1_w"], sharding.reshape((1,1,1,len(jax.devices()))))
     params["conv2_w"] = jax.device_put(params["conv2_w"], sharding.reshape((1,1,1,len(jax.devices()))))
 
-    params["btchN1"] = shard_batchnorm(params["btchN1"], sharding)
-    params["btchN2"] = shard_batchnorm(params["btchN2"], sharding)
+    # params["btchN1"] = shard_batchnorm(params["btchN1"], sharding)
+    # params["btchN2"] = shard_batchnorm(params["btchN2"], sharding)
 
     return params
 
@@ -68,7 +68,7 @@ def shard_attention(params, sharding):
     params["f_w"] = jax.device_put(params["f_w"], sharding)
     params["f_b"] = jax.device_put(params["f_b"], sharding.reshape((1,len(jax.devices()))))
 
-    params["btchN1"] = shard_batchnorm(params["btchN1"], sharding)
+    # params["btchN1"] = shard_batchnorm(params["btchN1"], sharding)
 
     return params
 
