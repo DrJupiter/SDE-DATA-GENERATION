@@ -15,7 +15,7 @@ import torch
 import os
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 #os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION']='0.5'
-#os.environ['XLA_PYTHON_CLIENT_ALLOCATOR']='platform'
+os.environ['XLA_PYTHON_CLIENT_ALLOCATOR']='platform'
 #os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
 
 import jax
@@ -102,7 +102,7 @@ def run_experiment(cfg):
     grad_fn = jax.jit(grad_fn, static_argnums=0)
 
     model_parameters, optim_parameters = load_paramters(cfg, model_paramters=model_parameters, optimizer_paramters=optim_parameters)
-    
+
     # get shard
     sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
 
