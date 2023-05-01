@@ -200,16 +200,16 @@ def get_batchnorm(cfg, key, in_C, out_C, inference = False):
     params["b"] = abf*random.normal(subkey[1], (1,out_C), dtype=jnp.float32)
 
     # shifting terms:
-    params["running_mu"] = jnp.zeros((1), dtype=jnp.float32)
-    params["running_var"] = jnp.zeros((1), dtype=jnp.float32)
+    #params["running_mu"] = jnp.zeros((1), dtype=jnp.float32)
+    #params["running_var"] = jnp.zeros((1), dtype=jnp.float32)
 
     def batchnorm(x_in, embedding, params, subkey):
 
         mu = jnp.mean(x_in,0)
         var = jnp.var(x_in,0)
 
-        params["running_mu"] = params["running_mu"]*(avg_length/(avg_length+1))+mu/avg_length
-        params["running_var"] = params["running_var"]*(avg_length/(avg_length+1))+var/avg_length
+        #params["running_mu"] = params["running_mu"]*(avg_length/(avg_length+1))+mu/avg_length
+        #params["running_var"] = params["running_var"]*(avg_length/(avg_length+1))+var/avg_length
 
         return linear((x_in-mu)/jnp.sqrt(var+1e-5),params["l"],params["b"])
 
