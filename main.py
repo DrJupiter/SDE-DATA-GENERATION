@@ -149,7 +149,7 @@ def run_experiment(cfg):
 
             # update model params
             model_parameters = optax.apply_updates(model_parameters, updates)
-            jax.debug.visualize_array_sharding(model_parameters["p_d1"]["r1"]["skip_w"])
+            
             # Logging loss and an image
             if i % cfg.wandb.log.frequency == 0:
                   if cfg.wandb.log.loss:
