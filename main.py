@@ -152,7 +152,8 @@ def run_experiment(cfg):
             # Logging loss and an image
             if i % cfg.wandb.log.frequency == 0:
                   if cfg.wandb.log.loss:
-                    wandb.log({"loss": loss_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, z, subkey[2])})
+                    loss = loss_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, z, subkey[2])
+                    wandb.log({"loss": loss})
                     # wandb.log({"loss": loss_value})
                   if cfg.wandb.log.img and i % 1000 == 0:
                     # reverse sde sampling
