@@ -16,11 +16,11 @@ import os
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 #os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION']='0.5'
 #os.environ['XLA_PYTHON_CLIENT_ALLOCATOR']='platform'
-os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
+#os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
 
 import jax
 import jax.numpy as jnp
-jax.config.update('jax_platform_name', 'cpu')
+#jax.config.update('jax_platform_name', 'cpu')
 
 # Data
 from data.dataload import dataload 
@@ -99,7 +99,7 @@ def run_experiment(cfg):
     loss_fn = get_loss(cfg) # loss_fn(func, function_parameters, data, perturbed_data, time, key)
 
     grad_fn = jax.grad(loss_fn,1) # TODO: try to JIT function partial(jax.jit,static_argnums=0)(jax.grad(loss_fn,1))
-    #grad_fn = jax.jit(grad_fn, static_argnums=0)
+    grad_fn = jax.jit(grad_fn, static_argnums=0)
 
     model_parameters, optim_parameters = load_paramters(cfg, model_paramters=model_parameters, optimizer_paramters=optim_parameters)
 
@@ -128,20 +128,19 @@ def run_experiment(cfg):
             #timesteps = jax.device_put(timesteps, sharding.reshape(-1).replicate(0))
 
             # Perturb the data with the timesteps through sampling sde trick (for speed, see paper for explanation)
-            perturbed_data = SDE.sample(timesteps, data, subkey[1])
+            perturbed_data, z = SDE.sample(timesteps, data, subkey[1])
             
             #perturbed_data = jax.device_put(perturbed_data,sharding.reshape((1,len(jax.devices()))))
 
 
             # scale timesteps for more significance
-            scaled_timesteps = timesteps*999
+            #scaled_timesteps = timesteps*999
+            scaled_timesteps = timesteps
 
             # get grad for this batch
               # loss_value, grads = jax.value_and_grad(loss_fn)(model_parameters, model_call, data, labels, t) # is this extra computation time
 
-            #print(model_call(perturbed_data, scaled_timesteps, model_parameters, key))
-                
-            grads = grad_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, subkey[2])
+            grads = grad_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, z, subkey[2])
 
             # get change in model_params and new optimizer params
             # optim_parameters, model_parameters = optim_alg(optim_parameters, model_parameters, t_data, labels)
@@ -153,13 +152,13 @@ def run_experiment(cfg):
             # Logging loss and an image
             if i % cfg.wandb.log.frequency == 0:
                   if cfg.wandb.log.loss:
-                    wandb.log({"loss": loss_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, subkey[2])})
+                    wandb.log({"loss": loss_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, z, subkey[2])})
                     # wandb.log({"loss": loss_value})
-                  if cfg.wandb.log.img:
+                  if cfg.wandb.log.img and i % 1000 == 0:
                     # reverse sde sampling
                     drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
                     diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
-                    get_sample = lambda t, key1, key0, xt: sample(0, 0, t.astype(float)[0], -1/1000, drift, diffusion, [model_call, model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1) 
+                    get_sample = lambda t, key1, key0, xt: sample(0, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1) 
                                      # dt0 = - 1/N
 
                     n = len(perturbed_data) 

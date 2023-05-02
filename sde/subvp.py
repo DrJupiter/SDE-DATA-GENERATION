@@ -46,7 +46,7 @@ class SUBVPSDE(SDE):
         key, subkey = jax.random.split(key)
         z = jax.random.normal(subkey, x0.shape)
         # bacth mul
-        return mean + jax.vmap(lambda a,b: a*b)(std , z)
+        return mean + jax.vmap(lambda a,b: a*b)(std , z), z
 
     def score(self, x0, t, xt):
         mu, covariance = self.parameters(t, x0)
@@ -67,8 +67,8 @@ class SUBVPSDE(SDE):
 
     def reverse_drift(self, x, t, args):
         sm = args[0] 
-        #return self.drift(x,t) - sm(x,t*999, *args[1:]) * self.diffusion(x,t)**2 
         return self.drift(x,t) - sm(x,t, *args[1:]) * self.diffusion(x,t)**2 
+        #return self.drift(x,t) - sm(x,t, *args[1:]) * self.diffusion(x,t)**2 
     
     def reverse_diffusion(self, x, t, args):
         return jnp.identity(x.shape[0]) * self.diffusion(x, t)

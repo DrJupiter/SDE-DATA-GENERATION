@@ -1,7 +1,5 @@
 
 from jax import vmap, jacrev 
-import jax
-import jax.debug as jdebug
 import jax.numpy as jnp
 from jax import random as jrandom
 from utils.utils import batch_matmul
@@ -12,86 +10,47 @@ from jax.sharding import PositionalSharding
 
 def get_implicit_score_matching(cfg):
 
-    if cfg.loss.sharding and cfg.model.sharding:
-        print("Sharding loss")
-        sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
-        def implicit_score_matching(func, function_parameters, _data , perturbed_data, time, key):
-            """
-            func: The function, f, is assumed to be the score of a function, f = ∇_x log(p(x;θ)).
+    def implicit_score_matching(func, function_parameters, _data , perturbed_data, time, _z, key):
+        """
+        func: The function, f, is assumed to be the score of a function, f = ∇_x log(p(x;θ)).
     
-            x = data
-            θ = function_parameters
+        x = data
+        θ = function_parameters
     
-            The loss that is computed is a numerical estimate of 
-                E_(p_D(x))[1/2 ||f(x,θ)||^2 + Div_x(f(x,θ))]
-            """
-            keys = jrandom.split(key, num=int(perturbed_data.shape[0]))
-            hess = jacrev(func, 0)
+        The loss that is computed is a numerical estimate of 
+            E_(p_D(x))[1/2 ||f(x,θ)||^2 + Div_x(f(x,θ))]
+        """
+        keys = jrandom.split(key, num=int(perturbed_data.shape[0]))
+        hess = jacrev(func, 0)
     
-            div = lambda x, t, k: jnp.sum(jnp.diag((hess(x, t, function_parameters, k))))
-            #divergence = vmap(div, (0, 0, 0), 0)(perturbed_data, time.reshape(-1,1), keys) # TODO: is vmap good here?, ask Paul?
-            divergence = []
-            for x, t, k in zip(perturbed_data, time.reshape(-1,1), keys):
-                divergence.append(jnp.sum(jnp.diag(hess(x,t, function_parameters, k))))
+        div = lambda x, t, k: jnp.sum(jnp.diag((hess(x, t, function_parameters, k))))
+        #divergence = vmap(div, (0, 0, 0), 0)(perturbed_data, time.reshape(-1,1), keys) # TODO: is vmap good here?, ask Paul?
+        divergence = []
+        for x, t, k in zip(perturbed_data, time.reshape(-1,1), keys):
+            divergence.append(jnp.sum(jnp.diag(hess(x,t, function_parameters, k))))
     
-            divergence = jnp.array(divergence) 
-            # TODO do new keys
-            #divergence = div(data[0], time.reshape(-1,1)[0], key)
-            #divergence = jnp.array([div(x, t, key) for (x,t) in zip(data, time.reshape(-1,1))])
-            #divergence = div(data[0], time.reshape(-1,1)[0])
-            #print(f"The divergence {divergence}")
-            #print(divergence)
-            score = func(perturbed_data, time, function_parameters, key)
-            score_length = jnp.square(jnp.linalg.norm(score))
-            #print((jnp.linalg.norm(out)**2).shape)    
-            #score = jax.device_put(func(perturbed_data, time, function_parameters, key), sharding.replicate(0))
+        divergence = jnp.array(divergence) 
+        # TODO do new keys
+        #divergence = div(data[0], time.reshape(-1,1)[0], key)
+        #divergence = jnp.array([div(x, t, key) for (x,t) in zip(data, time.reshape(-1,1))])
+        #divergence = div(data[0], time.reshape(-1,1)[0])
+        #print(f"The divergence {divergence}")
+        #print(divergence)
+        score = func(perturbed_data, time, function_parameters, key)
+        score_length = jnp.square(jnp.linalg.norm(score))
+        #print((jnp.linalg.norm(out)**2).shape)    
+        #score = jax.device_put(func(perturbed_data, time, function_parameters, key), sharding.replicate(0))
     
-        #    dot = []
-        #    for i, s in enumerate(score):
-        #        dot.append(jnp.dot(s,s))
-        #    dot = jnp.array(dot)
-            #print(batch_matmul(score, score) - jnp.einsum("bc,bc->b",score,score))
+    #    dot = []
+    #    for i, s in enumerate(score):
+    #        dot.append(jnp.dot(s,s))
+    #    dot = jnp.array(dot)
+        #print(batch_matmul(score, score) - jnp.einsum("bc,bc->b",score,score))
     
-            #print(batch_matmul(score, score)-dot) 
-            # jnp.einsum("bc,bc->b",score,score)
-            return jnp.mean(0.5 * score_length + divergence)
-    else:
+        #print(batch_matmul(score, score)-dot) 
+        # jnp.einsum("bc,bc->b",score,score)
+        return jnp.mean(0.5 * score_length + divergence)
 
-        def implicit_score_matching(func, function_parameters, _data , perturbed_data, time, key):
-            """
-            func: The function, f, is assumed to be the score of a function, f = ∇_x log(p(x;θ)).
-
-            x = data
-            θ = function_parameters
-
-            The loss that is computed is a numerical estimate of 
-                E_(p_D(x))[1/2 ||f(x,θ)||^2 + Div_x(f(x,θ))]
-            """
-            keys = jrandom.split(key, num=int(perturbed_data.shape[0]))
-            hess = jacrev(func, 0)
-
-            div = lambda x, t, k: jnp.sum(jnp.diag((hess(x, t, function_parameters, k))))
-            divergence = vmap(div, (0, 0, 0), 0)(perturbed_data, time.reshape(-1,1), keys) # TODO: is vmap good here?, ask Paul?
-
-            # TODO do new keys
-            #divergence = div(data[0], time.reshape(-1,1)[0], key)
-            #divergence = jnp.array([div(x, t, key) for (x,t) in zip(data, time.reshape(-1,1))])
-            #divergence = div(data[0], time.reshape(-1,1)[0])
-            #print(f"The divergence {divergence}")
-            #print(divergence)
-
-            score = func(perturbed_data, time, function_parameters, key)
-            score_length = jnp.square(jnp.linalg.norm(score))
-
-        #    dot = []
-        #    for i, s in enumerate(score):
-        #        dot.append(jnp.dot(s,s))
-        #    dot = jnp.array(dot)
-            #print(batch_matmul(score, score) - jnp.einsum("bc,bc->b",score,score))
-
-            #print(batch_matmul(score, score)-dot) 
-            # jnp.einsum("bc,bc->b",score,score)
-            return jnp.mean(0.5 * score_length + divergence)
     return implicit_score_matching
 
 if __name__ == "__main__":

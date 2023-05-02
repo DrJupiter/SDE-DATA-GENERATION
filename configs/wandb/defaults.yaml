@@ -4,9 +4,9 @@ setup:
         experiment: "batch_size"
 log:
         loss: true
-        img: false
-        n_images: 10
-        frequency: 1000
+        img: true
+        n_images: 4
+        frequency: 1
         FID: false
         epoch_frequency: 1
         parameters: false

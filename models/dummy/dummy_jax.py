@@ -1,10 +1,13 @@
 
 import jax.numpy as jnp
-from jax import grad, jit
+from jax import grad, jit, vmap
 from jax import random
 from jax import nn
 
+
 from utils.utils import get_model_sharding
+from sde.sde import get_sde
+from sde.subvp import SUBVPSDE
 
 # %%
 # TODO: Specify the dynamic arguments for jit
@@ -32,7 +35,7 @@ def model_call(data, _time, parameters, _key):
     in_shape = x.shape
     embedding_dim = x.shape[0] if len(x.shape) == 1 else x.shape[1]
     embedding_dim = int(embedding_dim)
-    time_emb = get_timestep_embedding(_time, embedding_dim)
+    time_emb = get_timestep_embedding(_time*999, embedding_dim)
     x = time_emb + x
 
     for parameter in parameters[:-1]:
@@ -40,9 +43,24 @@ def model_call(data, _time, parameters, _key):
         x = jnp.matmul(parameter, x.T).T
         x = nn.sigmoid(x)
     x = jnp.matmul(parameters[-1], x.T).T
-    
+
     return x.reshape(in_shape) 
 
+def get_dummy_inference(cfg):
+
+    sde = get_sde(cfg)
+    if isinstance(sde, SUBVPSDE):
+        print("USING DIFFERENT INFERENCE FUNCTION")
+        @jit
+        def sde_model_call(data, _time, parameters, _key):
+            x = model_call(data, _time, parameters, _key) 
+            shape = (1, -1) if len(data.shape) == 1 else x.shape
+            _mu, cov = sde.parameters(_time, jnp.zeros_like(x).reshape(shape))
+            score = vmap(lambda a, b: a * b)( 1. / cov, -x.reshape(shape))
+            return score.reshape(data.shape) 
+
+        return sde_model_call
+    return model_call
 
 def get_timestep_embedding(timesteps, embedding_dim: int):
     """
