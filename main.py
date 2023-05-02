@@ -185,6 +185,7 @@ def run_experiment(cfg):
                     display_images(cfg, normal_distribution, labels[:n], log_title="N(0,I) -> x(0)")
                     display_images(cfg, Z, labels[:n], log_title="N(0,I)")
                     display_images(cfg, data[:n], labels[:n], log_title="Original Images: x(0)")
+                    display_images(cfg, inference_model(perturbed_data, timesteps, model_parameters, key)[:n], labels[:n], log_title="Model output")
 
                   if cfg.wandb.log.parameters:
                           with open(os.path.join(wandb.run.dir, f"{cfg.model.name}-parameters.pickle"), 'wb') as f:

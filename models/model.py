@@ -42,7 +42,7 @@ def get_model(cfg, key):
             params, ddpm_unet = get_ddpm_unet_new(cfg, key)
             #params, ddpm_unet_inference = get_ddpm_unet_new(cfg, key, inference=True)
 
-            return params, ddpm_unet, None
+            return params, ddpm_unet, ddpm_unet
         else:
             raise ValueError(f"Model type {cfg.model.type} not found for {cfg.model.name}")
 

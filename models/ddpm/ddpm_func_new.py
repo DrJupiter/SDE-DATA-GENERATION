@@ -72,7 +72,7 @@ def get_ddpm_unet(cfg, key, inference=False):
         key, subkey = random.split(key,2) # TODO: change 2 to 29 and add a * in front of subkey
 
         # Create the embedding given the timesteps
-        embed = apply_timestep_embedding(timesteps, params["p_embed"])
+        embed = apply_timestep_embedding(timesteps*999, params["p_embed"])
 
         # Apply model
         x_32_0 = conv1(x_in, params["p_c1"])
