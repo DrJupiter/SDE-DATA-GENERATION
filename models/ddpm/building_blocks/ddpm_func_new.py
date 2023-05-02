@@ -6,9 +6,8 @@ from jax import nn
 from jax import lax
 import jax
 
-# Equinox
 ######################## very Basic building blocks ########################
-
+@jit
 def conv2d(x,w):
     out = lax.conv_general_dilated( 
             lhs = x,    
@@ -257,6 +256,7 @@ def get_resnet_ff(cfg, key, in_C, out_C, inference=False):
     # batchnorm2, params["btchN2"] = get_batchnorm(cfg, key, out_C, out_C, inference)
     dropout, _ = get_dropout(cfg, key, in_C, out_C)
 
+    @jit
     def resnet(x_in, embedding, params, subkey):
 
         ### Apply the function to the input data
@@ -306,7 +306,7 @@ def get_attention(cfg, key, in_C, out_C, inference=False):
 
     # batchnorm, params["btchN1"] = get_batchnorm(cfg, key, in_C, out_C, inference=inference)
 
-
+    @jit
     def attn(x_in, embedding, params, subkey):
 
         # Get shape for reshapes later
