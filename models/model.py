@@ -32,6 +32,7 @@ def get_model(cfg, key):
             sharding = PositionalSharding(mesh_utils.create_device_mesh(jax.local_devices()))
             # sharding = PositionalSharding(jax.devices())
             params, key = get_parameters(cfg, key, sharding)
+            #TODO correct model for inference
             return params, get_ddpm_unet(cfg), get_ddpm_unet(cfg) 
         
         elif cfg.model.type == "class":

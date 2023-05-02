@@ -9,7 +9,7 @@ hyperparameters:
   dropout_p: 0.1
   upsampling_factor: 2
   downsampling_factor: 2
-  time_embedding_dims: 128
+  time_embedding_dims: 256
   inference: False
   anti_blowup_factor: 0.02
   kernel_size: 3
