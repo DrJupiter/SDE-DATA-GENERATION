@@ -2,7 +2,7 @@ name: dummy_jax
 key: 42
 sharding: true
 parameter_sizes:
-  - [128, 3072]
+  - [128, 784]
   - [256, 128]
   - [512, 256]
-  - [3072, 512]
+  - [784, 512]
