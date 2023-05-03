@@ -60,10 +60,10 @@ def dataload(cfg):
     if name == 'mnist':
         transform = transforms.Compose([FlattenAndCast()])
         mnist_dataset_train = MNIST(cfg.dataset.path, download=True, transform=transform)
-        training_generator = data.DataLoader(mnist_dataset_train, batch_size=cfg.train_and_test.train.batch_size, shuffle=cfg.train_and_test.train.shuffle) # num_workers=mp.cpu_count()
+        training_generator = NumpyLoader(mnist_dataset_train, batch_size=cfg.train_and_test.train.batch_size, shuffle=cfg.train_and_test.train.shuffle) # num_workers=mp.cpu_count()
 
         mnist_dataset_test = MNIST(cfg.dataset.path, train=False, download=True, transform=transform)
-        test_generator = data.DataLoader(mnist_dataset_test, batch_size=cfg.train_and_test.test.batch_size, shuffle=cfg.train_and_test.test.shuffle) # num_workers=mp.cpu_count()
+        test_generator = NumpyLoader(mnist_dataset_test, batch_size=cfg.train_and_test.test.batch_size, shuffle=cfg.train_and_test.test.shuffle) # num_workers=mp.cpu_count()
 
         return training_generator, test_generator 
 
