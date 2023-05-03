@@ -77,8 +77,8 @@ def get_ddpm_unet(cfg, key, inference=False):
         # Apply model
         x_32_0 = conv1(x_in, params["p_c1"])
 
-        x_32_1, x_32_2, x_16_0 = down1(x_32_0, embed, params["p_d1"], subkey, factor=2) # factor = 2
-        x_16_1, x_16_2, x_8_0 = down2_attn(x_16_0, embed, params["p_da2"], subkey, factor=2)
+        x_32_1, x_32_2, x_16_0 = down1(x_32_0, embed, params["p_d1"], subkey, factor=1) # factor = 2
+        x_16_1, x_16_2, x_8_0 = down2_attn(x_16_0, embed, params["p_da2"], subkey, factor=1) # factor = 2
         x_8_1, x_8_2, x_4_0 = down3(x_8_0, embed, params["p_d3"], subkey, factor=1) # factor = 2
         x_4_1, x_4_2, x = down4(x_4_0, embed, params["p_d4"], subkey, factor=1)
 
@@ -86,8 +86,8 @@ def get_ddpm_unet(cfg, key, inference=False):
         x = a1(x, embed, params["p_ma2"], subkey)
         x = r2(x, embed, params["p_mr3"], subkey)
 
-        x = up1(x, x_4_2, x_4_1, x_4_0, embed, params["p_u1"], subkey, factor=2) # factor = 2
-        x = up2(x, x_8_2, x_8_1, x_8_0, embed, params["p_u2"], subkey, factor=2)
+        x = up1(x, x_4_2, x_4_1, x_4_0, embed, params["p_u1"], subkey, factor=1) # factor = 2
+        x = up2(x, x_8_2, x_8_1, x_8_0, embed, params["p_u2"], subkey, factor=1) # factor = 2
         x = up_attn3(x, x_16_2, x_16_1, x_16_0, embed, params["p_ua3"], subkey, factor=1) # factor = 2
         x = up4(x, x_32_2, x_32_1, x_32_0, embed, params["p_u4"], subkey, factor=1)
 
