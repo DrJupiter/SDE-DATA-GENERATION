@@ -6,6 +6,6 @@ defaults:
         - visualization: local_visualization
         - optimizer: adam
         - sde: paper_subvp
-        - loss: combined_sm # yangsong # combined_sm #denoise_sm #implicit_sm #none
+        - loss: yangsong # yangsong # combined_sm #denoise_sm #implicit_sm #none
         - time: time
         - parameter_loading: default
