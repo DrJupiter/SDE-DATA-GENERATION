@@ -11,7 +11,7 @@ hyperparameters:
   downsampling_factor: 2
   time_embedding_dims: 256
   inference: False
-  anti_blowup_factor: 0.02
+  anti_blowup_factor: 0.01
   kernel_size: 3
   avg_length: 200
 parameters:
