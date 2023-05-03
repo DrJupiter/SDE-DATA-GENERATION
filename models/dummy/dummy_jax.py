@@ -29,26 +29,45 @@ def get_parameters(cfg):
         parameters = get_model_sharding(cfg)(parameters)
     return parameters
 
-@jit
-def model_call(data, _time, parameters, _key):
-    x = data
-    in_shape = x.shape
-    embedding_dim = x.shape[0] if len(x.shape) == 1 else x.shape[1]
-    embedding_dim = int(embedding_dim)
-    time_emb = get_timestep_embedding(_time*999, embedding_dim)
-    x = time_emb + x
+def get_dummy_train(cfg):
+    sde = get_sde(cfg)
+    if isinstance(sde, SUBVPSDE):
 
-    for parameter in parameters[:-1]:
-        # TODO: Reconsider ORDER in terms of shape representation
-        x = jnp.matmul(parameter, x.T).T
-        x = nn.sigmoid(x)
-    x = jnp.matmul(parameters[-1], x.T).T
+        def sde_guidance(data, _time, x):
+            #shape = (1, -1) if len(data.shape) == 1 else x.shape
+            _, cov = sde.parameters(_time, jnp.zeros_like(x))
+            exponents = -0.25 * _time ** 2 * (sde.beta_max - sde.beta_min) - 0.5 * _time * sde.beta_min 
+            x = vmap(lambda a, b: a * b)(jnp.exp(exponents), x)
+            return vmap(lambda a, b: a* b)(-1/cov, data-x) 
+    else:
+        def sde_guidance(data, _time, x):
+            return x
 
-    return x.reshape(in_shape) 
+    @jit
+    def model_call(data, _time, parameters, _key):
+        x = data
+        in_shape = x.shape
+        embedding_dim = x.shape[0] if len(x.shape) == 1 else x.shape[1]
+        embedding_dim = int(embedding_dim)
+        time_emb = get_timestep_embedding(_time*999, embedding_dim)
+        x = time_emb + x
+
+        for parameter in parameters[:-1]:
+            # TODO: Reconsider ORDER in terms of shape representation
+            x = jnp.matmul(parameter, x.T).T
+            x = nn.sigmoid(x)
+        x = jnp.matmul(parameters[-1], x.T).T
+        x = sde_guidance(data, _time, x)
+        x = x.reshape(in_shape) 
+        return x
+
+    return model_call
 
 def get_dummy_inference(cfg):
 
     sde = get_sde(cfg)
+    model_call = get_dummy_train(cfg)
+
     if isinstance(sde, SUBVPSDE):
         print("USING DIFFERENT INFERENCE FUNCTION")
         @jit

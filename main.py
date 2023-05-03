@@ -182,7 +182,7 @@ def run_experiment(cfg):
                     mins, maxs=jnp.min(perturbed_data, axis=1).reshape(-1, 1)[:n], jnp.max(perturbed_data, axis=1)[:n].reshape(-1,1)
                     rescaled_images = (perturbed_data[:n]-mins)/(maxs-mins)*255
 
-                    inference_out = inference_model(perturbed_data, timesteps, model_parameters, key)[:n]
+                    inference_out = inference_model(perturbed_data, timesteps, model_parameters if cfg.model.name != "sde" else data, key)[:n]
                     mins, maxs=jnp.min(inference_out, axis=1).reshape(-1, 1)[:n], jnp.max(perturbed_data, axis=1)[:n].reshape(-1,1)
                     rescaled_out = (inference_out-mins)/(maxs-mins)*255
 
@@ -194,7 +194,8 @@ def run_experiment(cfg):
                     display_images(cfg, normal_distribution, labels[:n], log_title="N(0,I) -> x(0)")
                     display_images(cfg, Z, labels[:n], log_title="N(0,I)")
                     display_images(cfg, data[:n], labels[:n], log_title="Original Images: x(0)")
-                    display_images(cfg, rescaled_out, labels[:n], log_title="Model output, min-max rescaled")
+                    display_images(cfg, inference_out, labels[:n], log_title="Model output, min-max rescaled")
+                    wandb.log({"difference": jnp.sum(inference_out-perturbed_data[:n])})
 
                   if cfg.wandb.log.parameters:
                           with open(os.path.join(wandb.run.dir, f"{cfg.model.name}-parameters.pickle"), 'wb') as f:

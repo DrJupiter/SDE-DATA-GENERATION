@@ -26,7 +26,7 @@ from models.ddpm.ddpm_unet import ddpm_unet as class_ddpm_unet
 
 def get_model(cfg, key):
     if cfg.model.name == "dummy_jax":
-        return dummy_jax.get_parameters(cfg), dummy_jax.model_call, dummy_jax.get_dummy_inference(cfg)
+        return dummy_jax.get_parameters(cfg), dummy_jax.get_dummy_train(cfg), dummy_jax.get_dummy_train(cfg)
     elif cfg.model.name == "ddpm_unet":
         if cfg.model.type == "function":
             sharding = PositionalSharding(mesh_utils.create_device_mesh(jax.local_devices()))
@@ -56,7 +56,7 @@ def get_model(cfg, key):
             if isinstance(x0, list):
                 return xt
             else:
-                t = t if len(t.shape) != 1 else t.reshape(1,-1)
+                t = t if len(t.shape) != 1 else t.reshape(len(t),-1)
                 xt = xt if len(xt.shape) != 1 else xt.reshape(1,-1)
                 x0 = x0 if len(x0.shape) != 1 else x0.reshape(1,-1)
                 out = sde.score(x0, t, xt)
