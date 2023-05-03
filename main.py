@@ -123,6 +123,8 @@ def run_experiment(cfg):
             # get timesteps given random key for this batch and data shape
             # TODO: Strictly this changes from sde to sde
             timesteps = jax.random.uniform(subkey[0], (data.shape[0],), minval=1e-5, maxval=1)
+            if epoch < 2:
+                timesteps = jnp.ones_like(timesteps)
 
             # TODO: Potentially not memory efficient in terms of how this replication is done
             #timesteps = jax.device_put(timesteps, sharding.reshape(-1).replicate(0))
@@ -155,9 +157,8 @@ def run_experiment(cfg):
                     loss = loss_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, z, subkey[2])
                     wandb.log({"loss": loss})
                     # wandb.log({"loss": loss_value})
-                  if cfg.wandb.log.img and i % 1000 == 0:
+                  if cfg.wandb.log.img and i % 100 == 0:
                     # reverse sde sampling
-                    print("Logging images")
                     drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
                     diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
                     get_sample = lambda t, key1, key0, xt: sample(0, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1) 
@@ -194,7 +195,6 @@ def run_experiment(cfg):
                     display_images(cfg, Z, labels[:n], log_title="N(0,I)")
                     display_images(cfg, data[:n], labels[:n], log_title="Original Images: x(0)")
                     display_images(cfg, rescaled_out, labels[:n], log_title="Model output, min-max rescaled")
-                    print("Logged images")
 
                   if cfg.wandb.log.parameters:
                           with open(os.path.join(wandb.run.dir, f"{cfg.model.name}-parameters.pickle"), 'wb') as f:
