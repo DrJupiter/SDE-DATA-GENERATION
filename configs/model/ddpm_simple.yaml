@@ -6,7 +6,7 @@ sharding: True
 hyperparameters: 
   momentum: 0.99
   eps: 0.00001
-  dropout_p: 0.1
+  dropout_p: 0.0
   upsampling_factor: 2
   downsampling_factor: 2
   time_embedding_dims: 256

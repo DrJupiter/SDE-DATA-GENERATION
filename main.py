@@ -194,8 +194,7 @@ def run_experiment(cfg):
                     display_images(cfg, normal_distribution, labels[:n], log_title="N(0,I) -> x(0)")
                     display_images(cfg, Z, labels[:n], log_title="N(0,I)")
                     display_images(cfg, data[:n], labels[:n], log_title="Original Images: x(0)")
-                    display_images(cfg, inference_out, labels[:n], log_title="Model output, min-max rescaled")
-                    wandb.log({"difference": jnp.sum(inference_out-perturbed_data[:n])})
+                    display_images(cfg, rescaled_out, labels[:n], log_title="Model output, min-max rescaled")
 
                   if cfg.wandb.log.parameters:
                           with open(os.path.join(wandb.run.dir, f"{cfg.model.name}-parameters.pickle"), 'wb') as f:
