@@ -123,8 +123,6 @@ def run_experiment(cfg):
             # get timesteps given random key for this batch and data shape
             # TODO: Strictly this changes from sde to sde
             timesteps = jax.random.uniform(subkey[0], (data.shape[0],), minval=1e-5, maxval=1)
-            if epoch < 2:
-                timesteps = jnp.ones_like(timesteps)
 
             # TODO: Potentially not memory efficient in terms of how this replication is done
             #timesteps = jax.device_put(timesteps, sharding.reshape(-1).replicate(0))
