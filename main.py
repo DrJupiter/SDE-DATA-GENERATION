@@ -159,7 +159,7 @@ def run_experiment(cfg):
                     # reverse sde sampling
                     drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
                     diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
-                    get_sample = lambda t, key1, key0, xt: sample(0, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1) 
+                    get_sample = lambda t, key1, key0, xt: sample(1e-5, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1) 
                                      # dt0 = - 1/N
 
                     n = len(perturbed_data) 
