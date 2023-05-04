@@ -65,7 +65,7 @@ from time import time
 
 
 # Paramter loading
-from utils.utils import load_paramters, get_wandb_input
+from utils.utils import load_paramters, get_wandb_input, min_max_rescale
 
 ### Train loop:
 
@@ -176,23 +176,18 @@ def run_experiment(cfg):
                     args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], Z)
                     normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0))(*args)
 
-                    # Rescale images for plotting
-                    mins, maxs=jnp.min(perturbed_data, axis=1).reshape(-1, 1)[:n], jnp.max(perturbed_data, axis=1)[:n].reshape(-1,1)
-                    rescaled_images = (perturbed_data[:n]-mins)/(maxs-mins)*255
-
                     inference_out = inference_model(perturbed_data, timesteps, model_parameters if cfg.model.name != "sde" else data, key)[:n]
-                    mins, maxs=jnp.min(inference_out, axis=1).reshape(-1, 1)[:n], jnp.max(perturbed_data, axis=1)[:n].reshape(-1,1)
-                    rescaled_out = (inference_out-mins)/(maxs-mins)*255
 
 
 
                     display_images(cfg, images, labels[:n], log_title="Reverse Sample x(t) -> x(0)")
                     display_images(cfg, perturbed_data[:n], labels[:n], log_title="Perturbed images")
-                    display_images(cfg, rescaled_images, labels[:n], log_title="Min-Max Rescaled")
+                    display_images(cfg, min_max_rescale(perturbed_data[:n]), labels[:n], log_title="Min-Max Rescaled")
                     display_images(cfg, normal_distribution, labels[:n], log_title="N(0,I) -> x(0)")
+                    display_images(cfg, min_max_rescale(normal_distribution), labels[:n], log_title="N(0,I) -> x(0), min-max rescaled")
                     display_images(cfg, Z, labels[:n], log_title="N(0,I)")
                     display_images(cfg, data[:n], labels[:n], log_title="Original Images: x(0)")
-                    display_images(cfg, rescaled_out, labels[:n], log_title="Model output, min-max rescaled")
+                    display_images(cfg, min_max_rescale(inference_out), labels[:n], log_title="Model output, min-max rescaled")
 
                   if cfg.wandb.log.parameters:
                           with open(os.path.join(wandb.run.dir, f"{cfg.model.name}-parameters.pickle"), 'wb') as f:

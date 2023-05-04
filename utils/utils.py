@@ -120,3 +120,8 @@ def get_wandb_input(cfg):
     
     args["tags"] = tags
     return args 
+
+def min_max_rescale(img):
+    mins, maxs = jnp.min(img, axis=1).reshape(-1,1), jnp.max(img, axis=1).reshape(-1,1)
+
+    return (img-mins)/(maxs-mins) * 255 
