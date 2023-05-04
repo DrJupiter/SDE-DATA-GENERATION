@@ -1,6 +1,6 @@
 defaults:
         - wandb : defaults
-        - dataset: mnist
+        - dataset: cifar10
         - train_and_test: default
         - model : ddpm_simple #ddpm_simple # dummy #dummy #ddpm_unet_mega_downscaled # dummy_giant # dummy 
         - visualization: local_visualization
