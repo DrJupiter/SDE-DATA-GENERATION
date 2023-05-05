@@ -6,8 +6,10 @@ from jax import nn
 from jax import lax
 import jax
 
+from jax.experimental import mesh_utils
+from jax.sharding import PositionalSharding
+
 ######################## very Basic building blocks ########################
-@jit
 def conv2d(x,w):
     out = lax.conv_general_dilated( 
             lhs = x,    
@@ -15,7 +17,7 @@ def conv2d(x,w):
             window_strides = [1,1], 
             padding = 'same',
             dimension_numbers = ('NHWC', 'HWIO', 'NHWC')
-            )
+            )      
     return out
 
 p_conv2d = pmap(lambda x,w: conv2d(x,w), in_axes = (0,None))
@@ -167,7 +169,7 @@ def get_timestep_embedding(cfg, key):
     time_dims = cfg.model.hyperparameters.time_embedding_dims
     subkey = random.split(key,4)
     embedding_dim = cfg.model.hyperparameters.time_embedding_inner_dim
-
+    
     ### Define parameters for the model
     params = {} # change to jnp array and use jax.numpy.append?
 
@@ -179,7 +181,6 @@ def get_timestep_embedding(cfg, key):
     # time:
     params["w1"] = abf*random.normal(subkey[2], (time_dims,time_dims), dtype=jnp.float32)
     params["b1"] = abf*random.normal(subkey[3], (1,time_dims), dtype=jnp.float32)
-
 
     def apply_timestep_embedding(timesteps, params):
         """
@@ -270,12 +271,29 @@ def get_batchnorm(cfg, key, in_C, out_C, inference = False):
     else:
         return batchnorm, params
 
-def get_conv(cfg, key, in_C, out_C):
+def get_conv(cfg, key, in_C, out_C,first=False):
     kernel_size = cfg.model.hyperparameters.kernel_size
     abf = cfg.model.hyperparameters.anti_blowup_factor
-    params = abf*random.normal(key, ((kernel_size, kernel_size, in_C, out_C)), dtype=jnp.float32)
 
-    return conv2d, params
+    params = abf*random.normal(key, ((kernel_size, kernel_size, in_C, out_C)), dtype=jnp.float32)
+    n_devices = len(jax.devices())
+    sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(1,1,1,n_devices)
+
+    if first:
+        sharding = sharding.reshape(1,1,1,-1)
+    else:
+        sharding = sharding.reshape(1,1,-1,1)
+
+    # params = jax.device_put(params, sharding)
+
+
+    @jit
+    def j_conv2d(x,w):
+        out = conv2d(x,w)
+        out = jax.lax.with_sharding_constraint(out, sharding)
+        return out
+
+    return j_conv2d, params
 
 def get_resnet_ff(cfg, key, in_C, out_C, inference=False):
     
@@ -304,25 +322,42 @@ def get_resnet_ff(cfg, key, in_C, out_C, inference=False):
     # batchnorm2, params["btchN2"] = get_batchnorm(cfg, key, out_C, out_C, inference)
     dropout, _ = get_dropout(cfg, key, in_C, out_C)
 
+    n_devices = len(jax.devices())
+    sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(1,1,1,n_devices)
+
     @jit
     def resnet(x_in, embedding, params, subkey):
 
         ### Apply the function to the input data
-        # x = batchnorm(x_in, embedding, params["btchN1"], subkey)
+            # x = batchnorm(x_in, embedding, params["btchN1"], subkey)
         x = nonlin(x_in)
         x = conv2d(x, params["conv1_w"])
+        x = jax.lax.with_sharding_constraint(x, sharding)
+
+        
         x = nonlin(x)
         x = x + (jnp.einsum('wc,cC->wC',nonlin(embedding),params["time_w"])+params["time_b"])[:,None,None,:]
-        # x = batchnorm2(x, embedding, params["btchN2"], subkey)
+
+            # x = batchnorm2(x, embedding, params["btchN2"], subkey)
         x = nonlin(x)
         x = dropout(x, embedding, None, subkey)
+
+        # Enforce sharding shape to avoid ret_check failure when returning
+        x = jax.lax.with_sharding_constraint(x, sharding)
         x = conv2d(x, w = params["conv2_w"])
+
 
         # perform skip connection
         x_skip = linear(x_in, params["skip_w"],params["skip_b"])
 
+
         # add skip connections
-        return x + x_skip
+        x = x  + x_skip
+
+        # Enforce sharding shape to avoid ret_check failure when returning
+        x = jax.lax.with_sharding_constraint(x, sharding)
+
+        return x
 
     return resnet, params
 
@@ -354,6 +389,9 @@ def get_attention(cfg, key, in_C, out_C, inference=False):
 
     # batchnorm, params["btchN1"] = get_batchnorm(cfg, key, in_C, out_C, inference=inference)
 
+    n_devices = len(jax.devices())
+    sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(1,1,1,n_devices)
+
     @jit
     def attn(x_in, embedding, params, subkey):
 
@@ -379,11 +417,16 @@ def get_attention(cfg, key, in_C, out_C, inference=False):
         x = linear(x, params["f_w"], params["f_b"])
 
         # sum and return
-        return x+ x_in
+        x = x + x_in
+        x = jax.lax.with_sharding_constraint(x, sharding)
+
+        return x
 
     return attn, params
 
 ######################## Advanced building blocks ########################
+
+from functools import partial
 
 def get_down(cfg, key, in_C, out_C, inference=False):
 
@@ -392,7 +435,12 @@ def get_down(cfg, key, in_C, out_C, inference=False):
 
     params = {"r1":params1, "r2": params2}
 
+    n_devices = len(jax.devices())
+    sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(1,1,1,n_devices)
+
+    @partial(jax.jit, static_argnames=['factor'])
     def down(x_in, embedding, params, subkey, factor):
+        x_in = jax.lax.with_sharding_constraint(x_in, sharding)
         x0 = resnet1(x_in, embedding, params["r1"], subkey)
         x1 = resnet2(x0, embedding, params["r2"], subkey)
         x2 = naive_downsample_2d(x1, factor=factor)
@@ -410,6 +458,7 @@ def get_down_attn(cfg, key, in_C, out_C, inference=False):
 
     params = {"r1":params1, "r2": params2,"a1": params_a1,"a2": params_a2}
 
+    # @partial(jax.jit, static_argnames=['factor'])
     def down_attn(x_in, embedding, params, subkey, factor):
         x0 = resnet1(x_in, embedding, params["r1"], subkey)
         x0a = attn1(x0, embedding, params["a1"], subkey)
@@ -429,7 +478,16 @@ def get_up(cfg, key, in_C, out_C, residual_C: list, inference=False):
 
     params = {"r1":params1, "r2": params2,"r3": params3}
 
+    n_devices = len(jax.devices())
+    sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(1,1,1,n_devices)
+
+    @partial(jax.jit, static_argnames=['factor'])
     def up(x, x_res1, x_res2, x_res3, embedding, params, subkey, factor):
+        x = jax.lax.with_sharding_constraint(x, sharding)
+        x_res1 = jax.lax.with_sharding_constraint(x_res1, sharding)
+        x_res2 = jax.lax.with_sharding_constraint(x_res2, sharding)
+        x_res3 = jax.lax.with_sharding_constraint(x_res3, sharding)
+
         x = resnet1(jnp.concatenate([x,x_res1],-1), embedding, params["r1"], subkey)
         x = resnet2(jnp.concatenate([x,x_res2],-1), embedding, params["r2"], subkey)
         x = resnet3(jnp.concatenate([x,x_res3],-1), embedding, params["r3"], subkey)
