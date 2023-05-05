@@ -10,7 +10,7 @@ from jax.sharding import PositionalSharding
 
 def get_implicit_score_matching(cfg):
 
-    def implicit_score_matching(func, function_parameters, _data , perturbed_data, time, _z, key):
+    def implicit_score_matching(func, function_parameters, _data , perturbed_data, time, _z, text_embedding, key):
         """
         func: The function, f, is assumed to be the score of a function, f = ∇_x log(p(x;θ)).
     
@@ -23,11 +23,11 @@ def get_implicit_score_matching(cfg):
         keys = jrandom.split(key, num=int(perturbed_data.shape[0]))
         hess = jacrev(func, 0)
     
-        div = lambda x, t, k: jnp.sum(jnp.diag((hess(x, t, function_parameters, k))))
+        div = lambda x, t, t_emb, k: jnp.sum(jnp.diag((hess(x, t, t_emb, function_parameters, k))))
         #divergence = vmap(div, (0, 0, 0), 0)(perturbed_data, time.reshape(-1,1), keys) # TODO: is vmap good here?, ask Paul?
         divergence = []
-        for x, t, k in zip(perturbed_data, time.reshape(-1,1), keys):
-            divergence.append(jnp.sum(jnp.diag(hess(x,t, function_parameters, k))))
+        for x, t, t_emb, k in zip(perturbed_data, time.reshape(-1,1), text_embedding, keys):
+            divergence.append(jnp.sum(jnp.diag(hess(x,t, t_emb,  function_parameters, k))))
     
         divergence = jnp.array(divergence) 
         # TODO do new keys
@@ -36,7 +36,7 @@ def get_implicit_score_matching(cfg):
         #divergence = div(data[0], time.reshape(-1,1)[0])
         #print(f"The divergence {divergence}")
         #print(divergence)
-        score = func(perturbed_data, time, function_parameters, key)
+        score = func(perturbed_data, time, text_embedding, function_parameters, key)
         score_length = jnp.square(jnp.linalg.norm(score))
         #print((jnp.linalg.norm(out)**2).shape)    
         #score = jax.device_put(func(perturbed_data, time, function_parameters, key), sharding.replicate(0))

@@ -11,9 +11,9 @@ def get_yang_song(cfg):
 
     if isinstance(sde, SUBVPSDE):
 
-        def yang_song(func, function_parameters, data, perturbed_data, time, z, key):
+        def yang_song(func, function_parameters, data, perturbed_data, time, z, text_embedding, key):
             # Todo lambda(t)
-            score_model = func(perturbed_data, time, function_parameters, key)
+            score_model = func(perturbed_data, time, text_embedding, function_parameters, key)
             #_mu, cov = sde.parameters(time, jnp.zeros_like(data))
             #score = jax.vmap(lambda a, b: a * b)(-score_model, 1. / cov)
             score = score_model

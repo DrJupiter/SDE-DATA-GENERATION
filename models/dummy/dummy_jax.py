@@ -21,65 +21,39 @@ def get_parameters(cfg):
     key = random.PRNGKey(cfg.model.key)
     parameters = []
     sizes = cfg.model.parameter_sizes
+    sizes.append([cfg.model.text_embedding, cfg.text_embedding.shape])
     for size in sizes: 
         key, subkey = random.split(key)
         parameter = random.normal(subkey, (size), dtype=jnp.float32)
         parameters.append(parameter)
+     
     if cfg.model.sharding:
         parameters = get_model_sharding(cfg)(parameters)
     return parameters
 
 def get_dummy_train(cfg):
-    sde = get_sde(cfg)
-    if isinstance(sde, SUBVPSDE):
-
-        def sde_guidance(data, _time, x):
-            #shape = (1, -1) if len(data.shape) == 1 else x.shape
-            _, cov = sde.parameters(_time, jnp.zeros_like(x))
-            exponents = -0.25 * _time ** 2 * (sde.beta_max - sde.beta_min) - 0.5 * _time * sde.beta_min 
-            x = vmap(lambda a, b: a * b)(jnp.exp(exponents), x)
-            return vmap(lambda a, b: a* b)(-1/cov, data-x) 
-    else:
-        def sde_guidance(data, _time, x):
-            return x
 
     @jit
-    def model_call(data, _time, parameters, _key):
+    def model_call(data, _time, text_embedding, parameters, _key):
         x = data
         in_shape = x.shape
         embedding_dim = x.shape[0] if len(x.shape) == 1 else x.shape[1]
         embedding_dim = int(embedding_dim)
         time_emb = get_timestep_embedding(_time*999, embedding_dim)
-        x = time_emb + x
+        x = time_emb + x + jnp.matmul(parameters[-1], text_embedding.T).T
 
-        for parameter in parameters[:-1]:
+        W = parameters[:-1]
+        for parameter in W[:-1]:
             # TODO: Reconsider ORDER in terms of shape representation
             x = jnp.matmul(parameter, x.T).T
             x = nn.sigmoid(x)
-        x = jnp.matmul(parameters[-1], x.T).T
-        x = sde_guidance(data, _time, x)
+        x = jnp.matmul(W[-1], x.T).T
         x = x.reshape(in_shape) 
         return x
 
     return model_call
 
-def get_dummy_inference(cfg):
 
-    sde = get_sde(cfg)
-    model_call = get_dummy_train(cfg)
-
-    if isinstance(sde, SUBVPSDE):
-        print("USING DIFFERENT INFERENCE FUNCTION")
-        @jit
-        def sde_model_call(data, _time, parameters, _key):
-            x = model_call(data, _time, parameters, _key) 
-            shape = (1, -1) if len(data.shape) == 1 else x.shape
-            _mu, cov = sde.parameters(_time, jnp.zeros_like(x).reshape(shape))
-            score = vmap(lambda a, b: a * b)( 1. / cov, -x.reshape(shape))
-            return score.reshape(data.shape) 
-
-        return sde_model_call
-    return model_call
 
 def get_timestep_embedding(timesteps, embedding_dim: int):
     """

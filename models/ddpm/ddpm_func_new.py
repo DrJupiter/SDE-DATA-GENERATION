@@ -15,7 +15,7 @@ from utils.utils import get_model_sharding
 
 ######################## Basic building blocks ########################
 
-from models.ddpm.building_blocks.ddpm_func_new import get_resnet_ff, get_attention, get_timestep_embedding, get_conv, get_down, get_down_attn, get_up, get_up_attn
+from models.ddpm.building_blocks.ddpm_func_new import get_resnet_ff, get_attention, get_timestep_embedding, get_conv, get_down, get_down_attn, get_up, get_up_attn, get_text_embedding
 
 ######################## MODEL ########################
 
@@ -29,7 +29,9 @@ def get_ddpm_unet(cfg, key, inference=False):
     key, subkey = random.split(key,2)
 
     # get time embedding func and params
-    apply_timestep_embedding, p_embed = get_timestep_embedding(cfg, key, embedding_dim=c_s[0])
+    apply_timestep_embedding, p_embed = get_timestep_embedding(cfg, key) # B -> (cool stuff) -> B x Embedding_dim -> B x cfg.dim
+
+    apply_text_embedding, p_text_embed = get_text_embedding(cfg, key) 
 
     # get model funcs and params
     conv1, p_c1 =       get_conv(cfg, key, data_c, c_s[0])
@@ -55,14 +57,16 @@ def get_ddpm_unet(cfg, key, inference=False):
               "p_u1":p_u1, "p_u2":p_u2, "p_ua3":p_ua3, "p_u4":p_u4,  # up
               "p_mr1":p_mr1, "p_ma2":p_ma2, "p_mr3":p_mr3, # middle
               "p_c1":p_c1, "p_c2":p_c2, # conv
-              "p_embed": p_embed}  # time embedding
+              "p_embed": p_embed,# time embedding
+              "p_text_embed": p_text_embed, # text embedding
+              }  
 
     if cfg.model.sharding:
         print("Sharding")
         params = get_model_sharding(cfg)(params)
 
     # forward ini:
-    def ddpm_unet(x_in, timesteps, params, key):
+    def ddpm_unet(x_in, timesteps, text_embedding, params, key):
 
         # Transform input into the image shape
         x_in_shape = x_in.shape
@@ -73,6 +77,8 @@ def get_ddpm_unet(cfg, key, inference=False):
 
         # Create the embedding given the timesteps
         embed = apply_timestep_embedding(timesteps*999, params["p_embed"])
+        text_embed = apply_text_embedding(text_embedding, params["p_text_embed"])
+        embed = embed + text_embed
 
         # Apply model
         x_32_0 = conv1(x_in, params["p_c1"])

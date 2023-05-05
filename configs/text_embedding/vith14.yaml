@@ -1,0 +1,3 @@
+name: "CLIP-ViT-H-14"
+path: ./text_embeddings # Either a directory or specifc file path, if directory is used then a look up is made with the path: os.path.join(cfg.text_embedding.path, f"{cfg.dataset.name}/{cfg.text_embedding.name}.pickle")  
+shape: 1024 # Setting this might require loading and creating the parameters

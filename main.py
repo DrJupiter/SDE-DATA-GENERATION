@@ -108,7 +108,7 @@ def run_experiment(cfg):
 
     # start training for each epoch
     for epoch in range(cfg.train_and_test.train.epochs): 
-        for i, (data, labels) in enumerate(train_dataset): # batch training
+        for i, (data, (labels, text_embeddings)) in enumerate(train_dataset): # batch training
             # Check if we should terminate early, so we can properly log Wandb before being killed.
             if cfg.time.time_termination and time()-START_TIME >= cfg.time.time_of_termination_h*60*60: # convert hours into seconds.
                 TIME_EXCEEDED = True
@@ -140,7 +140,7 @@ def run_experiment(cfg):
             # get grad for this batch
               # loss_value, grads = jax.value_and_grad(loss_fn)(model_parameters, model_call, data, labels, t) # is this extra computation time
 
-            grads = grad_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, z, subkey[2])
+            grads = grad_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, z, text_embeddings,subkey[2])
 
             # get change in model_params and new optimizer params
             # optim_parameters, model_parameters = optim_alg(optim_parameters, model_parameters, t_data, labels)
@@ -152,14 +152,14 @@ def run_experiment(cfg):
             # Logging loss and an image
             if i % cfg.wandb.log.frequency == 0:
                   if cfg.wandb.log.loss:
-                    loss = loss_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, z, subkey[2])
+                    loss = loss_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, z, text_embeddings, subkey[2])
                     wandb.log({"loss": loss})
                     # wandb.log({"loss": loss_value})
                   if cfg.wandb.log.img and i % 100 == 0:
                     # reverse sde sampling
                     drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
                     diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
-                    get_sample = lambda t, key1, key0, xt: sample(1e-5, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1) 
+                    get_sample = lambda t, key1, key0, xt, text_embedding: sample(1e-5, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1) 
                                      # dt0 = - 1/N
 
                     n = len(perturbed_data) 
@@ -168,15 +168,15 @@ def run_experiment(cfg):
 
                     key, *subkey = jax.random.split(key, len(perturbed_data)*2 + 1)
 
-                    args = (timesteps.reshape(-1,1)[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], perturbed_data[:n])
-                    images = jax.vmap(get_sample, (0, 0, 0, 0))(*args)
+                    args = (timesteps.reshape(-1,1)[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], perturbed_data[:n], text_embeddings[:n])
+                    images = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
                  
                     
                     Z = (jax.random.normal(key, data.shape)*255)[:n]
-                    args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], Z)
-                    normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0))(*args)
+                    args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], Z, text_embeddings[:n])
+                    normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
 
-                    inference_out = inference_model(perturbed_data, timesteps, model_parameters if cfg.model.name != "sde" else data, key)[:n]
+                    inference_out = inference_model(perturbed_data, timesteps, text_embeddings,model_parameters if cfg.model.name != "sde" else data, key)[:n]
 
 
 

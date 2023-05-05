@@ -1,8 +1,10 @@
 name: dummy_jax
 key: 42
 sharding: true
+text_embedding: 784
 parameter_sizes:
-  - [128, 784]
-  - [256, 128]
+  - [512, 784]
+  - [256, 512]
+  - [256, 256]
   - [512, 256]
   - [784, 512]

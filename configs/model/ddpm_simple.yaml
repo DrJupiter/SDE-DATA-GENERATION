@@ -2,7 +2,7 @@ name: ddpm_unet
 type: independent_func
 size: big
 key: 42
-sharding: True
+sharding: False
 hyperparameters: 
   momentum: 0.99
   eps: 0.00001
@@ -10,13 +10,15 @@ hyperparameters:
   upsampling_factor: 2
   downsampling_factor: 2
   time_embedding_dims: 256
+  time_embedding_inner_dim: 128
+  text_embedding_dims: 256
   inference: False
   anti_blowup_factor: 0.01
   kernel_size: 3
   avg_length: 200
 parameters:
   Channel_sizes:
-    - 128
-    - 256
-    - 256
-    - 256
+    - 4
+    - 4
+    - 4
+    - 4

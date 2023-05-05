@@ -1,5 +1,16 @@
 name: mnist
 path: ./datasets/
+classes:
+  - zero
+  - one
+  - two
+  - three
+  - four
+  - five
+  - six
+  - seven
+  - eight
+  - nine
 shape:
   - -1
   - 28

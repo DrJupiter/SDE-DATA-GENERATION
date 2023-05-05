@@ -114,11 +114,59 @@ def upsample2d(x, factor=2):
     # Collect the shapes back into the desized "shape", resulting in and increase in H and W, by the factors magnitude.
     return jnp.reshape(x, [-1, H * factor, W * factor, C])
 
-def get_timestep_embedding(cfg, key, embedding_dim: int):
+
+
+
+def get_text_embedding(cfg, key):
+
+    abf = cfg.model.hyperparameters.anti_blowup_factor
+    text_dims = cfg.model.hyperparameters.text_embedding_dims # 256
+    embedding_dim = cfg.text_embedding.shape # 1024
+    subkey = random.split(key,4)
+
+    ### Define parameters for the model
+    params = {} # change to jnp array and use jax.numpy.append?
+
+    ## 2x Linear
+    # skip:
+    params["w0"] = abf*random.normal(subkey[0], (embedding_dim,text_dims), dtype=jnp.float32)
+    params["b0"] = abf*random.normal(subkey[1], (1,text_dims), dtype=jnp.float32)
+
+    # time:
+    params["w1"] = abf*random.normal(subkey[2], (text_dims,text_dims), dtype=jnp.float32)
+    params["b1"] = abf*random.normal(subkey[3], (1,text_dims), dtype=jnp.float32)
+
+    # B X 1024
+    def apply_text_embedding(text_embedding, params):
+        """
+        For math behind this see paper.\n
+        timesteps: array of ints describing the timestep each "picture" of the batch is perturbed to.\n
+        timesteps.shape = B\n
+        From Fairseq.
+        Build sinusoidal embeddings.
+        This matches the implementation in tensor2tensor, but differs slightly
+        from the description in Section 3.5 of "Attention Is All You Need".
+        \n
+        Credit to DDPM (https://github.com/hojonathanho/diffusion/blob/1e0dceb3b3495bbe19116a5e1b3596cd0706c543/diffusion_tf/nn.py#L90)
+        \n I just converted it to jax.
+        """
+        if len(text_embedding.shape) == 1:
+            text_embedding = text_embedding.reshape(1,-1)
+        # apply linear layers:
+        text_embedding = jnp.einsum("hc,cC -> hC",text_embedding,params["w0"])+ params["b0"]
+        text_embedding = nonlin(text_embedding)
+        text_embedding = jnp.einsum("hc,cC -> hC",text_embedding,params["w1"])+ params["b1"]
+
+        return text_embedding
+
+    return apply_text_embedding, params
+
+def get_timestep_embedding(cfg, key):
 
     abf = cfg.model.hyperparameters.anti_blowup_factor
     time_dims = cfg.model.hyperparameters.time_embedding_dims
     subkey = random.split(key,4)
+    embedding_dim = cfg.model.hyperparameters.time_embedding_inner_dim
 
     ### Define parameters for the model
     params = {} # change to jnp array and use jax.numpy.append?
@@ -129,7 +177,7 @@ def get_timestep_embedding(cfg, key, embedding_dim: int):
     params["b0"] = abf*random.normal(subkey[1], (1,time_dims), dtype=jnp.float32)
 
     # time:
-    params["w1"] =abf*random.normal(subkey[2], (time_dims,time_dims), dtype=jnp.float32)
+    params["w1"] = abf*random.normal(subkey[2], (time_dims,time_dims), dtype=jnp.float32)
     params["b1"] = abf*random.normal(subkey[3], (1,time_dims), dtype=jnp.float32)
 
 
@@ -157,7 +205,7 @@ def get_timestep_embedding(cfg, key, embedding_dim: int):
             emb = jnp.pad(emb, [[0, 0], [0, 1]])
         assert emb.shape == (timesteps.shape[0], embedding_dim)
 
-        # apply linear layers:
+        # apply linear layers: # created by us
         emb = jnp.einsum("hc,cC -> hC",emb,params["w0"])+ params["b0"]
         emb = nonlin(emb)
         emb = jnp.einsum("hc,cC -> hC",emb,params["w1"])+ params["b1"]
