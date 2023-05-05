@@ -189,7 +189,7 @@ def run_experiment(cfg):
                     display_images(cfg, data[:n], labels[:n], log_title="Original Images: x(0)")
                     display_images(cfg, min_max_rescale(inference_out), labels[:n], log_title="Model output, min-max rescaled")
 
-                  if cfg.wandb.log.parameters:
+                  if cfg.wandb.log.parameters and i % 1000 == 0:
                           with open(os.path.join(wandb.run.dir, f"{cfg.model.name}-parameters.pickle"), 'wb') as f:
                             pickle.dump((epoch*len(train_dataset) + i, model_parameters), f, pickle.HIGHEST_PROTOCOL)
                           wandb.save(f"{cfg.model.name}-parameters.pickle")
