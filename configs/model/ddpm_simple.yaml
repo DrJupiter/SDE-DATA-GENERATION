@@ -18,7 +18,7 @@ hyperparameters:
   avg_length: 200
 parameters:
   Channel_sizes:
-    - 4
-    - 4
-    - 4
-    - 4
+    - 128
+    - 256
+    - 256
+    - 256
