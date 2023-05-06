@@ -55,14 +55,21 @@ def rescale_sigmoid_img(x):
     factor = 0.05 # -500;500 -> 0;10
     max_val = 255
     return max_val/(1+jnp.exp(-1,factor))
+    
 import pickle
 import os
 
-def load_paramters(cfg, model_paramters, optimizer_paramters):
+def get_save_path_names(cfg):
+    file_name = {}
+    file_name['model'] = f"{cfg.dataset.name}-{cfg.model.name}-parameters.pickle"
+    file_name['optimizer'] = f"{cfg.dataset.name}-{cfg.model.name}-{cfg.optimizer.name}-parameters.pickle"
+    return file_name 
 
+def load_paramters(cfg, model_paramters, optimizer_paramters):
+    file_name = get_save_path_names(cfg) 
     if cfg.parameter_loading.model:
         if os.path.isdir(cfg.parameter_loading.model_path):
-            with open(os.path.join(cfg.parameter_loading.model_path, f"{cfg.model.name}-parameters.pickle"), "rb") as mp:
+            with open(os.path.join(cfg.parameter_loading.model_path, file_name['model']), "rb") as mp:
                 iteration, model_paramters = pickle.load(mp)
         
         elif os.path.isfile(cfg.parameter_loading.model_path):
@@ -77,7 +84,8 @@ def load_paramters(cfg, model_paramters, optimizer_paramters):
 
     if cfg.parameter_loading.optimizer:
         if os.path.isdir(cfg.parameter_loading.optimizer_path):
-            with open(os.path.join(cfg.parameter_loading.optimizer_path, f"{cfg.model.name}-{cfg.optimizer.name}-parameters.pickle"), "rb") as op:
+
+            with open(os.path.join(cfg.parameter_loading.optimizer_path, file_name["optimizer"]), "rb") as op:
                 iteration, optimizer_paramters = pickle.load(op)
 
         elif os.path.isfile(cfg.parameter_loading.optimizer_path):

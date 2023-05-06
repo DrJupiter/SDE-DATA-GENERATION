@@ -65,7 +65,7 @@ from time import time
 
 
 # Paramter loading
-from utils.utils import load_paramters, get_wandb_input, min_max_rescale
+from utils.utils import load_paramters, get_wandb_input, min_max_rescale, get_save_path_names
 
 ### Train loop:
 
@@ -176,7 +176,7 @@ def run_experiment(cfg):
                     args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], Z, text_embeddings[:n])
                     normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
 
-                    inference_out = inference_model(perturbed_data, timesteps, text_embeddings,model_parameters if cfg.model.name != "sde" else data, key)[:n]
+                    inference_out = inference_model(perturbed_data[:n], timesteps[:n], text_embeddings[:n],model_parameters if cfg.model.name != "sde" else data[:n], key)
 
 
 
@@ -190,12 +190,13 @@ def run_experiment(cfg):
                     display_images(cfg, min_max_rescale(inference_out), labels[:n], log_title="Model output, min-max rescaled")
 
                   if cfg.wandb.log.parameters and i % 1000 == 0:
-                          with open(os.path.join(wandb.run.dir, f"{cfg.model.name}-parameters.pickle"), 'wb') as f:
+                          file_name = get_save_path_names(cfg)
+                          with open(os.path.join(wandb.run.dir, file_name["model"]), 'wb') as f:
                             pickle.dump((epoch*len(train_dataset) + i, model_parameters), f, pickle.HIGHEST_PROTOCOL)
-                          wandb.save(f"{cfg.model.name}-parameters.pickle")
-                          with open(os.path.join(wandb.run.dir, f"{cfg.model.name}-{cfg.optimizer.name}-parameters.pickle"), 'wb') as f:
+                          wandb.save(file_name["model"])
+                          with open(os.path.join(wandb.run.dir, file_name["optimizer"]), 'wb') as f:
                             pickle.dump((epoch*len(train_dataset) + i, optim_parameters), f, pickle.HIGHEST_PROTOCOL)
-                          wandb.save(f"{cfg.model.name}-{cfg.optimizer.name}-parameters.pickle")
+                          wandb.save(file_name["optimizer"])
                     #image = get_sample(timesteps[0], subkey[2], subkey[2], perturbed_data[0])
 
                     #rescaled_perturbed = (perturbed_data[0]-jnp.min(perturbed_data[0]))/(jnp.max(perturbed_data[0])-jnp.min(perturbed_data[0]))*255
