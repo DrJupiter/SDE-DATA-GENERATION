@@ -55,7 +55,7 @@ def rescale_sigmoid_img(x):
     factor = 0.05 # -500;500 -> 0;10
     max_val = 255
     return max_val/(1+jnp.exp(-1,factor))
-    
+
 import pickle
 import os
 
@@ -65,7 +65,8 @@ def get_save_path_names(cfg):
     file_name['optimizer'] = f"{cfg.dataset.name}-{cfg.model.name}-{cfg.optimizer.name}-parameters.pickle"
     return file_name 
 
-def load_paramters(cfg, model_paramters, optimizer_paramters):
+
+def load_model_paramters(cfg, model_paramters):
     file_name = get_save_path_names(cfg) 
     if cfg.parameter_loading.model:
         if os.path.isdir(cfg.parameter_loading.model_path):
@@ -81,6 +82,11 @@ def load_paramters(cfg, model_paramters, optimizer_paramters):
         if cfg.model.sharding:
             model_paramters = get_model_sharding(cfg)(model_paramters)
         print(f"Loaded model: {cfg.model.name} paramters @ checkpoint iteration {iteration}")
+    return model_paramters
+
+def load_optimizer_paramters(cfg, optimizer_paramters):
+
+    file_name = get_save_path_names(cfg) 
 
     if cfg.parameter_loading.optimizer:
         if os.path.isdir(cfg.parameter_loading.optimizer_path):
@@ -96,7 +102,7 @@ def load_paramters(cfg, model_paramters, optimizer_paramters):
 
         print(f"Loaded optimizer: {cfg.optimizer.name} paramters @ checkpoint iteration {iteration}")
 
-    return model_paramters, optimizer_paramters
+    return optimizer_paramters
 
 from models.dummy.shard import shard_parameters
 from models.ddpm.shard_parameters import shard_ddpm_unet

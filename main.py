@@ -65,7 +65,7 @@ from time import time
 
 
 # Paramter loading
-from utils.utils import load_paramters, get_wandb_input, min_max_rescale, get_save_path_names
+from utils.utils import load_model_paramters, load_optimizer_paramters, get_wandb_input, min_max_rescale, get_save_path_names
 
 ### Train loop:
 
@@ -88,9 +88,11 @@ def run_experiment(cfg):
 
     # Get model forward call and its parameters
     model_parameters, model_call, inference_model = get_model(cfg, key = subkey) # model_call(x_in, timesteps, parameters)
+    model_parameters = load_model_paramters(cfg, model_parameters)
 
     # Get optimizer and its parameters
     optimizer, optim_parameters = get_optim(cfg, model_parameters)
+    optim_parameters = load_optimizer_paramters(cfg, optim_parameters)
   
     # get sde
     SDE = get_sde(cfg)
@@ -100,8 +102,6 @@ def run_experiment(cfg):
 
     grad_fn = jax.grad(loss_fn,1) # TODO: try to JIT function partial(jax.jit,static_argnums=0)(jax.grad(loss_fn,1))
     grad_fn = jax.jit(grad_fn, static_argnums=0)
-
-    model_parameters, optim_parameters = load_paramters(cfg, model_paramters=model_parameters, optimizer_paramters=optim_parameters)
 
     # get shard
     sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
