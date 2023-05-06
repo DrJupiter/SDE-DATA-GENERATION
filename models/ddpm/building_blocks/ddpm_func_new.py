@@ -69,7 +69,7 @@ Returns: out (B1, B2, H, W, C)
 """
 
 def nonlin(x):
-    return nn.sigmoid(x) # TODO: change to depend on config
+    return nn.relu(x) # TODO: change to depend on config
 
 #### ATTENTION STUFF ####
 
