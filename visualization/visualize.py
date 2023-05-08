@@ -47,9 +47,9 @@ def display_images(cfg, images, titles = [], rows = None, columns = 2, figsize= 
     for idx, img in enumerate(images):
         fig.add_subplot(rows, columns, idx+1) 
         if cfg.dataset.name == 'mnist':
-            plt.imshow(img.reshape(28,28), cmap='gray')
+            plt.imshow(img.reshape(28+cfg.dataset.padding*2,28+cfg.dataset.padding*2), cmap='gray')
         elif cfg.dataset.name == 'cifar10':
-            plt.imshow((img).reshape(32,32,3)/255)
+            plt.imshow((img).reshape(32+cfg.dataset.padding*2,32+cfg.dataset.padding*2,3)/255)
         plt.axis('off')
         if len(titles) == len(images):
             plt.title(titles[idx])
