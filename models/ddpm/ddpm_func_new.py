@@ -80,6 +80,7 @@ def get_ddpm_unet(cfg, key, inference=False):
 
         x_in_shape = x_in.shape
         x_in = apply_text_embedding_data(x_in, text_embedding, params["p_text_embed_data"])
+        print(x_in.shape)
 
         # Transform input into the image shape
         x_in = x_in.reshape(cfg.dataset.shape)
@@ -124,7 +125,7 @@ def get_ddpm_unet(cfg, key, inference=False):
 
         x_in_shape = x_in.shape
         x_in = apply_text_embedding_data(x_in, text_embedding, params["p_text_embed_data"])
-        
+
         # Transform input into the image shape
         x_in = x_in.reshape(cfg.dataset.shape)
 
