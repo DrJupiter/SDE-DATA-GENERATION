@@ -17,7 +17,7 @@ from jax.sharding import PositionalSharding
 
 ######################## Basic building blocks ########################
 
-from models.ddpm.building_blocks.ddpm_func_new import get_resnet_ff, get_attention, get_timestep_embedding, get_conv, get_down, get_down_attn, get_up, get_up_attn, get_text_embedding, get_text_data_embedding
+from models.ddpm.building_blocks.ddpm_functional_blocks import get_resnet_ff, get_attention, get_timestep_embedding, get_conv, get_down, get_down_attn, get_up, get_up_attn, get_text_embedding, get_text_data_embedding
 
 ######################## MODEL ########################
 
