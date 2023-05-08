@@ -16,7 +16,7 @@ import os
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 #os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION']='0.5'
 #os.environ['XLA_PYTHON_CLIENT_ALLOCATOR']='platform'
-os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
+#os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
 
 import jax
 import jax.numpy as jnp
