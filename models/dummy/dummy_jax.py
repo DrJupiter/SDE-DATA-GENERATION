@@ -22,9 +22,10 @@ def get_parameters(cfg):
     parameters = []
     sizes = cfg.model.parameter_sizes
     sizes.append([cfg.model.text_embedding, cfg.text_embedding.shape])
+    initializer = nn.initializers.glorot_normal(in_axis=-1, out_axis=-2)
     for size in sizes: 
         key, subkey = random.split(key)
-        parameter = random.normal(subkey, (size), dtype=jnp.float32)
+        parameter = initializer(subkey, (size), dtype=jnp.float32)
         parameters.append(parameter)
      
     if cfg.model.sharding:

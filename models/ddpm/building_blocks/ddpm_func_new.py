@@ -69,7 +69,7 @@ Returns: out (B1, B2, H, W, C)
 """
 
 def nonlin(x):
-    return nn.sigmoid(x) # TODO: change to depend on config
+    return nn.relu(x) # TODO: change to depend on config
 
 #### ATTENTION STUFF ####
 
@@ -91,6 +91,9 @@ Input: x (B1, B2, H, W, C)\n
 Returns: out (B1, B2, H, W, Out_C)
 """
 
+    
+        
+    
 
 ######################## Helper functions ########################
 
@@ -116,8 +119,25 @@ def upsample2d(x, factor=2):
     # Collect the shapes back into the desized "shape", resulting in and increase in H and W, by the factors magnitude.
     return jnp.reshape(x, [-1, H * factor, W * factor, C])
 
+def get_text_data_embedding(cfg, key):
+    abf = cfg.model.hyperparameters.anti_blowup_factor
+    embedding_dim = cfg.text_embedding.shape # 1024
+    image_size = abs(jnp.prod(cfg.dataset.shape))
 
+    # For relu
+    initializer = jax.nn.initializers.he_normal()
 
+    params = {}
+
+    subkey = random.split(key,4)
+    params["w0"] = initializer(subkey[0], (embedding_dim, image_size), dtype=jnp.float32)
+    params["b0"] = initializer(subkey[1], (1, image_size), dtype=jnp.float32)
+
+    def apply_text_data_embedding(data,text_embedding, params):
+        data = data + jnp.matmul(text_embedding, params["w0"]) + params["b0"]
+        return data
+    
+    return params, apply_text_data_embedding
 
 def get_text_embedding(cfg, key):
 
@@ -129,14 +149,20 @@ def get_text_embedding(cfg, key):
     ### Define parameters for the model
     params = {} # change to jnp array and use jax.numpy.append?
 
+    initializer = jax.nn.initializers.he_normal()
     ## 2x Linear
     # skip:
-    params["w0"] = abf*random.normal(subkey[0], (embedding_dim,text_dims), dtype=jnp.float32)
-    params["b0"] = abf*random.normal(subkey[1], (1,text_dims), dtype=jnp.float32)
+    params["w0"] = abf*initializer(subkey[0], (embedding_dim,text_dims), dtype=jnp.float32)
+    params["b0"] = abf*initializer(subkey[1], (1,text_dims), dtype=jnp.float32)
+
+    #params["w0"] = abf*random.normal(subkey[0], (embedding_dim,text_dims), dtype=jnp.float32)
+    #params["b0"] = abf*random.normal(subkey[1], (1,text_dims), dtype=jnp.float32)
 
     # time:
-    params["w1"] = abf*random.normal(subkey[2], (text_dims,text_dims), dtype=jnp.float32)
-    params["b1"] = abf*random.normal(subkey[3], (1,text_dims), dtype=jnp.float32)
+    params["w1"] = abf*initializer(subkey[2], (text_dims,text_dims), dtype=jnp.float32)
+    params["b1"] = abf*initializer(subkey[3], (1,text_dims), dtype=jnp.float32)
+    #params["w1"] = abf*random.normal(subkey[2], (text_dims,text_dims), dtype=jnp.float32)
+    #params["b1"] = abf*random.normal(subkey[3], (1,text_dims), dtype=jnp.float32)
 
     # B X 1024
     def apply_text_embedding(text_embedding, params):
@@ -173,14 +199,23 @@ def get_timestep_embedding(cfg, key):
     ### Define parameters for the model
     params = {} # change to jnp array and use jax.numpy.append?
 
+    
+    initializer = jax.nn.initializers.he_normal()
+
     ## 2x Linear
+
     # skip:
-    params["w0"] = abf*random.normal(subkey[0], (embedding_dim,time_dims), dtype=jnp.float32)
-    params["b0"] = abf*random.normal(subkey[1], (1,time_dims), dtype=jnp.float32)
+    params["w0"] = abf*initializer(subkey[0], (embedding_dim,time_dims), dtype=jnp.float32)
+    params["b0"] = abf*initializer(subkey[1], (1,time_dims), dtype=jnp.float32)
+
+    #params["w0"] = abf*random.normal(subkey[0], (embedding_dim,time_dims), dtype=jnp.float32)
+    #params["b0"] = abf*random.normal(subkey[1], (1,time_dims), dtype=jnp.float32)
 
     # time:
-    params["w1"] = abf*random.normal(subkey[2], (time_dims,time_dims), dtype=jnp.float32)
-    params["b1"] = abf*random.normal(subkey[3], (1,time_dims), dtype=jnp.float32)
+    params["w1"] = abf*initializer(subkey[2], (time_dims,time_dims), dtype=jnp.float32)
+    params["b1"] = abf*initializer(subkey[3], (1,time_dims), dtype=jnp.float32)
+    #params["w1"] = abf*random.normal(subkey[2], (time_dims,time_dims), dtype=jnp.float32)
+    #params["b1"] = abf*random.normal(subkey[3], (1,time_dims), dtype=jnp.float32)
 
     def apply_timestep_embedding(timesteps, params):
         """
@@ -275,7 +310,10 @@ def get_conv(cfg, key, in_C, out_C,first=False):
     kernel_size = cfg.model.hyperparameters.kernel_size
     abf = cfg.model.hyperparameters.anti_blowup_factor
 
-    params = abf*random.normal(key, ((kernel_size, kernel_size, in_C, out_C)), dtype=jnp.float32)
+    initilizer = jax.nn.initializers.orthogonal()
+
+    params = abf * initilizer(key, ((kernel_size, kernel_size, in_C, out_C)), dtype=jnp.float32)
+    #params = abf*random.normal(key, ((kernel_size, kernel_size, in_C, out_C)), dtype=jnp.float32)
     n_devices = len(jax.devices())
     sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(1,1,1,n_devices)
 
@@ -305,18 +343,28 @@ def get_resnet_ff(cfg, key, in_C, out_C, inference=False):
     ### Define parameters for the model
     params = {}
 
+
+    initializer_lin = jax.nn.initializers.he_normal()
+    initilizer_conv = jax.nn.initializers.orthogonal()
     ## 2x Linear
     # skip: 
-    params["skip_w"] = abf*random.normal(subkey[0], (in_C,out_C), dtype=jnp.float32)
-    params["skip_b"] = abf*random.normal(subkey[1], (1,out_C), dtype=jnp.float32)
+    params["skip_w"] = abf*initializer_lin(subkey[0], (in_C,out_C), dtype=jnp.float32)
+    params["skip_b"] = abf*initializer_lin(subkey[1], (1,out_C), dtype=jnp.float32)
+    #params["skip_w"] = abf*random.normal(subkey[0], (in_C,out_C), dtype=jnp.float32)
+    #params["skip_b"] = abf*random.normal(subkey[1], (1,out_C), dtype=jnp.float32)
 
     # time:
-    params["time_w"] = abf*random.normal(subkey[2], (time_dims,out_C), dtype=jnp.float32)
-    params["time_b"] = abf*random.normal(subkey[3], (1,out_C), dtype=jnp.float32)
+    params["time_w"] = abf*initializer_lin(subkey[2], (time_dims,out_C), dtype=jnp.float32)
+    params["time_b"] = abf*initializer_lin(subkey[3], (1,out_C), dtype=jnp.float32)
+
+    #params["time_w"] = abf*random.normal(subkey[2], (time_dims,out_C), dtype=jnp.float32)
+    #params["time_b"] = abf*random.normal(subkey[3], (1,out_C), dtype=jnp.float32)
 
     # 2x Conv
-    params["conv1_w"] = abf*random.normal(subkey[4], ((kernel_size, kernel_size, in_C, out_C)), dtype=jnp.float32)
-    params["conv2_w"] = abf*random.normal(subkey[5], ((kernel_size, kernel_size, out_C, out_C)), dtype=jnp.float32)
+    params["conv1_w"] = abf*initilizer_conv(subkey[4], ((kernel_size, kernel_size, in_C, out_C)), dtype=jnp.float32)
+    params["conv2_w"] = abf*initilizer_conv(subkey[5], ((kernel_size, kernel_size, out_C, out_C)), dtype=jnp.float32)
+    #params["conv1_w"] = abf*random.normal(subkey[4], ((kernel_size, kernel_size, in_C, out_C)), dtype=jnp.float32)
+    #params["conv2_w"] = abf*random.normal(subkey[5], ((kernel_size, kernel_size, out_C, out_C)), dtype=jnp.float32)
 
     # batchnorm, params["btchN1"] = get_batchnorm(cfg, key, in_C, in_C, inference)
     # batchnorm2, params["btchN2"] = get_batchnorm(cfg, key, out_C, out_C, inference)
@@ -370,22 +418,31 @@ def get_attention(cfg, key, in_C, out_C, inference=False):
     ### Define parameters for the model
     params = {}
 
+    initializer = nn.initializers.xavier_normal()
     ## 4x Linear
     # q:
-    params["q_w"] = abf*random.normal(subkey[0], (in_C,out_C), dtype=jnp.float32)
-    params["q_b"] = abf*random.normal(subkey[1], (1,out_C), dtype=jnp.float32)
+    params["q_w"] = abf*initializer(subkey[0], (in_C,out_C), dtype=jnp.float32)
+    params["q_b"] = abf*initializer(subkey[1], (1,out_C), dtype=jnp.float32)
+    #params["q_w"] = abf*random.normal(subkey[0], (in_C,out_C), dtype=jnp.float32)
+    #params["q_b"] = abf*random.normal(subkey[1], (1,out_C), dtype=jnp.float32)
 
     # k:
-    params["k_w"] = abf*random.normal(subkey[2], (in_C,out_C), dtype=jnp.float32)
-    params["k_b"] = abf*random.normal(subkey[3], (1,out_C), dtype=jnp.float32)
+    params["k_w"] = abf*initializer(subkey[2], (in_C,out_C), dtype=jnp.float32)
+    params["k_b"] = abf*initializer(subkey[3], (1,out_C), dtype=jnp.float32)
+    #params["k_w"] = abf*random.normal(subkey[2], (in_C,out_C), dtype=jnp.float32)
+    #params["k_b"] = abf*random.normal(subkey[3], (1,out_C), dtype=jnp.float32)
 
     # v:
-    params["v_w"] = abf*random.normal(subkey[4], (in_C,out_C), dtype=jnp.float32)
-    params["v_b"] = abf*random.normal(subkey[5], (1,out_C), dtype=jnp.float32)
+    params["v_w"] = abf*initializer(subkey[4], (in_C,out_C), dtype=jnp.float32)
+    params["v_b"] = abf*initializer(subkey[5], (1,out_C), dtype=jnp.float32)
+    #params["v_w"] = abf*random.normal(subkey[4], (in_C,out_C), dtype=jnp.float32)
+    #params["v_b"] = abf*random.normal(subkey[5], (1,out_C), dtype=jnp.float32)
 
     # final
-    params["f_w"] = abf*random.normal(subkey[6], (out_C,out_C), dtype=jnp.float32)
-    params["f_b"] = abf*random.normal(subkey[7], (1,out_C), dtype=jnp.float32)
+    params["f_w"] = abf*initializer(subkey[6], (out_C,out_C), dtype=jnp.float32)
+    params["f_b"] = abf*initializer(subkey[7], (1,out_C), dtype=jnp.float32)
+    #params["f_w"] = abf*random.normal(subkey[6], (out_C,out_C), dtype=jnp.float32)
+    #params["f_b"] = abf*random.normal(subkey[7], (1,out_C), dtype=jnp.float32)
 
     # batchnorm, params["btchN1"] = get_batchnorm(cfg, key, in_C, out_C, inference=inference)
 
