@@ -24,6 +24,6 @@ hyperparameters:
 parameters:
   Channel_sizes:
     - 40
-    - 80
-    - 80
-    - 80
+    - 60
+    - 60
+    - 60
