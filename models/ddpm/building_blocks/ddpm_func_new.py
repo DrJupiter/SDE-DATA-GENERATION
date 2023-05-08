@@ -506,7 +506,7 @@ def get_attention(cfg, key, in_C, out_C):
 
 from functools import partial
 
-def get_down(cfg, key, in_C, out_C):
+def get_down(cfg, key, in_C, out_C, factor):
 
     resnet1, params1, inf_resnet1 = get_resnet_ff(cfg, key, in_C, out_C)
     resnet2, params2, inf_resnet2 = get_resnet_ff(cfg, key, out_C, out_C)
@@ -516,8 +516,10 @@ def get_down(cfg, key, in_C, out_C):
     n_devices = len(jax.devices())
     sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(1,1,1,n_devices)
 
-    @partial(jax.jit, static_argnames=['factor'])
-    def down(x_in, embedding, params, subkey, factor):
+    factor = factor
+
+    @jit #@partial(jax.jit, static_argnames=['factor'])
+    def down(x_in, embedding, params, subkey):
         x_in = jax.lax.with_sharding_constraint(x_in, sharding)
         x0 = resnet1(x_in, embedding, params["r1"], subkey)
         x1 = resnet2(x0, embedding, params["r2"], subkey)
@@ -525,8 +527,8 @@ def get_down(cfg, key, in_C, out_C):
 
         return x0,x1,x2
 
-    @partial(jax.jit, static_argnames=['factor'])
-    def inf_down(x_in, embedding, params, subkey, factor):
+    @jit #@partial(jax.jit, static_argnames=['factor'])
+    def inf_down(x_in, embedding, params, subkey):
         x_in = jax.lax.with_sharding_constraint(x_in, sharding)
         x0 = inf_resnet1(x_in, embedding, params["r1"], subkey)
         x1 = inf_resnet2(x0, embedding, params["r2"], subkey)
@@ -536,7 +538,7 @@ def get_down(cfg, key, in_C, out_C):
 
     return down, params, inf_down
 
-def get_down_attn(cfg, key, in_C, out_C):
+def get_down_attn(cfg, key, in_C, out_C, factor):
 
     resnet1, params1, inf_resnet1 = get_resnet_ff(cfg, key, in_C, out_C)
     attn1, params_a1, inf_attn1 = get_attention(cfg, key, out_C, out_C)
@@ -545,8 +547,10 @@ def get_down_attn(cfg, key, in_C, out_C):
 
     params = {"r1":params1, "r2": params2,"a1": params_a1,"a2": params_a2}
 
+    factor=factor
+
     # @partial(jax.jit, static_argnames=['factor'])
-    def down_attn(x_in, embedding, params, subkey, factor):
+    def down_attn(x_in, embedding, params, subkey):
         x0 = resnet1(x_in, embedding, params["r1"], subkey)
         x0a = attn1(x0, embedding, params["a1"], subkey)
         x1 = resnet2(x0a, embedding, params["r2"], subkey)
@@ -555,7 +559,7 @@ def get_down_attn(cfg, key, in_C, out_C):
 
         return x0a,x1a,x2
     
-    def inf_down_attn(x_in, embedding, params, subkey, factor):
+    def inf_down_attn(x_in, embedding, params, subkey):
         x0 = inf_resnet1(x_in, embedding, params["r1"], subkey)
         x0a = inf_attn1(x0, embedding, params["a1"], subkey)
         x1 = inf_resnet2(x0a, embedding, params["r2"], subkey)
@@ -566,7 +570,7 @@ def get_down_attn(cfg, key, in_C, out_C):
 
     return down_attn, params, inf_down_attn
 
-def get_up(cfg, key, in_C, out_C, residual_C: list):
+def get_up(cfg, key, in_C, out_C, residual_C: list, factor):
 
     resnet1, params1, inf_resnet1 = get_resnet_ff(cfg, key, int(in_C+residual_C[0]), out_C)
     resnet2, params2, inf_resnet2 = get_resnet_ff(cfg, key, int(out_C+residual_C[1]), out_C)
@@ -577,8 +581,10 @@ def get_up(cfg, key, in_C, out_C, residual_C: list):
     n_devices = len(jax.devices())
     sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(1,1,1,n_devices)
 
-    @partial(jax.jit, static_argnames=['factor'])
-    def up(x, x_res1, x_res2, x_res3, embedding, params, subkey, factor):
+    factor = factor
+
+    @jit #@partial(jax.jit, static_argnames=['factor'])
+    def up(x, x_res1, x_res2, x_res3, embedding, params, subkey):
         x = jax.lax.with_sharding_constraint(x, sharding)
         x_res1 = jax.lax.with_sharding_constraint(x_res1, sharding)
         x_res2 = jax.lax.with_sharding_constraint(x_res2, sharding)
@@ -591,8 +597,8 @@ def get_up(cfg, key, in_C, out_C, residual_C: list):
     
         return x
     
-    @partial(jax.jit, static_argnames=['factor'])
-    def inf_up(x, x_res1, x_res2, x_res3, embedding, params, subkey, factor):
+    @jit #@partial(jax.jit, static_argnames=['factor'])
+    def inf_up(x, x_res1, x_res2, x_res3, embedding, params, subkey):
         x = jax.lax.with_sharding_constraint(x, sharding)
         x_res1 = jax.lax.with_sharding_constraint(x_res1, sharding)
         x_res2 = jax.lax.with_sharding_constraint(x_res2, sharding)
@@ -607,7 +613,7 @@ def get_up(cfg, key, in_C, out_C, residual_C: list):
     
     return up, params, inf_up
 
-def get_up_attn(cfg, key, in_C, out_C, residual_C: list):
+def get_up_attn(cfg, key, in_C, out_C, residual_C: list, factor):
 
     resnet1, params1, inf_resnet1 = get_resnet_ff(cfg, key, int(in_C+residual_C[0]), out_C)
     resnet2, params2, inf_resnet2 = get_resnet_ff(cfg, key, int(out_C+residual_C[1]), out_C)
@@ -618,7 +624,9 @@ def get_up_attn(cfg, key, in_C, out_C, residual_C: list):
 
     params = {"r1":params1, "r2": params2,"r3": params3,"a1": params_a1,"a2": params_a2,"a3": params_a3}
 
-    def up_attn(x, x_res1, x_res2, x_res3, embedding, params, subkey, factor):
+    factor = factor
+
+    def up_attn(x, x_res1, x_res2, x_res3, embedding, params, subkey):
         x = resnet1(jnp.concatenate([x,x_res1],-1), embedding, params["r1"], subkey)
         x = attn1(x, embedding, params["a1"], subkey)
         x = resnet2(jnp.concatenate([x,x_res2],-1), embedding, params["r2"], subkey)
@@ -629,7 +637,7 @@ def get_up_attn(cfg, key, in_C, out_C, residual_C: list):
 
         return x
     
-    def inf_up_attn(x, x_res1, x_res2, x_res3, embedding, params, subkey, factor):
+    def inf_up_attn(x, x_res1, x_res2, x_res3, embedding, params, subkey):
         x = inf_resnet1(jnp.concatenate([x,x_res1],-1), embedding, params["r1"], subkey)
         x = inf_attn1(x, embedding, params["a1"], subkey)
         x = inf_resnet2(jnp.concatenate([x,x_res2],-1), embedding, params["r2"], subkey)

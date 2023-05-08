@@ -16,6 +16,11 @@ hyperparameters:
   anti_blowup_factor: 0.01
   kernel_size: 3
   avg_length: 200
+  scaling_factors:
+    - 2
+    - 2
+    - 2
+    - 1
 parameters:
   Channel_sizes:
     - 128
