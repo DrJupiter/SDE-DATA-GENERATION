@@ -23,7 +23,7 @@ hyperparameters:
     - 1
 parameters:
   Channel_sizes:
+    - 20
     - 40
-    - 60
-    - 60
-    - 60
+    - 40
+    - 40
