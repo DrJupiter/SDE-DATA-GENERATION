@@ -74,18 +74,20 @@ def get_ddpm_unet(cfg, key, inference=False):
         params = get_model_sharding(cfg)(params)
 
     data_shape = jnp.array(cfg.dataset.shape)+jnp.array([0,cfg.dataset.padding*2,cfg.dataset.padding*2,0])
-
-    # n_devices = len(jax.devices())
-    # sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(1,1,1,n_devices)
+    inf_data_shape = data_shape
+    train_data_shape = data_shape
+    inf_data_shape[0] = cfg.train_and_test.test.batch_size
+    train_data_shape[0] = cfg.train_and_test.train.batch_size
 
     # forward ini:
     def ddpm_unet(x_in, timesteps, text_embedding, params, key):
 
-        x_in_shape = x_in.shape
+        # apply text guidance embedding
         x_in = apply_text_embedding_data(x_in, text_embedding, params["p_text_embed_data"])
 
         # Transform input into the image shape
-        x_in = x_in.reshape(data_shape)
+        x_in_shape = x_in.shape
+        x_in = x_in.reshape(train_data_shape)
 
         # Split key to preserve randomness
         key, subkey = random.split(key,2) # TODO: change 2 to 29 and add a * in front of subkey
@@ -125,11 +127,12 @@ def get_ddpm_unet(cfg, key, inference=False):
 
     def inf_ddpm_unet(x_in, timesteps, text_embedding, params, key):
 
-        x_in_shape = x_in.shape
+        # apply text guidance embedding
         x_in = apply_text_embedding_data(x_in, text_embedding, params["p_text_embed_data"])
 
         # Transform input into the image shape
-        x_in = x_in.reshape(data_shape)
+        x_in_shape = x_in.shape
+        x_in = x_in.reshape(inf_data_shape)
 
         # Split key to preserve randomness
         key, subkey = random.split(key,2) # TODO: change 2 to 29 and add a * in front of subkey
