@@ -2,6 +2,6 @@ optimizer: False
 optimizer_path: "./saved-parameters" # Directory or exact file, if directory chosen is cfg.optimizer.name-parameters.pickle else loads file
 optimizer_shard: False
 
-model: True
+model: False
 model_path: "./saved-parameters" # Directory or exact file, if directory chosen is cfg.model.name-parameters.pickle else loads file
 model_shard: False

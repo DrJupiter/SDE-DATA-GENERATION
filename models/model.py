@@ -9,6 +9,7 @@ from jax.experimental import mesh_utils
 from jax.sharding import PositionalSharding
 import jax
 
+
 from models.dummy import dummy_jax
 # import optax
 
@@ -40,10 +41,10 @@ def get_model(cfg, key):
             return model.get_parameters(cfg, key), model.forward, model.forward
         
         elif cfg.model.type == "independent_func":
-            params, ddpm_unet = get_ddpm_unet_new(cfg, key)
+            params, ddpm_unet, inf_ddpm_unet = get_ddpm_unet_new(cfg, key)
             #params, ddpm_unet_inference = get_ddpm_unet_new(cfg, key, inference=True)
 
-            return params, ddpm_unet, ddpm_unet
+            return params, ddpm_unet, inf_ddpm_unet
         else:
             raise ValueError(f"Model type {cfg.model.type} not found for {cfg.model.name}")
 

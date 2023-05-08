@@ -117,8 +117,6 @@ def upsample2d(x, factor=2):
     return jnp.reshape(x, [-1, H * factor, W * factor, C])
 
 
-
-
 def get_text_embedding(cfg, key):
 
     abf = cfg.model.hyperparameters.anti_blowup_factor
@@ -221,9 +219,7 @@ def get_dropout(cfg, key, in_C, out_C):
 
     p = cfg.model.hyperparameters.dropout_p
     
-
     def dropout(x_in, embedding, params, subkey):
-
 
         dropout_m = random.bernoulli(subkey, p=1-p, shape = x_in.shape)+0.0
 
@@ -284,16 +280,13 @@ def get_conv(cfg, key, in_C, out_C,first=False):
     else:
         sharding = sharding.reshape(1,1,-1,1)
 
-    # params = jax.device_put(params, sharding)
-
-
     @jit
     def j_conv2d(x,w):
         out = conv2d(x,w)
         out = jax.lax.with_sharding_constraint(out, sharding)
         return out
 
-    return j_conv2d, params
+    return j_conv2d, params, j_conv2d
 
 def get_resnet_ff(cfg, key, in_C, out_C, inference=False):
     
@@ -334,7 +327,6 @@ def get_resnet_ff(cfg, key, in_C, out_C, inference=False):
         x = conv2d(x, params["conv1_w"])
         x = jax.lax.with_sharding_constraint(x, sharding)
 
-        
         x = nonlin(x)
         x = x + (jnp.einsum('wc,cC->wC',nonlin(embedding),params["time_w"])+params["time_b"])[:,None,None,:]
 
@@ -346,10 +338,8 @@ def get_resnet_ff(cfg, key, in_C, out_C, inference=False):
         x = jax.lax.with_sharding_constraint(x, sharding)
         x = conv2d(x, w = params["conv2_w"])
 
-
         # perform skip connection
         x_skip = linear(x_in, params["skip_w"],params["skip_b"])
-
 
         # add skip connections
         x = x  + x_skip
@@ -359,7 +349,38 @@ def get_resnet_ff(cfg, key, in_C, out_C, inference=False):
 
         return x
 
-    return resnet, params
+    @jit
+    def inf_resnet(x_in, embedding, params, subkey):
+
+        ### Apply the function to the input data
+            # x = batchnorm(x_in, embedding, params["btchN1"], subkey)
+        x = nonlin(x_in)
+        x = conv2d(x, params["conv1_w"])
+        x = jax.lax.with_sharding_constraint(x, sharding)
+
+        x = nonlin(x)
+        x = x + (jnp.einsum('wc,cC->wC',nonlin(embedding),params["time_w"])+params["time_b"])[:,None,None,:]
+
+            # x = batchnorm2(x, embedding, params["btchN2"], subkey)
+        x = nonlin(x)
+        # x = dropout(x, embedding, None, subkey)
+
+        # Enforce sharding shape to avoid ret_check failure when returning
+        x = jax.lax.with_sharding_constraint(x, sharding)
+        x = conv2d(x, w = params["conv2_w"])
+
+        # perform skip connection
+        x_skip = linear(x_in, params["skip_w"],params["skip_b"])
+
+        # add skip connections
+        x = x  + x_skip
+
+        # Enforce sharding shape to avoid ret_check failure when returning
+        x = jax.lax.with_sharding_constraint(x, sharding)
+
+        return x
+
+    return resnet, params, inf_resnet
 
 def get_attention(cfg, key, in_C, out_C, inference=False):
     assert in_C == out_C, "in and out channels should be identical"
@@ -422,7 +443,7 @@ def get_attention(cfg, key, in_C, out_C, inference=False):
 
         return x
 
-    return attn, params
+    return attn, params, attn
 
 ######################## Advanced building blocks ########################
 
@@ -430,8 +451,8 @@ from functools import partial
 
 def get_down(cfg, key, in_C, out_C, inference=False):
 
-    resnet1, params1 = get_resnet_ff(cfg, key, in_C, out_C, inference=inference)
-    resnet2, params2 = get_resnet_ff(cfg, key, out_C, out_C, inference=inference)
+    resnet1, params1, inf_resnet1 = get_resnet_ff(cfg, key, in_C, out_C, inference=inference)
+    resnet2, params2, inf_resnet2 = get_resnet_ff(cfg, key, out_C, out_C, inference=inference)
 
     params = {"r1":params1, "r2": params2}
 
@@ -447,14 +468,23 @@ def get_down(cfg, key, in_C, out_C, inference=False):
 
         return x0,x1,x2
 
-    return down, params
+    @partial(jax.jit, static_argnames=['factor'])
+    def inf_down(x_in, embedding, params, subkey, factor):
+        x_in = jax.lax.with_sharding_constraint(x_in, sharding)
+        x0 = inf_resnet1(x_in, embedding, params["r1"], subkey)
+        x1 = inf_resnet2(x0, embedding, params["r2"], subkey)
+        x2 = naive_downsample_2d(x1, factor=factor)
+
+        return x0,x1,x2
+
+    return down, params, inf_down
 
 def get_down_attn(cfg, key, in_C, out_C, inference=False):
 
-    resnet1, params1 = get_resnet_ff(cfg, key, in_C, out_C, inference=inference)
-    attn1, params_a1 = get_attention(cfg, key, out_C, out_C, inference=inference)
-    resnet2, params2 = get_resnet_ff(cfg, key, out_C, out_C, inference=inference)
-    attn2, params_a2 = get_attention(cfg, key, out_C, out_C, inference=inference)
+    resnet1, params1, inf_resnet1 = get_resnet_ff(cfg, key, in_C, out_C, inference=inference)
+    attn1, params_a1, inf_attn1 = get_attention(cfg, key, out_C, out_C, inference=inference)
+    resnet2, params2, inf_resnet2 = get_resnet_ff(cfg, key, out_C, out_C, inference=inference)
+    attn2, params_a2, inf_attn2 = get_attention(cfg, key, out_C, out_C, inference=inference)
 
     params = {"r1":params1, "r2": params2,"a1": params_a1,"a2": params_a2}
 
@@ -467,14 +497,23 @@ def get_down_attn(cfg, key, in_C, out_C, inference=False):
         x2 = naive_downsample_2d(x1a, factor=factor)
 
         return x0a,x1a,x2
+    
+    def inf_down_attn(x_in, embedding, params, subkey, factor):
+        x0 = inf_resnet1(x_in, embedding, params["r1"], subkey)
+        x0a = inf_attn1(x0, embedding, params["a1"], subkey)
+        x1 = inf_resnet2(x0a, embedding, params["r2"], subkey)
+        x1a = inf_attn2(x1, embedding, params["a2"], subkey)
+        x2 = naive_downsample_2d(x1a, factor=factor)
 
-    return down_attn, params
+        return x0a,x1a,x2
+
+    return down_attn, params, inf_down_attn
 
 def get_up(cfg, key, in_C, out_C, residual_C: list, inference=False):
 
-    resnet1, params1 = get_resnet_ff(cfg, key, int(in_C+residual_C[0]), out_C, inference=inference)
-    resnet2, params2 = get_resnet_ff(cfg, key, int(out_C+residual_C[1]), out_C, inference=inference)
-    resnet3, params3 = get_resnet_ff(cfg, key, int(out_C+residual_C[2]), out_C, inference=inference)
+    resnet1, params1, inf_resnet1 = get_resnet_ff(cfg, key, int(in_C+residual_C[0]), out_C, inference=inference)
+    resnet2, params2, inf_resnet2 = get_resnet_ff(cfg, key, int(out_C+residual_C[1]), out_C, inference=inference)
+    resnet3, params3, inf_resnet3 = get_resnet_ff(cfg, key, int(out_C+residual_C[2]), out_C, inference=inference)
 
     params = {"r1":params1, "r2": params2,"r3": params3}
 
@@ -494,17 +533,31 @@ def get_up(cfg, key, in_C, out_C, residual_C: list, inference=False):
         x = upsample2d(x, factor=factor)
     
         return x
+    
+    @partial(jax.jit, static_argnames=['factor'])
+    def inf_up(x, x_res1, x_res2, x_res3, embedding, params, subkey, factor):
+        x = jax.lax.with_sharding_constraint(x, sharding)
+        x_res1 = jax.lax.with_sharding_constraint(x_res1, sharding)
+        x_res2 = jax.lax.with_sharding_constraint(x_res2, sharding)
+        x_res3 = jax.lax.with_sharding_constraint(x_res3, sharding)
 
-    return up, params
+        x = inf_resnet1(jnp.concatenate([x,x_res1],-1), embedding, params["r1"], subkey)
+        x = inf_resnet2(jnp.concatenate([x,x_res2],-1), embedding, params["r2"], subkey)
+        x = inf_resnet3(jnp.concatenate([x,x_res3],-1), embedding, params["r3"], subkey)
+        x = upsample2d(x, factor=factor)
+    
+        return x
+    
+    return up, params, inf_up
 
 def get_up_attn(cfg, key, in_C, out_C, residual_C: list, inference=False):
 
-    resnet1, params1 = get_resnet_ff(cfg, key, int(in_C+residual_C[0]), out_C, inference=inference)
-    resnet2, params2 = get_resnet_ff(cfg, key, int(out_C+residual_C[1]), out_C, inference=inference)
-    resnet3, params3 = get_resnet_ff(cfg, key, int(out_C+residual_C[2]), out_C, inference=inference)
-    attn1, params_a1 = get_attention(cfg, key, out_C, out_C, inference=inference)
-    attn2, params_a2 = get_attention(cfg, key, out_C, out_C, inference=inference)
-    attn3, params_a3 = get_attention(cfg, key, out_C, out_C, inference=inference)
+    resnet1, params1, inf_resnet1 = get_resnet_ff(cfg, key, int(in_C+residual_C[0]), out_C, inference=inference)
+    resnet2, params2, inf_resnet2 = get_resnet_ff(cfg, key, int(out_C+residual_C[1]), out_C, inference=inference)
+    resnet3, params3, inf_resnet3 = get_resnet_ff(cfg, key, int(out_C+residual_C[2]), out_C, inference=inference)
+    attn1, params_a1, inf_attn1 = get_attention(cfg, key, out_C, out_C, inference=inference)
+    attn2, params_a2, inf_attn2 = get_attention(cfg, key, out_C, out_C, inference=inference)
+    attn3, params_a3, inf_attn3 = get_attention(cfg, key, out_C, out_C, inference=inference)
 
     params = {"r1":params1, "r2": params2,"r3": params3,"a1": params_a1,"a2": params_a2,"a3": params_a3}
 
@@ -518,8 +571,19 @@ def get_up_attn(cfg, key, in_C, out_C, residual_C: list, inference=False):
         x = upsample2d(x, factor=factor)
 
         return x
+    
+    def inf_up_attn(x, x_res1, x_res2, x_res3, embedding, params, subkey, factor):
+        x = inf_resnet1(jnp.concatenate([x,x_res1],-1), embedding, params["r1"], subkey)
+        x = inf_attn1(x, embedding, params["a1"], subkey)
+        x = inf_resnet2(jnp.concatenate([x,x_res2],-1), embedding, params["r2"], subkey)
+        x = inf_attn2(x, embedding, params["a2"], subkey)
+        x = inf_resnet3(jnp.concatenate([x,x_res3],-1), embedding, params["r3"], subkey)
+        x = inf_attn3(x, embedding, params["a3"], subkey)
+        x = upsample2d(x, factor=factor)
 
-    return up_attn, params
+        return x
+    
+    return up_attn, params, inf_up_attn
 
 if __name__ == "__main__":
 
