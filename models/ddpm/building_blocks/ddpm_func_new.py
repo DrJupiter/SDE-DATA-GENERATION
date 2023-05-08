@@ -122,7 +122,7 @@ def upsample2d(x, factor=2):
 def get_text_data_embedding(cfg, key):
     abf = cfg.model.hyperparameters.anti_blowup_factor
     embedding_dim = cfg.text_embedding.shape # 1024
-    image_size = abs(jnp.prod(cfg.dataset.shape))
+    image_size = abs(jnp.prod(jnp.array(list(cfg.dataset.shape))))
 
     # For relu
     initializer = jax.nn.initializers.he_normal()
@@ -137,7 +137,7 @@ def get_text_data_embedding(cfg, key):
         data = data + jnp.matmul(text_embedding, params["w0"]) + params["b0"]
         return data
     
-    return params, apply_text_data_embedding
+    return apply_text_data_embedding, params
 
 def get_text_embedding(cfg, key):
 

@@ -78,7 +78,7 @@ def get_ddpm_unet(cfg, key, inference=False):
     # forward ini:
     def ddpm_unet(x_in, timesteps, text_embedding, params, key):
 
-        x_in = apply_text_embedding_data(x_in)
+        x_in = apply_text_embedding_data(x_in, text_embedding, params["p_text_embed_data"])
 
         # Transform input into the image shape
         x_in_shape = x_in.shape
