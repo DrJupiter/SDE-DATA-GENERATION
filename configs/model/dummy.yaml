@@ -7,4 +7,4 @@ parameter_sizes:
   - [256, 512]
   - [256, 256]
   - [512, 256]
-  - [784, 512]
+  - [0, 512] # 0 will automatically be configured to the size of the data
