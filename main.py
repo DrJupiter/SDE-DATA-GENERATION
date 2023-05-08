@@ -23,7 +23,7 @@ import jax.numpy as jnp
 #jax.config.update('jax_platform_name', 'cpu')
 
 # Data
-from data.dataload import dataload 
+from data.dataload import dataload, get_data_mean
 
 # TODO: Discuss this design choice in terms of the optimizer
 # maybe make this a seperate module
@@ -86,6 +86,7 @@ def run_experiment(cfg):
     # Load train and test sets
     train_dataset, test_dataset = dataload(cfg) 
 
+    TRAIN_MEAN = get_data_mean(train_dataset)
     # Get model forward call and its parameters
     model_parameters, model_call, inference_model = get_model(cfg, key = subkey) # model_call(x_in, timesteps, parameters)
     model_parameters = load_model_paramters(cfg, model_parameters)
@@ -177,7 +178,10 @@ def run_experiment(cfg):
                     normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
 
                     inference_out = inference_model(perturbed_data[:n], timesteps[:n], text_embeddings[:n],model_parameters if cfg.model.name != "sde" else data[:n], key)
-
+                     
+                    Z = (jax.random.normal(key, data.shape)*255)[:n]
+                    args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], Z+TRAIN_MEAN, text_embeddings[:n])
+                    mean_normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
 
 
                     display_images(cfg, images, labels[:n], log_title="Reverse Sample x(t) -> x(0)")
@@ -185,6 +189,8 @@ def run_experiment(cfg):
                     display_images(cfg, min_max_rescale(perturbed_data[:n]), labels[:n], log_title="Min-Max Rescaled")
                     display_images(cfg, normal_distribution, labels[:n], log_title="N(0,I) -> x(0)")
                     display_images(cfg, min_max_rescale(normal_distribution), labels[:n], log_title="N(0,I) -> x(0), min-max rescaled")
+                    display_images(cfg, mean_normal_distribution, labels[:n], log_title="MEAN + N(0,I) -> x(0)")
+                    display_images(cfg, min_max_rescale(mean_normal_distribution), labels[:n], log_title="MEAN + N(0,I) -> x(0), min-max rescaled")
                     display_images(cfg, Z, labels[:n], log_title="N(0,I)")
                     display_images(cfg, data[:n], labels[:n], log_title="Original Images: x(0)")
                     display_images(cfg, min_max_rescale(inference_out), labels[:n], log_title="Model output, min-max rescaled")

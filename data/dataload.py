@@ -87,16 +87,32 @@ def dataload(cfg):
     raise ValueError(f"The dataset with name {name} doesn't exist")
 
 
-
+def get_data_mean(dataloader):
+   
+   gen = iter(dataloader)
+   x = []
+   for s in gen:
+    x.append(s[0])
+    
+   return jnp.mean(jnp.vstack(x), axis=0)
   
 
 if __name__ == "__main__":
   # Define our dataset, using torch datasets
     import os
     os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
-    mnist_dataset = MNIST('./tmp/mnist/', download=True, transform=FlattenAndCast())
-    import multiprocessing as mp
-    training_generator = NumpyLoader(mnist_dataset, batch_size=1, num_workers=mp.cpu_count())
+#    mnist_dataset = MNIST('./tmp/mnist/', download=True, transform=FlattenAndCast())
+#    import multiprocessing as mp
+#    training_generator = NumpyLoader(mnist_dataset, batch_size=1, num_workers=mp.cpu_count())
+
+    from utils.utils import get_hydra_config
+    cfg = get_hydra_config(overrides=['dataset=cifar10', "visualization.visualize_img=true","wandb.log.img=false"])
+    from visualization.visualize import display_images
+    training_generator, test_generator = dataload(cfg)
+    mean = get_data_mean(training_generator)
+    display_images(cfg, [mean], ["datamean"])
+    import sys
+    sys.exit(0)
     data_samples = iter(training_generator)
     data_point, label = next(data_samples)
     print(label)
