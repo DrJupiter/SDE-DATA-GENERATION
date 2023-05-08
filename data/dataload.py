@@ -62,6 +62,7 @@ def dataload(cfg):
      
     if name == 'mnist':
         if cfg.dataset.padding > 0:
+            print(f"Padding images with {cfg.dataset.padding}")
             transform = transforms.Compose([transforms.Pad(cfg.dataset.padding),FlattenAndCast()])
         else:
             transform = transforms.Compose([FlattenAndCast()])

@@ -295,7 +295,7 @@ def get_batchnorm(cfg, key, in_C, out_C):
     def inference_batchnorm(x_in, embedding, params, subkey):
 
         return linear((x_in-params["running_mu"])/jnp.sqrt(params["running_var"]+1e-5),params["l"],params["b"])
-
+    inference = False
     # return alternate version if we are running inference. This does not affect JIT as this called it not jitted.
     if inference:
         return inference_batchnorm, params
