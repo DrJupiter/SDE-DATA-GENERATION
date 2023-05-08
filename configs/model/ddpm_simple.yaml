@@ -23,7 +23,7 @@ hyperparameters:
     - 1
 parameters:
   Channel_sizes:
-    - 128
+    - 1024
     - 256
     - 256
-    - 256
+    - 1024

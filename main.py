@@ -178,8 +178,8 @@ def run_experiment(cfg):
 
                     inference_out = inference_model(perturbed_data[:n], timesteps[:n], text_embeddings[:n],model_parameters if cfg.model.name != "sde" else data[:n], key)
                      
-                    Z = (jax.random.normal(key, data.shape)*255)[:n]
-                    args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], Z+TRAIN_MEAN, text_embeddings[:n])
+                    Z_T = (jax.random.normal(key, data.shape)*255)[:n] + TRAIN_MEAN
+                    args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], Z_T, text_embeddings[:n])
                     mean_normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
 
 
@@ -188,8 +188,8 @@ def run_experiment(cfg):
                     display_images(cfg, min_max_rescale(perturbed_data[:n]), labels[:n], log_title="Min-Max Rescaled")
                     display_images(cfg, normal_distribution, labels[:n], log_title="N(0,I) -> x(0)")
                     display_images(cfg, min_max_rescale(normal_distribution), labels[:n], log_title="N(0,I) -> x(0), min-max rescaled")
-                    display_images(cfg, mean_normal_distribution, labels[:n], log_title="MEAN + N(0,I) -> x(0)")
-                    display_images(cfg, min_max_rescale(mean_normal_distribution), labels[:n], log_title="MEAN + N(0,I) -> x(0), min-max rescaled")
+                    display_images(cfg, Z_T, labels[:n], log_title="TRAIN MEAN + N(0,I)")
+                    display_images(cfg, mean_normal_distribution, labels[:n], log_title="TRAIN MEAN + N(0,I) -> x(0)")
                     display_images(cfg, Z, labels[:n], log_title="N(0,I)")
                     display_images(cfg, data[:n], labels[:n], log_title="Original Images: x(0)")
                     display_images(cfg, min_max_rescale(inference_out), labels[:n], log_title="Model output, min-max rescaled")
