@@ -73,7 +73,7 @@ def get_ddpm_unet(cfg, key, inference=False):
         print("Sharding")
         params = get_model_sharding(cfg)(params)
 
-    data_shape = jnp.array(cfg.dataset.shape)+jnp.array([0,cfg.dataset.padding*2,cfg.dataset.padding*2,0])
+
 
     # n_devices = len(jax.devices())
     # sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(1,1,1,n_devices)
@@ -83,7 +83,7 @@ def get_ddpm_unet(cfg, key, inference=False):
 
         x_in_shape = x_in.shape
         x_in = apply_text_embedding_data(x_in, text_embedding, params["p_text_embed_data"])
-
+        data_shape = jnp.array(cfg.dataset.shape)+jnp.array([0,cfg.dataset.padding*2,cfg.dataset.padding*2,0])
         # Transform input into the image shape
         x_in = x_in.reshape(data_shape)
 
@@ -128,6 +128,7 @@ def get_ddpm_unet(cfg, key, inference=False):
         x_in_shape = x_in.shape
         x_in = apply_text_embedding_data(x_in, text_embedding, params["p_text_embed_data"])
 
+        data_shape = jnp.array(cfg.dataset.shape)+jnp.array([0,cfg.dataset.padding*2,cfg.dataset.padding*2,0])
         # Transform input into the image shape
         x_in = x_in.reshape(data_shape)
 
