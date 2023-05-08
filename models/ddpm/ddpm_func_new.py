@@ -17,7 +17,7 @@ from jax.sharding import PositionalSharding
 
 ######################## Basic building blocks ########################
 
-from models.ddpm.building_blocks.ddpm_func_new import get_resnet_ff, get_attention, get_timestep_embedding, get_conv, get_down, get_down_attn, get_up, get_up_attn, get_text_embedding
+from models.ddpm.building_blocks.ddpm_func_new import get_resnet_ff, get_attention, get_timestep_embedding, get_conv, get_down, get_down_attn, get_up, get_up_attn, get_text_embedding, get_text_data_embedding
 
 ######################## MODEL ########################
 
@@ -33,7 +33,11 @@ def get_ddpm_unet(cfg, key, inference=False):
     # get time embedding func and params
     apply_timestep_embedding, p_embed = get_timestep_embedding(cfg, key) # B -> (cool stuff) -> B x Embedding_dim -> B x cfg.dim
 
+    # Text embedding which is added to time
     apply_text_embedding, p_text_embed = get_text_embedding(cfg, key) 
+
+    # Text embedding which is added to the data
+    apply_text_embedding_data, p_text_data =get_text_data_embedding(cfg, key)
 
     # get model funcs and params
     conv1, p_c1, inf_conv1 =       get_conv(cfg, key, data_c, c_s[0], first=True)
@@ -60,7 +64,8 @@ def get_ddpm_unet(cfg, key, inference=False):
               "p_mr1":p_mr1, "p_ma2":p_ma2, "p_mr3":p_mr3, # middle
               "p_c1":p_c1, "p_c2":p_c2, # conv
               "p_embed": p_embed,# time embedding
-              "p_text_embed": p_text_embed, # text embedding
+              "p_text_embed": p_text_embed, # text embedding,
+              "p_text_embed_data": p_text_data, # text data embedding
               }  
 
     if cfg.model.sharding:
@@ -72,6 +77,8 @@ def get_ddpm_unet(cfg, key, inference=False):
 
     # forward ini:
     def ddpm_unet(x_in, timesteps, text_embedding, params, key):
+
+        x_in = apply_text_embedding_data(x_in, text_embedding, params["p_text_embed_data"])
 
         # Transform input into the image shape
         x_in_shape = x_in.shape
