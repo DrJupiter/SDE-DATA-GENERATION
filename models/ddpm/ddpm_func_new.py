@@ -26,6 +26,7 @@ def get_ddpm_unet(cfg, key, inference=False):
 
     data_c = cfg.dataset.shape[-1]
     c_s = cfg.model.parameters.Channel_sizes
+    f_s = cfg.model.hyperparameters.scaling_factors
 
     # get new kets
     key, subkey = random.split(key,2)
@@ -42,19 +43,19 @@ def get_ddpm_unet(cfg, key, inference=False):
     # get model funcs and params
     conv1, p_c1, inf_conv1 =       get_conv(cfg, key, data_c, c_s[0], first=True)
 
-    down1, p_d1, inf_down1 =       get_down(cfg, key, c_s[0], c_s[0], inference=inference)
-    down2_attn, p_da2, inf_down2_attn = get_down_attn(cfg, key, c_s[0], c_s[1], inference=inference)
-    down3, p_d3, inf_down3 =       get_down(cfg, key, c_s[1], c_s[2], inference=inference)
-    down4, p_d4, inf_down4 =       get_down(cfg, key, c_s[2], c_s[3], inference=inference)
+    down1, p_d1, inf_down1 =       get_down(cfg, key, c_s[0], c_s[0], factor = f_s[0])
+    down2_attn, p_da2, inf_down2_attn = get_down_attn(cfg, key, c_s[0], c_s[1], factor = f_s[1])
+    down3, p_d3, inf_down3 =       get_down(cfg, key, c_s[1], c_s[2], factor = f_s[2])
+    down4, p_d4, inf_down4 =       get_down(cfg, key, c_s[2], c_s[3], factor = f_s[3])
 
-    r1, p_mr1, inf_r1 = get_resnet_ff(cfg, key, c_s[3], c_s[3], inference=inference)
-    a1, p_ma2, inf_a1 = get_attention(cfg, key, c_s[3], c_s[3], inference=inference)
-    r2, p_mr3, inf_r2 = get_resnet_ff(cfg, key, c_s[3], c_s[3], inference=inference)
+    r1, p_mr1, inf_r1 = get_resnet_ff(cfg, key, c_s[3], c_s[3])
+    a1, p_ma2, inf_a1 = get_attention(cfg, key, c_s[3], c_s[3])
+    r2, p_mr3, inf_r2 = get_resnet_ff(cfg, key, c_s[3], c_s[3])
 
-    up1, p_u1, inf_up1 =         get_up(cfg, key, c_s[3], c_s[2], residual_C = [c_s[3],c_s[3],c_s[2]], inference=inference)
-    up2, p_u2, inf_up2 =         get_up(cfg, key, c_s[2], c_s[2], residual_C = [c_s[2],c_s[2],c_s[1]], inference=inference)
-    up_attn3, p_ua3, inf_up_attn3 =   get_up_attn(cfg, key, c_s[2], c_s[1], residual_C = [c_s[1],c_s[1],c_s[0]], inference=inference)
-    up4, p_u4, inf_up4 =         get_up(cfg, key, c_s[1], c_s[0], residual_C = [c_s[0],c_s[0],c_s[0]], inference=inference)
+    up1, p_u1, inf_up1 =         get_up(cfg, key, c_s[3], c_s[2], residual_C = [c_s[3],c_s[3],c_s[2]], factor = f_s[2])
+    up2, p_u2, inf_up2 =         get_up(cfg, key, c_s[2], c_s[2], residual_C = [c_s[2],c_s[2],c_s[1]], factor = f_s[1])
+    up_attn3, p_ua3, inf_up_attn3 =   get_up_attn(cfg, key, c_s[2], c_s[1], residual_C = [c_s[1],c_s[1],c_s[0]], factor = f_s[0])
+    up4, p_u4, inf_up4 =         get_up(cfg, key, c_s[1], c_s[0], residual_C = [c_s[0],c_s[0],c_s[0]], factor = f_s[3])
 
     conv2, p_c2, inf_conv2 =       get_conv(cfg, key, c_s[0], data_c)
 
@@ -72,6 +73,8 @@ def get_ddpm_unet(cfg, key, inference=False):
         print("Sharding")
         params = get_model_sharding(cfg)(params)
 
+    data_shape = jnp.array(cfg.dataset.shape)+jnp.array([0,cfg.dataset.padding*2,cfg.dataset.padding*2,0])
+
     # n_devices = len(jax.devices())
     # sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(1,1,1,n_devices)
 
@@ -82,7 +85,7 @@ def get_ddpm_unet(cfg, key, inference=False):
         x_in = apply_text_embedding_data(x_in, text_embedding, params["p_text_embed_data"])
 
         # Transform input into the image shape
-        x_in = x_in.reshape(cfg.dataset.shape)
+        x_in = x_in.reshape(data_shape)
 
         # Split key to preserve randomness
         key, subkey = random.split(key,2) # TODO: change 2 to 29 and add a * in front of subkey
@@ -95,10 +98,10 @@ def get_ddpm_unet(cfg, key, inference=False):
         # Apply model
         x_32_0 = conv1(x_in, params["p_c1"])
 
-        x_32_1, x_32_2, x_16_0 = down1(x_32_0, embed, params["p_d1"], subkey, factor=1)
-        x_16_1, x_16_2, x_8_0 = down2_attn(x_16_0, embed, params["p_da2"], subkey, factor=1)
-        x_8_1, x_8_2, x_4_0 = down3(x_8_0, embed, params["p_d3"], subkey, factor=1)
-        x_4_1, x_4_2, x = down4(x_4_0, embed, params["p_d4"], subkey, factor=1)
+        x_32_1, x_32_2, x_16_0 = down1(x_32_0, embed, params["p_d1"], subkey) 
+        x_16_1, x_16_2, x_8_0 = down2_attn(x_16_0, embed, params["p_da2"], subkey) 
+        x_8_1, x_8_2, x_4_0 = down3(x_8_0, embed, params["p_d3"], subkey) 
+        x_4_1, x_4_2, x = down4(x_4_0, embed, params["p_d4"], subkey) 
 
         x = r1(x, embed, params["p_mr1"], subkey)
         x = a1(x, embed, params["p_ma2"], subkey)
@@ -106,10 +109,10 @@ def get_ddpm_unet(cfg, key, inference=False):
 
         # x = jax.lax.with_sharding_constraint(x, sharding)
 
-        x = up1(x, x_4_2, x_4_1, x_4_0, embed, params["p_u1"], subkey, factor=1)
-        x = up2(x, x_8_2, x_8_1, x_8_0, embed, params["p_u2"], subkey, factor=1)
-        x = up_attn3(x, x_16_2, x_16_1, x_16_0, embed, params["p_ua3"], subkey, factor=1)
-        x = up4(x, x_32_2, x_32_1, x_32_0, embed, params["p_u4"], subkey, factor=1)
+        x = up1(x, x_4_2, x_4_1, x_4_0, embed, params["p_u1"], subkey) 
+        x = up2(x, x_8_2, x_8_1, x_8_0, embed, params["p_u2"], subkey)
+        x = up_attn3(x, x_16_2, x_16_1, x_16_0, embed, params["p_ua3"]) 
+        x = up4(x, x_32_2, x_32_1, x_32_0, embed, params["p_u4"], subkey) 
 
         x = conv2(x, params["p_c2"])
 
@@ -126,7 +129,7 @@ def get_ddpm_unet(cfg, key, inference=False):
         x_in = apply_text_embedding_data(x_in, text_embedding, params["p_text_embed_data"])
 
         # Transform input into the image shape
-        x_in = x_in.reshape(cfg.dataset.shape)
+        x_in = x_in.reshape(data_shape)
 
         # Split key to preserve randomness
         key, subkey = random.split(key,2) # TODO: change 2 to 29 and add a * in front of subkey
@@ -139,10 +142,10 @@ def get_ddpm_unet(cfg, key, inference=False):
         # Apply model
         x_32_0 = inf_conv1(x_in, params["p_c1"])
 
-        x_32_1, x_32_2, x_16_0 = inf_down1(x_32_0, embed, params["p_d1"], subkey, factor=1)
-        x_16_1, x_16_2, x_8_0 = inf_down2_attn(x_16_0, embed, params["p_da2"], subkey, factor=1)
-        x_8_1, x_8_2, x_4_0 = inf_down3(x_8_0, embed, params["p_d3"], subkey, factor=1)
-        x_4_1, x_4_2, x = inf_down4(x_4_0, embed, params["p_d4"], subkey, factor=1)
+        x_32_1, x_32_2, x_16_0 = inf_down1(x_32_0, embed, params["p_d1"], subkey) 
+        x_16_1, x_16_2, x_8_0 = inf_down2_attn(x_16_0, embed, params["p_da2"], subkey)
+        x_8_1, x_8_2, x_4_0 = inf_down3(x_8_0, embed, params["p_d3"], subkey) 
+        x_4_1, x_4_2, x = inf_down4(x_4_0, embed, params["p_d4"], subkey) 
 
         x = inf_r1(x, embed, params["p_mr1"], subkey)
         x = inf_a1(x, embed, params["p_ma2"], subkey)
@@ -150,10 +153,10 @@ def get_ddpm_unet(cfg, key, inference=False):
 
         # x = jax.lax.with_sharding_constraint(x, sharding)
 
-        x = inf_up1(x, x_4_2, x_4_1, x_4_0, embed, params["p_u1"], subkey, factor=1)
-        x = inf_up2(x, x_8_2, x_8_1, x_8_0, embed, params["p_u2"], subkey, factor=1)
-        x = inf_up_attn3(x, x_16_2, x_16_1, x_16_0, embed, params["p_ua3"], subkey, factor=1)
-        x = inf_up4(x, x_32_2, x_32_1, x_32_0, embed, params["p_u4"], subkey, factor=1)
+        x = inf_up1(x, x_4_2, x_4_1, x_4_0, embed, params["p_u1"], subkey)
+        x = inf_up2(x, x_8_2, x_8_1, x_8_0, embed, params["p_u2"], subkey) 
+        x = inf_up_attn3(x, x_16_2, x_16_1, x_16_0, embed, params["p_ua3"], subkey) 
+        x = inf_up4(x, x_32_2, x_32_1, x_32_0, embed, params["p_u4"], subkey)
 
         x = inf_conv2(x, params["p_c2"])
 

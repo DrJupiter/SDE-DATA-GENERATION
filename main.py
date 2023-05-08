@@ -16,7 +16,7 @@ import os
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 #os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION']='0.5'
 #os.environ['XLA_PYTHON_CLIENT_ALLOCATOR']='platform'
-#os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
+os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
 
 import jax
 import jax.numpy as jnp
@@ -118,6 +118,7 @@ def run_experiment(cfg):
             # split key to keep randomness "random" for each training batch
             key, *subkey = jax.random.split(key, 4)
 
+            print(data.shape)
             
             data = jax.device_put(data ,sharding.reshape((1,len(jax.devices()))))
 
@@ -140,7 +141,8 @@ def run_experiment(cfg):
 
             # get grad for this batch
               # loss_value, grads = jax.value_and_grad(loss_fn)(model_parameters, model_call, data, labels, t) # is this extra computation time
-            
+            print(inference_model(data, scaled_timesteps, text_embeddings, model_parameters, key))
+
             grads = grad_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, z, text_embeddings,subkey[2])
 
             # get change in model_params and new optimizer params
