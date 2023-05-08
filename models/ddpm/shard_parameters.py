@@ -15,6 +15,29 @@ def shard_timestep_embedding(params, sharding):
 
     return params 
 
+def shard_text_embedding(params, sharding):
+
+    ## 2x Linear
+    # skip:
+    params["w0"] = jax.device_put(params["w0"], sharding)
+    params["b0"] = jax.device_put(params["b0"], sharding.reshape((1,len(jax.devices()))))
+
+    # time:
+    params["w1"] = jax.device_put(params["w1"], sharding)
+    params["b1"] = jax.device_put(params["b1"], sharding.reshape((1,len(jax.devices()))))
+
+    return params 
+
+
+def shard_text_data_embedding(params, sharding):
+
+    ## 2x Linear
+    # skip:
+    params["w0"] = jax.device_put(params["w0"], sharding)
+    params["b0"] = jax.device_put(params["b0"], sharding.reshape((1,len(jax.devices()))))
+
+    return params 
+
 def shard_batchnorm(params, sharding):
 
     ## 1x Linear
@@ -121,6 +144,8 @@ def shard_ddpm_unet(params):
 
     # get time embedding func and params
     params["p_embed"] = shard_timestep_embedding(params["p_embed"], sharding)
+    params["p_text_embed_data"] = shard_text_data_embedding(params["p_text_embed_data"], sharding)
+    params["p_text_embed"] = shard_text_embedding(params["p_text_embed"], sharding)
 
     # get model funcs and params
     params["p_c1"] =       shard_conv(params["p_c1"], sharding.reshape(1,1,1,n_devices))
@@ -140,13 +165,6 @@ def shard_ddpm_unet(params):
     params["p_u4"] =         shard_up(params["p_u4"], sharding)
 
     params["p_c2"] =       shard_conv(params["p_c2"], sharding.reshape(1,1,n_devices,1))
-
-    # define all the aprams in a dict
-    # params = {"p_d1":p_d1, "p_da2":p_da2, "p_d3":p_d3, "p_d4":p_d4,  # down
-    #           "p_u1":p_u1, "p_u2":p_u2, "p_ua3":p_ua3, "p_u4":p_u4,  # up
-    #           "p_mr1":p_mr1, "p_ma2":p_ma2, "p_mr3":p_mr3, # middle
-    #           "p_c1":p_c1, "p_c2":p_c2, # conv
-    #           "p_embed": p_embed}  # time embedding
 
     # return func and parameters
     return params
