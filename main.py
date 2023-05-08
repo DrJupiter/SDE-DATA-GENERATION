@@ -20,7 +20,7 @@ os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
 
 import jax
 import jax.numpy as jnp
-jax.config.update('jax_platform_name', 'cpu')
+#jax.config.update('jax_platform_name', 'cpu')
 
 # Data
 from data.dataload import dataload, get_data_mean
