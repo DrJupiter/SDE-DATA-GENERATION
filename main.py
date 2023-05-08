@@ -20,7 +20,7 @@ os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
 
 import jax
 import jax.numpy as jnp
-#jax.config.update('jax_platform_name', 'cpu')
+jax.config.update('jax_platform_name', 'cpu')
 
 # Data
 from data.dataload import dataload, get_data_mean
@@ -88,7 +88,7 @@ def run_experiment(cfg):
 
     TRAIN_MEAN = get_data_mean(train_dataset)
     # Get model forward call and its parameters
-    model_parameters, model_call, inference_model = get_model(cfg, key = subkey) # model_call(x_in, timesteps, parameters)
+    model_parameters, model_call, inference_model = get_model(cfg, key = subkey) 
     model_parameters = load_model_paramters(cfg, model_parameters)
 
     # Get optimizer and its parameters
@@ -105,7 +105,7 @@ def run_experiment(cfg):
     grad_fn = jax.jit(grad_fn, static_argnums=0)
 
     # get shard
-    #sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
+    sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
 
     # start training for each epoch
     for epoch in range(cfg.train_and_test.train.epochs): 
@@ -118,7 +118,7 @@ def run_experiment(cfg):
             # split key to keep randomness "random" for each training batch
             key, *subkey = jax.random.split(key, 4)
 
-            #data = jax.device_put(data ,sharding.reshape((1,len(jax.devices()))))
+            data = jax.device_put(data ,sharding.reshape((1,len(jax.devices()))))
 
             # get timesteps given random key for this batch and data shape
             # TODO: Strictly this changes from sde to sde
@@ -155,7 +155,7 @@ def run_experiment(cfg):
                     loss = loss_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, z, text_embeddings, subkey[2])
                     wandb.log({"loss": loss})
                     # wandb.log({"loss": loss_value})
-                  if cfg.wandb.log.img and i % 100 == 0:
+                  if cfg.wandb.log.img and i % 100 == 0 and False:
                     # reverse sde sampling
                     drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
                     diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
