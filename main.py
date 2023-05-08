@@ -118,8 +118,6 @@ def run_experiment(cfg):
             # split key to keep randomness "random" for each training batch
             key, *subkey = jax.random.split(key, 4)
 
-            print(data.shape)
-            
             data = jax.device_put(data ,sharding.reshape((1,len(jax.devices()))))
 
             # get timesteps given random key for this batch and data shape
@@ -141,7 +139,6 @@ def run_experiment(cfg):
 
             # get grad for this batch
               # loss_value, grads = jax.value_and_grad(loss_fn)(model_parameters, model_call, data, labels, t) # is this extra computation time
-            print(model_call(data, scaled_timesteps, text_embeddings, model_parameters, key))
 
             grads = grad_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, z, text_embeddings,subkey[2])
 
