@@ -2,7 +2,7 @@ defaults:
         - wandb : defaults
         - dataset: mnist
         - train_and_test: default
-        - model : ddpm_simple #ddpm_simple # dummy 
+        - model : dummy #ddpm_simple # dummy 
         - visualization: local_visualization
         - optimizer: adam
         - sde: paper_subvp
