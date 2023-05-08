@@ -1,10 +1,10 @@
 name: dummy_jax
 key: 42
 sharding: true
-text_embedding: 784
+text_embedding: 1024
 parameter_sizes:
-  - [512, 784]
+  - [512, 0] # 0 will automatically be configured to the size of the data
   - [256, 512]
   - [256, 256]
   - [512, 256]
-  - [784, 512]
+  - [0, 512] # 0 will automatically be configured to the size of the data

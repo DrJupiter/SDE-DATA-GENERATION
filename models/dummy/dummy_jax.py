@@ -21,6 +21,10 @@ def get_parameters(cfg):
     key = random.PRNGKey(cfg.model.key)
     parameters = []
     sizes = cfg.model.parameter_sizes
+    datashape =int(abs(jnp.prod(jnp.array(cfg.dataset.shape)+jnp.array([0,cfg.dataset.padding*2,cfg.dataset.padding*2,0]))))
+    sizes[0][1] = datashape 
+    sizes[-1][0] = datashape
+
     sizes.append([cfg.model.text_embedding, cfg.text_embedding.shape])
     initializer = nn.initializers.glorot_normal(in_axis=-1, out_axis=-2)
     for size in sizes: 
