@@ -105,7 +105,7 @@ def run_experiment(cfg):
     grad_fn = jax.jit(grad_fn, static_argnums=0)
 
     # get shard
-    sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
+    #sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
 
     # start training for each epoch
     for epoch in range(cfg.train_and_test.train.epochs): 
@@ -118,7 +118,7 @@ def run_experiment(cfg):
             # split key to keep randomness "random" for each training batch
             key, *subkey = jax.random.split(key, 4)
 
-            data = jax.device_put(data ,sharding.reshape((1,len(jax.devices()))))
+            #data = jax.device_put(data ,sharding.reshape((1,len(jax.devices()))))
 
             # get timesteps given random key for this batch and data shape
             # TODO: Strictly this changes from sde to sde

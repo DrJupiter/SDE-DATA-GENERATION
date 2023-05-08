@@ -1,7 +1,7 @@
 setup:
         project: test-project
         entity: ai-dtu
-        experiment: None #"batch_size"
+        experiment: train #"batch_size"
 log:
         loss: true
         img: true
