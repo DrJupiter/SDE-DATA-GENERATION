@@ -111,7 +111,7 @@ def get_ddpm_unet(cfg, key, inference=False):
 
         x = up1(x, x_4_2, x_4_1, x_4_0, embed, params["p_u1"], subkey) 
         x = up2(x, x_8_2, x_8_1, x_8_0, embed, params["p_u2"], subkey)
-        x = up_attn3(x, x_16_2, x_16_1, x_16_0, embed, params["p_ua3"]) 
+        x = up_attn3(x, x_16_2, x_16_1, x_16_0, embed, params["p_ua3"], subkey) 
         x = up4(x, x_32_2, x_32_1, x_32_0, embed, params["p_u4"], subkey) 
 
         x = conv2(x, params["p_c2"])
