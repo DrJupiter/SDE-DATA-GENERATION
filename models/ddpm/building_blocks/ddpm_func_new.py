@@ -91,9 +91,6 @@ Input: x (B1, B2, H, W, C)\n
 Returns: out (B1, B2, H, W, Out_C)
 """
 
-    
-        
-    
 
 ######################## Helper functions ########################
 
@@ -122,7 +119,8 @@ def upsample2d(x, factor=2):
 def get_text_data_embedding(cfg, key):
     abf = cfg.model.hyperparameters.anti_blowup_factor
     embedding_dim = cfg.text_embedding.shape # 1024
-    image_size = abs(jnp.prod(jnp.array(list(cfg.dataset.shape))))
+    shape = jnp.array(cfg.dataset.shape)+jnp.array([0,cfg.dataset.padding*2,cfg.dataset.padding*2,0])
+    image_size = abs(jnp.prod(shape))
 
     # For relu
     initializer = jax.nn.initializers.he_normal()
@@ -264,7 +262,7 @@ def get_dropout(cfg, key, in_C, out_C):
     
     return dropout, "_"
 
-def get_batchnorm(cfg, key, in_C, out_C, inference = False):
+def get_batchnorm(cfg, key, in_C, out_C):
     """
     The following paper, says its like this during training: https://arxiv.org/pdf/1502.03167.pdf\\
     But other sources say that gamma and beta are scalars, som im a little confused.
@@ -328,7 +326,7 @@ def get_conv(cfg, key, in_C, out_C,first=False):
 
     return j_conv2d, params, j_conv2d
 
-def get_resnet_ff(cfg, key, in_C, out_C, inference=False):
+def get_resnet_ff(cfg, key, in_C, out_C):
     
     abf = cfg.model.hyperparameters.anti_blowup_factor
     kernel_size = cfg.model.hyperparameters.kernel_size
@@ -432,7 +430,7 @@ def get_resnet_ff(cfg, key, in_C, out_C, inference=False):
 
     return resnet, params, inf_resnet
 
-def get_attention(cfg, key, in_C, out_C, inference=False):
+def get_attention(cfg, key, in_C, out_C):
     assert in_C == out_C, "in and out channels should be identical"
 
     abf = cfg.model.hyperparameters.anti_blowup_factor
@@ -467,7 +465,7 @@ def get_attention(cfg, key, in_C, out_C, inference=False):
     #params["f_w"] = abf*random.normal(subkey[6], (out_C,out_C), dtype=jnp.float32)
     #params["f_b"] = abf*random.normal(subkey[7], (1,out_C), dtype=jnp.float32)
 
-    # batchnorm, params["btchN1"] = get_batchnorm(cfg, key, in_C, out_C, inference=inference)
+    # batchnorm, params["btchN1"] = get_batchnorm(cfg, key, in_C, out_C)
 
     n_devices = len(jax.devices())
     sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(1,1,1,n_devices)
@@ -508,10 +506,10 @@ def get_attention(cfg, key, in_C, out_C, inference=False):
 
 from functools import partial
 
-def get_down(cfg, key, in_C, out_C, inference=False):
+def get_down(cfg, key, in_C, out_C):
 
-    resnet1, params1, inf_resnet1 = get_resnet_ff(cfg, key, in_C, out_C, inference=inference)
-    resnet2, params2, inf_resnet2 = get_resnet_ff(cfg, key, out_C, out_C, inference=inference)
+    resnet1, params1, inf_resnet1 = get_resnet_ff(cfg, key, in_C, out_C)
+    resnet2, params2, inf_resnet2 = get_resnet_ff(cfg, key, out_C, out_C)
 
     params = {"r1":params1, "r2": params2}
 
@@ -538,12 +536,12 @@ def get_down(cfg, key, in_C, out_C, inference=False):
 
     return down, params, inf_down
 
-def get_down_attn(cfg, key, in_C, out_C, inference=False):
+def get_down_attn(cfg, key, in_C, out_C):
 
-    resnet1, params1, inf_resnet1 = get_resnet_ff(cfg, key, in_C, out_C, inference=inference)
-    attn1, params_a1, inf_attn1 = get_attention(cfg, key, out_C, out_C, inference=inference)
-    resnet2, params2, inf_resnet2 = get_resnet_ff(cfg, key, out_C, out_C, inference=inference)
-    attn2, params_a2, inf_attn2 = get_attention(cfg, key, out_C, out_C, inference=inference)
+    resnet1, params1, inf_resnet1 = get_resnet_ff(cfg, key, in_C, out_C)
+    attn1, params_a1, inf_attn1 = get_attention(cfg, key, out_C, out_C)
+    resnet2, params2, inf_resnet2 = get_resnet_ff(cfg, key, out_C, out_C)
+    attn2, params_a2, inf_attn2 = get_attention(cfg, key, out_C, out_C)
 
     params = {"r1":params1, "r2": params2,"a1": params_a1,"a2": params_a2}
 
@@ -568,11 +566,11 @@ def get_down_attn(cfg, key, in_C, out_C, inference=False):
 
     return down_attn, params, inf_down_attn
 
-def get_up(cfg, key, in_C, out_C, residual_C: list, inference=False):
+def get_up(cfg, key, in_C, out_C, residual_C: list):
 
-    resnet1, params1, inf_resnet1 = get_resnet_ff(cfg, key, int(in_C+residual_C[0]), out_C, inference=inference)
-    resnet2, params2, inf_resnet2 = get_resnet_ff(cfg, key, int(out_C+residual_C[1]), out_C, inference=inference)
-    resnet3, params3, inf_resnet3 = get_resnet_ff(cfg, key, int(out_C+residual_C[2]), out_C, inference=inference)
+    resnet1, params1, inf_resnet1 = get_resnet_ff(cfg, key, int(in_C+residual_C[0]), out_C)
+    resnet2, params2, inf_resnet2 = get_resnet_ff(cfg, key, int(out_C+residual_C[1]), out_C)
+    resnet3, params3, inf_resnet3 = get_resnet_ff(cfg, key, int(out_C+residual_C[2]), out_C)
 
     params = {"r1":params1, "r2": params2,"r3": params3}
 
@@ -609,14 +607,14 @@ def get_up(cfg, key, in_C, out_C, residual_C: list, inference=False):
     
     return up, params, inf_up
 
-def get_up_attn(cfg, key, in_C, out_C, residual_C: list, inference=False):
+def get_up_attn(cfg, key, in_C, out_C, residual_C: list):
 
-    resnet1, params1, inf_resnet1 = get_resnet_ff(cfg, key, int(in_C+residual_C[0]), out_C, inference=inference)
-    resnet2, params2, inf_resnet2 = get_resnet_ff(cfg, key, int(out_C+residual_C[1]), out_C, inference=inference)
-    resnet3, params3, inf_resnet3 = get_resnet_ff(cfg, key, int(out_C+residual_C[2]), out_C, inference=inference)
-    attn1, params_a1, inf_attn1 = get_attention(cfg, key, out_C, out_C, inference=inference)
-    attn2, params_a2, inf_attn2 = get_attention(cfg, key, out_C, out_C, inference=inference)
-    attn3, params_a3, inf_attn3 = get_attention(cfg, key, out_C, out_C, inference=inference)
+    resnet1, params1, inf_resnet1 = get_resnet_ff(cfg, key, int(in_C+residual_C[0]), out_C)
+    resnet2, params2, inf_resnet2 = get_resnet_ff(cfg, key, int(out_C+residual_C[1]), out_C)
+    resnet3, params3, inf_resnet3 = get_resnet_ff(cfg, key, int(out_C+residual_C[2]), out_C)
+    attn1, params_a1, inf_attn1 = get_attention(cfg, key, out_C, out_C)
+    attn2, params_a2, inf_attn2 = get_attention(cfg, key, out_C, out_C)
+    attn3, params_a3, inf_attn3 = get_attention(cfg, key, out_C, out_C)
 
     params = {"r1":params1, "r2": params2,"r3": params3,"a1": params_a1,"a2": params_a2,"a3": params_a3}
 

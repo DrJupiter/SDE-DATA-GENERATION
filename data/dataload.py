@@ -61,7 +61,10 @@ def dataload(cfg):
     text_embedding_table = get_label_embeddings(cfg)
      
     if name == 'mnist':
-        transform = transforms.Compose([FlattenAndCast()])
+        if cfg.dataset.padding > 0:
+            transform = transforms.Compose([transforms.Pad(cfg.dataset.padding),FlattenAndCast()])
+        else:
+            transform = transforms.Compose([FlattenAndCast()])
         target_transform = transforms.Compose([transforms.Lambda(lambda x: (x, text_embedding_table[cfg.dataset.classes[int(x)]]))])
         mnist_dataset_train = MNIST(cfg.dataset.path, download=True, transform=transform, target_transform=target_transform)
         training_generator = NumpyLoader(mnist_dataset_train, batch_size=cfg.train_and_test.train.batch_size, shuffle=cfg.train_and_test.train.shuffle) # num_workers=mp.cpu_count()

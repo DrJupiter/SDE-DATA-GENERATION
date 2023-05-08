@@ -17,3 +17,4 @@ shape:
   - 32
   - 3
 lamb: 0.05
+padding: 0
