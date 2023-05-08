@@ -78,10 +78,10 @@ def get_ddpm_unet(cfg, key, inference=False):
     # forward ini:
     def ddpm_unet(x_in, timesteps, text_embedding, params, key):
 
+        x_in_shape = x_in.shape
         x_in = apply_text_embedding_data(x_in, text_embedding, params["p_text_embed_data"])
 
         # Transform input into the image shape
-        x_in_shape = x_in.shape
         x_in = x_in.reshape(cfg.dataset.shape)
 
         # Split key to preserve randomness
@@ -122,8 +122,10 @@ def get_ddpm_unet(cfg, key, inference=False):
 
     def inf_ddpm_unet(x_in, timesteps, text_embedding, params, key):
 
-        # Transform input into the image shape
         x_in_shape = x_in.shape
+        x_in = apply_text_embedding_data(x_in, text_embedding, params["p_text_embed_data"])
+        
+        # Transform input into the image shape
         x_in = x_in.reshape(cfg.dataset.shape)
 
         # Split key to preserve randomness
