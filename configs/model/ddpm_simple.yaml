@@ -2,7 +2,7 @@ name: ddpm_unet
 type: independent_func
 size: big
 key: 42
-sharding: True
+sharding: False
 hyperparameters: 
   momentum: 0.99
   eps: 0.00001

@@ -136,7 +136,7 @@ def get_ddpm_unet(cfg, key, inference=False):
         x_in = x_in.reshape(data_shape)
 
         # Split key to preserve randomness
-        key, subkey = random.split(key,12) # TODO: change 2 to 29 and add a * in front of subkey
+        key, *subkey = random.split(key,12) # TODO: change 2 to 29 and add a * in front of subkey
 
         # Create the embedding given the timesteps
         embed = apply_timestep_embedding(timesteps*999, params["p_embed"])
