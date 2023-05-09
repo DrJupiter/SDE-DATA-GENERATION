@@ -180,7 +180,7 @@ def get_text_embedding(cfg, key):
             text_embedding = text_embedding.reshape(1,-1)
         # apply linear layers:
         text_embedding = jnp.einsum("hc,cC -> hC",text_embedding,params["w0"])+ params["b0"]
-        text_embedding = nonlin(text_embedding)
+        text_embedding = nn.silu(text_embedding)
         text_embedding = jnp.einsum("hc,cC -> hC",text_embedding,params["w1"])+ params["b1"]
 
         return text_embedding
@@ -241,7 +241,8 @@ def get_timestep_embedding(cfg, key):
 
         # apply linear layers: # created by us
         emb = jnp.einsum("hc,cC -> hC",emb,params["w0"])+ params["b0"]
-        emb = nonlin(emb)
+        #emb = nonlin(emb)
+        emb = nn.silu(emb)
         emb = jnp.einsum("hc,cC -> hC",emb,params["w1"])+ params["b1"]
 
         return emb
