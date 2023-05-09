@@ -155,7 +155,7 @@ def run_experiment(cfg):
                     loss = loss_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, z, text_embeddings, subkey[2])
                     wandb.log({"loss": loss})
                     # wandb.log({"loss": loss_value})
-                  if cfg.wandb.log.img and i % 100 == 0 and False:
+                  if cfg.wandb.log.img and i % 100 == 0:
                     # reverse sde sampling
                     drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
                     diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
@@ -194,7 +194,7 @@ def run_experiment(cfg):
                     display_images(cfg, data[:n], labels[:n], log_title="Original Images: x(0)")
                     display_images(cfg, min_max_rescale(inference_out), labels[:n], log_title="Model output, min-max rescaled")
 
-                  if (cfg.wandb.log.parameters and i % 100 == 0):
+                  if (cfg.wandb.log.parameters and i % 1000 == 0):
                           file_name = get_save_path_names(cfg)
                           with open(os.path.join(wandb.run.dir, file_name["model"]), 'wb') as f:
                             pickle.dump((epoch*len(train_dataset) + i, model_parameters), f, pickle.HIGHEST_PROTOCOL)
