@@ -1,7 +1,7 @@
 optimizer: True
-optimizer_path: "./saved-parameters/implicit" # Directory or exact file, if directory chosen is cfg.optimizer.name-parameters.pickle else loads file
+optimizer_path: "./saved-parameters/yangsong/small" # Directory or exact file, if directory chosen is cfg.optimizer.name-parameters.pickle else loads file
 optimizer_shard: False
 
 model: True
-model_path: "./saved-parameters/implicit" # Directory or exact file, if directory chosen is cfg.model.name-parameters.pickle else loads file
+model_path: "./saved-parameters/yangsong/small" # Directory or exact file, if directory chosen is cfg.model.name-parameters.pickle else loads file
 model_shard: True
