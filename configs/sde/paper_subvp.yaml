@@ -1,4 +1,4 @@
 name: 'paper_subvp'
 description: "dx = -0.5(β_min + t*(β_max-β_min))x dt + (β_min + t(β_max-β_min))**(1/2) dw"
 beta_min: 0.1
-beta_max: 20
+beta_max: 80
