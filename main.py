@@ -178,18 +178,24 @@ def run_experiment(cfg):
 
                     inference_out = inference_model(perturbed_data[:n], timesteps[:n], text_embeddings[:n],model_parameters if cfg.model.name != "sde" else data[:n], key)
                      
-                    Z_T = (jax.random.normal(key, data.shape)*255)[:n] + TRAIN_MEAN
+                    Z_T, _ = SDE.sample(jnp.ones_like(timesteps[:n]), jnp.zeros_like(data[:n]) + TRAIN_MEAN, subkey[0])
+                    
                     args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], Z_T, text_embeddings[:n])
                     mean_normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
 
+                    Z_0, _ = SDE.sample(jnp.ones_like(timesteps[:n]), jnp.zeros_like(data[:n]), subkey[0])
+                    args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], Z_0, text_embeddings[:n])
+                    zero_normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
 
                     display_images(cfg, images, labels[:n], log_title="Reverse Sample x(t) -> x(0)")
                     display_images(cfg, perturbed_data[:n], labels[:n], log_title="Perturbed images")
                     display_images(cfg, min_max_rescale(perturbed_data[:n]), labels[:n], log_title="Min-Max Rescaled")
                     display_images(cfg, normal_distribution, labels[:n], log_title="N(0,I) -> x(0)")
                     display_images(cfg, min_max_rescale(normal_distribution), labels[:n], log_title="N(0,I) -> x(0), min-max rescaled")
-                    display_images(cfg, Z_T, labels[:n], log_title="TRAIN MEAN + N(0,I)")
-                    display_images(cfg, mean_normal_distribution, labels[:n], log_title="TRAIN MEAN + N(0,I) -> x(0)")
+                    display_images(cfg, Z_0, labels[:n], log_title="Pertrubed 0")
+                    display_images(cfg, zero_normal_distribution, labels[:n], log_title="Perturbed 0 -> x(0)")
+                    display_images(cfg, Z_T, labels[:n], log_title="Pertrubed TRAIN MEAN + N(0,I)")
+                    display_images(cfg, mean_normal_distribution, labels[:n], log_title="Perturbed TRAIN MEAN + N(0,I) -> x(0)")
                     display_images(cfg, Z, labels[:n], log_title="N(0,I)")
                     display_images(cfg, data[:n], labels[:n], log_title="Original Images: x(0)")
                     display_images(cfg, min_max_rescale(inference_out), labels[:n], log_title="Model output, min-max rescaled")

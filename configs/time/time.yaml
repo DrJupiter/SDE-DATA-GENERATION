@@ -1,2 +1,2 @@
-time_termination: true # bool
+time_termination: false # bool
 time_of_termination_h: 20 # hours
