@@ -10,3 +10,8 @@ log:
         FID: false
         epoch_frequency: 1
         parameters: true
+
+# 
+#art = wandb.Artifact("my-object-detector", type="model")
+#art.add_file("saved_model_weights.pt")
+#wandb.log_artifact(art)
