@@ -208,20 +208,6 @@ def run_experiment(cfg):
                           with open(os.path.join(wandb.run.dir, file_name["optimizer"]), 'wb') as f:
                             pickle.dump((epoch*len(train_dataset) + i, optim_parameters), f, pickle.HIGHEST_PROTOCOL)
                           wandb.save(file_name["optimizer"])
-                    #image = get_sample(timesteps[0], subkey[2], subkey[2], perturbed_data[0])
-
-                    #rescaled_perturbed = (perturbed_data[0]-jnp.min(perturbed_data[0]))/(jnp.max(perturbed_data[0])-jnp.min(perturbed_data[0]))*255
-
-                    #random_noise = jax.random.normal(subkey[2], data[0].shape)*255
-                    #image_from_random = get_sample(1, subkey[2], subkey[2], random_noise)
-
-                    #random_noise_uniform = jax.random.uniform(subkey[2], data[0].shape)*255
-                    #image_from_random_uniform = get_sample(1, subkey[2], subkey[2], random_noise_uniform)
-                    #display_images(cfg, [image, perturbed_data[0], data[0], rescaled_perturbed, image_from_random, random_noise,image_from_random_uniform, random_noise_uniform], ["sample", "perturbed", "original", "rescaled", "image from random", "random image", "uniform sample image", "uniform image"])
-
-                    #display_images(cfg, model_call(perturbed_data, scaled_timesteps, model_parameters, subkey[2]), labels)
-            
-            
         # Test loop
         if epoch % cfg.wandb.log.epoch_frequency == 0 and not TIME_EXCEEDED:
             if cfg.wandb.log.FID: 
