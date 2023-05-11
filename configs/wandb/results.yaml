@@ -1,0 +1,17 @@
+setup:
+        project: test-project
+        entity: ai-dtu
+        experiment: "results" # train #"batch_size"
+log:
+        loss: false
+        img: true
+        n_images: 100
+        frequency: 1
+        FID: false # should be true
+        epoch_frequency: 1
+        parameters: false
+
+# 
+#art = wandb.Artifact("my-object-detector", type="model")
+#art.add_file("saved_model_weights.pt")
+#wandb.log_artifact(art)
