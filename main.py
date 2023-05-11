@@ -111,7 +111,7 @@ def run_experiment(cfg):
     for epoch in range(cfg.train_and_test.train.epochs): 
         for i, (data, (labels, text_embeddings)) in enumerate(train_dataset): # batch training
             # Check if we should terminate early, so we can properly log Wandb before being killed.
-            if cfg.time.time_termination and time()-START_TIME >= cfg.time.time_of_termination_h*60*60: # convert hours into seconds.
+            if cfg.time.time_termination and (time()-START_TIME >= cfg.time.time_of_termination_h*60*60): # convert hours into seconds.
                 TIME_EXCEEDED = True
                 break
 
