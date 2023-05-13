@@ -30,8 +30,6 @@ if __name__ == "__main__":
     key = jrandom.PRNGKey(0)
     key, subkey = jrandom.split(key)
     data, label = next(iter_train) 
-    if config.dataset.name == 'cifar10':
-        label = [config.dataset.classes[int(idx)] for idx in label]
     t = jrandom.uniform(subkey, (data.shape[0],), minval=0, maxval=1).reshape(-1, 1)
     print(t)
     key, subkey = jrandom.split(key)
@@ -50,10 +48,7 @@ if __name__ == "__main__":
     key, *subkey = jrandom.split(key, 3)
     drift = lambda t,y, args: sde.reverse_drift(y, jnp.array([t]), args)
     diffusion = lambda t,y, args: sde.reverse_diffusion(y, jnp.array([t]), args)
-    #drift = lambda t, y, args: -y
-    #diffusion = lambda t, y, args: jnp.identity(y.shape[0])
-    from utils.utils import rescale_logit_to_img, rescale_to_logit
-    #x_in  = rescale_to_logit(config, xt[0])
+
     x_in = xt[0]
     x0 = sample(0, 0, float(t[0]), -1/1000, drift , diffusion, [model, param if config.model.name != "sde" else data[0], subkey[0]], x_in, subkey[1] )
     from visualization.visualize import display_images
