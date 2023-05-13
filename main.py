@@ -204,10 +204,10 @@ def run_experiment(cfg):
                           file_name = get_save_path_names(cfg)
                           with open(os.path.join(wandb.run.dir, file_name["model"]), 'wb') as f:
                             pickle.dump((epoch*len(train_dataset) + i, model_parameters), f, pickle.HIGHEST_PROTOCOL)
-                          wandb.save(file_name["model"])
+                          #wandb.save(file_name["model"])
                           with open(os.path.join(wandb.run.dir, file_name["optimizer"]), 'wb') as f:
                             pickle.dump((epoch*len(train_dataset) + i, optim_parameters), f, pickle.HIGHEST_PROTOCOL)
-                          wandb.save(file_name["optimizer"])
+                          #wandb.save(file_name["optimizer"])
         # Test loop
         if epoch % cfg.wandb.log.epoch_frequency == 0 and not TIME_EXCEEDED:
             if cfg.wandb.log.FID: 
