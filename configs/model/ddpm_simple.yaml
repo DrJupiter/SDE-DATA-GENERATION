@@ -9,9 +9,9 @@ hyperparameters:
   dropout_p: 0.1
   upsampling_factor: 2
   downsampling_factor: 2
-  time_embedding_dims: 256
-  time_embedding_inner_dim: 128
-  text_embedding_dims: 256
+  time_embedding_dims: 512
+  time_embedding_inner_dim: 256
+  text_embedding_dims: 512
   inference: False
   anti_blowup_factor: 0.01
   kernel_size: 3
@@ -23,7 +23,7 @@ hyperparameters:
     - 1
 parameters:
   Channel_sizes:
-    - 512
     - 256
-    - 256
-    - 512
+    - 1024
+    - 1024
+    - 1024
