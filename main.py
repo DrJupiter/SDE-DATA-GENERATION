@@ -65,7 +65,7 @@ from time import time
 
 
 # Paramter loading
-from utils.utils import load_model_paramters, load_optimizer_paramters, get_wandb_input, min_max_rescale, get_save_path_names
+from utils.utils import load_model_paramters, load_optimizer_paramters, get_wandb_input, min_max_rescale, get_save_path_names, split_tuple
 
 ### Train loop:
 
@@ -229,9 +229,16 @@ def run_experiment(cfg):
         Z_0, _ = SDE.sample(timesteps, jnp.zeros_like(all_data), subkey[0])
 
         args = (timesteps.reshape(-1, 1), jnp.array(subkey[:len(subkey)//2]), jnp.array(subkey[len(subkey)//2:]), Z_0, all_embeddings)
-        generated_imgs = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
+
+        args_split = split_tuple(args, cfg.train_and_test.test.split_factor)                 
+        all_generated_imgs = []
+        for arg in args_split: 
+          generated_imgs = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*arg)
+          all_generated_imgs.append(generated_imgs)
+        all_generated_imgs = jnp.vstack(all_generated_imgs)
+
         display_images(cfg, generated_imgs[:100], all_labels[:100], log_title="Perturbed 0 -> x(0)")
-        fid = fid_model(torch.from_numpy(generated_imgs), torch.from_numpy(all_data))
+        fid = fid_model(torch.from_numpy(all_generated_imgs), torch.from_numpy(all_data))
         wandb.log({"FID": fid})
         print(fid)
         
