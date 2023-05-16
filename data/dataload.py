@@ -90,16 +90,25 @@ def dataload(cfg):
     # TODO: ASK PAUL how to do this in a hydra friendly way
     raise ValueError(f"The dataset with name {name} doesn't exist")
 
-
-def get_data_mean(dataloader):
-   
-   gen = iter(dataloader)
+def get_all_data(dataloader):
+   gen = iter(dataloader)  
    x = []
    for s in gen:
-    x.append(s[0])
-    
-   return jnp.mean(jnp.vstack(x), axis=0)
-  
+      x.append(s[0])
+   return jnp.vstack(x)
+
+def get_all_labels(dataloader):
+   gen = iter(dataloader)  
+   label = []
+   embedding = []
+
+   for s in gen:
+      label.append(s[1][0])
+      embedding.append(s[1][1])
+   return jnp.vstack(label), jnp.vstack(embedding)
+
+def get_data_mean(dataloader):
+   return jnp.mean(get_all_data(dataloader), axis=0)
 
 if __name__ == "__main__":
   # Define our dataset, using torch datasets

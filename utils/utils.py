@@ -127,6 +127,8 @@ def get_wandb_input(cfg):
         if cfg.model.name == "ddpm_unet":
             sizes = cfg.model.parameters.Channel_sizes
             additional_tags += [f"channel{i}-{size}" for i,size in enumerate(sizes)]
+            additional_tags += [f"scaling{i}{factor}" for i, factor in enumerate(cfg.model.hyperparameters.scaling_factors)]
+            additional_tags += [f"Time, Text: {cfg.model.hyperparameters.time_embedding_dims}", f"Time inner: {cfg.model.hyperparameters.time_embedding_inner_dim}"]
         tags += additional_tags
     elif cfg.wandb.setup.experiment == "batch_size":
         additional_tags = [f"{cfg.train_and_test.train.batch_size}"]

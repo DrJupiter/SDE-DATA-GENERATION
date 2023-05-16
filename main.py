@@ -23,7 +23,7 @@ import jax.numpy as jnp
 #jax.config.update('jax_platform_name', 'cpu')
 
 # Data
-from data.dataload import dataload, get_data_mean
+from data.dataload import dataload, get_data_mean, get_all_data, get_all_labels
 
 # TODO: Discuss this design choice in terms of the optimizer
 # maybe make this a seperate module
@@ -39,7 +39,7 @@ from loss.loss import get_loss
 from visualization.visualize import display_images
 
 # Validation (FID)
-from validation.FID import FID_score
+from validation.fid_c import get_fid_model
 
 ## Weights and biases
 import wandb
@@ -91,137 +91,149 @@ def run_experiment(cfg):
     model_parameters, model_call, inference_model = get_model(cfg, key = subkey) 
     model_parameters = load_model_paramters(cfg, model_parameters)
 
-    # Get optimizer and its parameters
-    optimizer, optim_parameters = get_optim(cfg, model_parameters)
-    optim_parameters = load_optimizer_paramters(cfg, optim_parameters)
-  
     # get sde
     SDE = get_sde(cfg)
 
     # get loss functions and convert to grad function
     loss_fn = get_loss(cfg) # loss_fn(func, function_parameters, data, perturbed_data, time, key)
 
-    grad_fn = jax.grad(loss_fn,1) # TODO: try to JIT function partial(jax.jit,static_argnums=0)(jax.grad(loss_fn,1))
-    grad_fn = jax.jit(grad_fn, static_argnums=0)
+    if cfg.train_and_test.mode == "train":
+    # Get optimizer and its parameters
+      optimizer, optim_parameters = get_optim(cfg, model_parameters)
+      optim_parameters = load_optimizer_paramters(cfg, optim_parameters)
+      grad_fn = jax.grad(loss_fn,1) # TODO: try to JIT function partial(jax.jit,static_argnums=0)(jax.grad(loss_fn,1))
+      grad_fn = jax.jit(grad_fn, static_argnums=0)
+    elif cfg.train_and_test.mode == "validation":
+        fid_model = get_fid_model(cfg) 
+
+
+
 
     # get shard
     sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
 
     # start training for each epoch
-    for epoch in range(cfg.train_and_test.train.epochs): 
-        for i, (data, (labels, text_embeddings)) in enumerate(train_dataset): # batch training
-            # Check if we should terminate early, so we can properly log Wandb before being killed.
-            if cfg.time.time_termination and (time()-START_TIME >= cfg.time.time_of_termination_h*60*60): # convert hours into seconds.
-                TIME_EXCEEDED = True
-                break
+    if cfg.train_and_test.mode == "train":
 
-            # split key to keep randomness "random" for each training batch
-            key, *subkey = jax.random.split(key, 4)
+      for epoch in range(cfg.train_and_test.train.epochs): 
+          for i, (data, (labels, text_embeddings)) in enumerate(train_dataset): # batch training
+              # Check if we should terminate early, so we can properly log Wandb before being killed.
+              if cfg.time.time_termination and (time()-START_TIME >= cfg.time.time_of_termination_h*60*60): # convert hours into seconds.
+                  TIME_EXCEEDED = True
+                  break
 
-            data = jax.device_put(data ,sharding.reshape((1,len(jax.devices()))))
+              # split key to keep randomness "random" for each training batch
+              key, *subkey = jax.random.split(key, 4)
 
-            # get timesteps given random key for this batch and data shape
-            # TODO: Strictly this changes from sde to sde
-            timesteps = jax.random.uniform(subkey[0], (data.shape[0],), minval=1e-5, maxval=1)
+              data = jax.device_put(data ,sharding.reshape((1,len(jax.devices()))))
+
+              # get timesteps given random key for this batch and data shape
+              # TODO: Strictly this changes from sde to sde
+              timesteps = jax.random.uniform(subkey[0], (data.shape[0],), minval=1e-5, maxval=1)
        
-            # TODO: Potentially not memory efficient in terms of how this replication is done
-            #timesteps = jax.device_put(timesteps, sharding.reshape(-1).replicate(0))
+              # TODO: Potentially not memory efficient in terms of how this replication is done
+              #timesteps = jax.device_put(timesteps, sharding.reshape(-1).replicate(0))
 
-            # Perturb the data with the timesteps through sampling sde trick (for speed, see paper for explanation)
-            perturbed_data, z = SDE.sample(timesteps, data, subkey[1])
+              # Perturb the data with the timesteps through sampling sde trick (for speed, see paper for explanation)
+              perturbed_data, z = SDE.sample(timesteps, data, subkey[1])
             
-            #perturbed_data = jax.device_put(perturbed_data,sharding.reshape((1,len(jax.devices()))))
+              #perturbed_data = jax.device_put(perturbed_data,sharding.reshape((1,len(jax.devices()))))
 
 
-            # scale timesteps for more significance
-            #scaled_timesteps = timesteps*999
-            scaled_timesteps = timesteps
+              # scale timesteps for more significance
+              #scaled_timesteps = timesteps*999
+              scaled_timesteps = timesteps
 
-            # get grad for this batch
-              # loss_value, grads = jax.value_and_grad(loss_fn)(model_parameters, model_call, data, labels, t) # is this extra computation time
+              # get grad for this batch
+                # loss_value, grads = jax.value_and_grad(loss_fn)(model_parameters, model_call, data, labels, t) # is this extra computation time
 
-            grads = grad_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, z, text_embeddings,subkey[2])
+              grads = grad_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, z, text_embeddings,subkey[2])
 
-            # get change in model_params and new optimizer params
-            # optim_parameters, model_parameters = optim_alg(optim_parameters, model_parameters, t_data, labels)
-            updates, optim_parameters = optimizer.update(grads, optim_parameters, model_parameters)
+              # get change in model_params and new optimizer params
+              # optim_parameters, model_parameters = optim_alg(optim_parameters, model_parameters, t_data, labels)
+              updates, optim_parameters = optimizer.update(grads, optim_parameters, model_parameters)
 
-            # update model params
-            model_parameters = optax.apply_updates(model_parameters, updates)
+              # update model params
+              model_parameters = optax.apply_updates(model_parameters, updates)
 
-            # Logging loss and an image
-            if i % cfg.wandb.log.frequency == 0:
-                  if cfg.wandb.log.loss:
-                    loss = loss_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, z, text_embeddings, subkey[2])
-                    wandb.log({"loss": loss})
-                    # wandb.log({"loss": loss_value})
-                  if cfg.wandb.log.img and i % 100 == 0:
-                    # reverse sde sampling
-                    drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
-                    diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
-                    get_sample = lambda t, key1, key0, xt, text_embedding: sample(1e-5, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1) 
-                                     # dt0 = - 1/N
+              # Logging loss and an image
+              if i % cfg.wandb.log.frequency == 0:
+                    if cfg.wandb.log.loss:
+                      loss = loss_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, z, text_embeddings, subkey[2])
+                      wandb.log({"loss": loss})
+                      # wandb.log({"loss": loss_value})
+                    if cfg.wandb.log.img and i % 100 == 0:
+                      # reverse sde sampling
+                      drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
+                      diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
+                      get_sample = lambda t, key1, key0, xt, text_embedding: sample(1e-5, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1) 
+                                      # dt0 = - 1/N
 
-                    n = len(perturbed_data) 
-                    if cfg.wandb.log.n_images < n:
-                        n = cfg.wandb.log.n_images 
+                      n = len(perturbed_data) 
+                      if cfg.wandb.log.n_images < n:
+                          n = cfg.wandb.log.n_images 
 
-                    key, *subkey = jax.random.split(key, len(perturbed_data)*2 + 1)
+                      key, *subkey = jax.random.split(key, len(perturbed_data)*2 + 1)
 
-                    args = (timesteps.reshape(-1,1)[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], perturbed_data[:n], text_embeddings[:n])
-                    images = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
+                      args = (timesteps.reshape(-1,1)[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], perturbed_data[:n], text_embeddings[:n])
+                      images = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
                  
                     
-                    Z = (jax.random.normal(key, data.shape)*255)[:n]
-                    args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], Z, text_embeddings[:n])
-                    normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
+                      Z = (jax.random.normal(key, data.shape)*255)[:n]
+                      args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], Z, text_embeddings[:n])
+                      normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
 
-                    inference_out = inference_model(perturbed_data[:n], timesteps[:n], text_embeddings[:n],model_parameters if cfg.model.name != "sde" else data[:n], key)
+                      inference_out = inference_model(perturbed_data[:n], timesteps[:n], text_embeddings[:n],model_parameters if cfg.model.name != "sde" else data[:n], key)
                      
-                    Z_T, _ = SDE.sample(jnp.ones_like(timesteps[:n]), jnp.zeros_like(data[:n]) + TRAIN_MEAN, subkey[0])
+                      Z_T, _ = SDE.sample(jnp.ones_like(timesteps[:n]), jnp.zeros_like(data[:n]) + TRAIN_MEAN, subkey[0])
                     
-                    args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], Z_T, text_embeddings[:n])
-                    mean_normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
+                      args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], Z_T, text_embeddings[:n])
+                      mean_normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
 
-                    Z_0, _ = SDE.sample(jnp.ones_like(timesteps[:n]), jnp.zeros_like(data[:n]), subkey[0])
-                    args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], Z_0, text_embeddings[:n])
-                    zero_normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
+                      Z_0, _ = SDE.sample(jnp.ones_like(timesteps[:n]), jnp.zeros_like(data[:n]), subkey[0])
+                      args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], Z_0, text_embeddings[:n])
+                      zero_normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
 
-                    display_images(cfg, images, labels[:n], log_title="Reverse Sample x(t) -> x(0)")
-                    display_images(cfg, perturbed_data[:n], labels[:n], log_title="Perturbed images")
-                    display_images(cfg, min_max_rescale(perturbed_data[:n]), labels[:n], log_title="Min-Max Rescaled")
-                    display_images(cfg, normal_distribution, labels[:n], log_title="N(0,I) -> x(0)")
-                    display_images(cfg, min_max_rescale(normal_distribution), labels[:n], log_title="N(0,I) -> x(0), min-max rescaled")
-                    display_images(cfg, Z_0, labels[:n], log_title="Pertrubed 0")
-                    display_images(cfg, zero_normal_distribution, labels[:n], log_title="Perturbed 0 -> x(0)")
-                    display_images(cfg, Z_T, labels[:n], log_title="Pertrubed TRAIN MEAN + N(0,I)")
-                    display_images(cfg, mean_normal_distribution, labels[:n], log_title="Perturbed TRAIN MEAN + N(0,I) -> x(0)")
-                    display_images(cfg, Z, labels[:n], log_title="N(0,I)")
-                    display_images(cfg, data[:n], labels[:n], log_title="Original Images: x(0)")
-                    display_images(cfg, min_max_rescale(inference_out), labels[:n], log_title="Model output, min-max rescaled")
+                      display_images(cfg, images, labels[:n], log_title="Reverse Sample x(t) -> x(0)")
+                      display_images(cfg, perturbed_data[:n], labels[:n], log_title="Perturbed images")
+                      display_images(cfg, min_max_rescale(perturbed_data[:n]), labels[:n], log_title="Min-Max Rescaled")
+                      display_images(cfg, normal_distribution, labels[:n], log_title="N(0,I) -> x(0)")
+                      display_images(cfg, min_max_rescale(normal_distribution), labels[:n], log_title="N(0,I) -> x(0), min-max rescaled")
+                      display_images(cfg, Z_0, labels[:n], log_title="Pertrubed 0")
+                      display_images(cfg, zero_normal_distribution, labels[:n], log_title="Perturbed 0 -> x(0)")
+                      display_images(cfg, Z_T, labels[:n], log_title="Pertrubed TRAIN MEAN + N(0,I)")
+                      display_images(cfg, mean_normal_distribution, labels[:n], log_title="Perturbed TRAIN MEAN + N(0,I) -> x(0)")
+                      display_images(cfg, Z, labels[:n], log_title="N(0,I)")
+                      display_images(cfg, data[:n], labels[:n], log_title="Original Images: x(0)")
+                      display_images(cfg, min_max_rescale(inference_out), labels[:n], log_title="Model output, min-max rescaled")
 
-                  if (cfg.wandb.log.parameters and i % 1000 == 0):
-                          file_name = get_save_path_names(cfg)
-                          with open(os.path.join(wandb.run.dir, file_name["model"]), 'wb') as f:
-                            pickle.dump((epoch*len(train_dataset) + i, model_parameters), f, pickle.HIGHEST_PROTOCOL)
-                          #wandb.save(file_name["model"])
-                          with open(os.path.join(wandb.run.dir, file_name["optimizer"]), 'wb') as f:
-                            pickle.dump((epoch*len(train_dataset) + i, optim_parameters), f, pickle.HIGHEST_PROTOCOL)
-                          #wandb.save(file_name["optimizer"])
-        # Test loop
-        if epoch % cfg.wandb.log.epoch_frequency == 0 and not TIME_EXCEEDED:
-            if cfg.wandb.log.FID: 
-                # generate pictures before this can be run
+                    if (cfg.wandb.log.parameters and i % 1000 == 0):
+                            file_name = get_save_path_names(cfg)
+                            with open(os.path.join(wandb.run.dir, file_name["model"]), 'wb') as f:
+                              pickle.dump((epoch*len(train_dataset) + i, model_parameters), f, pickle.HIGHEST_PROTOCOL)
+                            #wandb.save(file_name["model"])
+                            with open(os.path.join(wandb.run.dir, file_name["optimizer"]), 'wb') as f:
+                              pickle.dump((epoch*len(train_dataset) + i, optim_parameters), f, pickle.HIGHEST_PROTOCOL)
+                            #wandb.save(file_name["optimizer"])
+    elif cfg.train_and_test.mode == "validation":
+        all_labels, all_embeddings = get_all_labels(test_dataset)
+        all_data = get_all_data(test_dataset)
 
-                # extract imgs from dataset
-                x_test = [torch.tensor(data.reshape(cfg.train_and_test.test.batch_size,3,32,32)) for (data,labels) in test_dataset][:1]
-                x_test = torch.vstack(x_test)
+        drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
+        diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
+        get_sample = lambda t, key1, key0, xt, text_embedding: sample(1e-5, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else all_data[0], key0], xt, key1) 
 
-                # get saved imgs
-                path_to_imgs = f"{cfg.train_and_test.test.img_save_loc}*jpg" # or whatever extension they will end up with
+        key, *subkey = jax.random.split(key, len(all_data) * 2 + 1)
 
-                # calculate and log fid score
-                wandb.log({"fid_score": FID_score(x1=x_test,x2=x_test)})
+        timesteps = jnp.ones((all_data.shape[0],))
+        Z_0, _ = SDE.sample(timesteps, jnp.zeros_like(all_data), subkey[0])
+
+        args = (timesteps.reshape(-1, 1), jnp.array(subkey[:len(subkey)//2]), jnp.array(subkey[len(subkey)//2:]), Z_0, all_embeddings)
+        generated_imgs = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
+        fid = fid_model(torch.from_numpy(generated_imgs), torch.from_numpy(all_data))
+        print(fid)
+        
+        
 
 if __name__ == "__main__":
     run_experiment()
