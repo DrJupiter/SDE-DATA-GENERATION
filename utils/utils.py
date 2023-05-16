@@ -108,11 +108,17 @@ from models.dummy.shard import shard_parameters
 from models.ddpm.shard_parameters import shard_ddpm_unet
 import numpy as np
 
-def split_tuple(tuple, split_factor):
-    assert len(tuple[0]) % split_factor == 0, f"Split factor {split_factor} doesn't divide the length of the elements {len(tuple[0])}"
-    split = np.hstack([np.split(x, split_factor) for x in tuple])
-    split = split.reshape(len(split), -1, len(split))
-    return split 
+def split_tuple(array, split_factor):
+    assert len(array[0]) % split_factor == 0, f"Split factor {split_factor} doesn't divide the length of the elements {len(array[0])}"
+    split = [jnp.array(np.split(x, split_factor)) for x in array]
+    final = []
+    for i in range(len(array[0])//split_factor):
+        final.append([x[i] for x in split])
+    #split = vmap(lambda *args: [a for a in args], [0]*len(split))(split)
+    #vmap(lambda *args: tuple(a for a in args), (tuple(0 for _ in range(len(split))),))(split)
+    #split = split.reshape(len(split), -1, len(split))
+    
+    return final 
 
 def get_model_sharding(cfg):
     if cfg.model.name == "dummy_jax":

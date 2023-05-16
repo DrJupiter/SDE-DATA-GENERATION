@@ -103,8 +103,8 @@ def get_all_labels(dataloader):
    embedding = []
 
    for s in gen:
-      label.append(s[1][0])
-      embedding.append(s[1][1])
+      label += list(s[1][0])
+      embedding += list(s[1][1])
    return jnp.vstack(label), jnp.vstack(embedding)
 
 def get_data_mean(dataloader):

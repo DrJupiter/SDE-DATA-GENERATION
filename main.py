@@ -228,19 +228,23 @@ def run_experiment(cfg):
         timesteps = jnp.ones((all_data.shape[0],))
         Z_0, _ = SDE.sample(timesteps, jnp.zeros_like(all_data), subkey[0])
 
+
         args = (timesteps.reshape(-1, 1), jnp.array(subkey[:len(subkey)//2]), jnp.array(subkey[len(subkey)//2:]), Z_0, all_embeddings)
+        split_factor = cfg.train_and_test.test.split_factor 
+        assert len(all_data) % split_factor == 0, f"split factor {split_factor} doesn't divide the length of the data {len(all_data)}"
 
-        args_split = split_tuple(args, cfg.train_and_test.test.split_factor)                 
         all_generated_imgs = []
-        for arg in args_split: 
+        for i in range(len(all_data)//split_factor):
+          arg = [x[i*split_factor:(i+1)*split_factor] for x in args]
           generated_imgs = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*arg)
-          all_generated_imgs.append(generated_imgs)
-        all_generated_imgs = jnp.vstack(all_generated_imgs)
+          all_generated_imgs += generated_imgs
 
-        display_images(cfg, generated_imgs[:100], all_labels[:100], log_title="Perturbed 0 -> x(0)")
-        fid = fid_model(torch.from_numpy(all_generated_imgs), torch.from_numpy(all_data))
-        wandb.log({"FID": fid})
-        print(fid)
+        all_generated_imgs = jnp.array(all_generated_imgs)
+
+        display_images(cfg, all_generated_imgs[:100], all_labels.reshape(-1)[:100], log_title="Perturbed 0 -> x(0)")
+        #fid = fid_model(torch.from_numpy(all_generated_imgs), torch.from_numpy(all_data))
+        #wandb.log({"FID": fid})
+        #print(fid)
         
         
 
