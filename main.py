@@ -230,7 +230,9 @@ def run_experiment(cfg):
 
         args = (timesteps.reshape(-1, 1), jnp.array(subkey[:len(subkey)//2]), jnp.array(subkey[len(subkey)//2:]), Z_0, all_embeddings)
         generated_imgs = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
+        display_images(cfg, generated_imgs[:100], all_labels[:100], log_title="Perturbed 0 -> x(0)")
         fid = fid_model(torch.from_numpy(generated_imgs), torch.from_numpy(all_data))
+        wandb.log({"FID": fid})
         print(fid)
         
         
