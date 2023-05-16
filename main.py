@@ -238,10 +238,11 @@ def run_experiment(cfg):
           arg = [x[i*split_factor:(i+1)*split_factor] for x in args]
           generated_imgs = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*arg)
           all_generated_imgs += list(generated_imgs)
+          break
 
         all_generated_imgs = jnp.array(all_generated_imgs)
 
-        display_images(cfg, all_generated_imgs[:100], all_labels.reshape(-1)[:100], log_title="Perturbed 0 -> x(0)")
+        display_images(cfg, all_generated_imgs[:20], all_labels.reshape(-1)[:20], log_title="Perturbed 0 -> x(0)")
         #fid = fid_model(torch.from_numpy(all_generated_imgs), torch.from_numpy(all_data))
         #wandb.log({"FID": fid})
         #print(fid)
