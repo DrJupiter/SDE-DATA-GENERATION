@@ -237,7 +237,7 @@ def run_experiment(cfg):
         for i in range(len(all_data)//split_factor):
           arg = [x[i*split_factor:(i+1)*split_factor] for x in args]
           generated_imgs = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*arg)
-          all_generated_imgs += generated_imgs
+          all_generated_imgs += list(generated_imgs)
 
         all_generated_imgs = jnp.array(all_generated_imgs)
 
