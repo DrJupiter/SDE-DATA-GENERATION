@@ -242,10 +242,10 @@ def run_experiment(cfg):
 
         all_generated_imgs = jnp.array(all_generated_imgs)
 
-        display_images(cfg, all_generated_imgs[:20], all_labels.reshape(-1)[:20], log_title="Perturbed 0 -> x(0)")
-        #fid = fid_model(torch.from_numpy(all_generated_imgs), torch.from_numpy(all_data))
-        #wandb.log({"FID": fid})
-        #print(fid)
+        display_images(cfg, all_generated_imgs[:15], all_labels.reshape(-1)[:15], log_title="Perturbed 0 -> x(0)")
+        fid = fid_model(all_generated_imgs[:split_factor], all_data[:split_factor])
+        wandb.log({"FID": fid})
+        print(fid)
         
         
 

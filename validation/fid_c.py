@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 
 from torchmetrics.image.fid import FrechetInceptionDistance
 def get_fid_model(cfg):
@@ -9,6 +10,12 @@ def get_fid_model(cfg):
         model.inception.cuda()
 
     def compute_fid(generated_imgs, real_images):
+        if cfg.dataset.name == "mnist":
+            generated_imgs = np.stack((generated_imgs,) * 3, axis=-1)
+            real_images = np.stack((real_images,) * 3, axis=-1)
+        generated_imgs = torch.from_numpy(generated_imgs)
+        real_images = torch.from_numpy(real_images)
+
         model.update(real_images, real=True) 
         model.update(generated_imgs, real=False) 
         fid = model.compute()
@@ -16,7 +23,7 @@ def get_fid_model(cfg):
         return fid
     return compute_fid
 
-
+    
 
 
 
