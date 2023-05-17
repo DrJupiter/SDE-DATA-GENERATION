@@ -11,8 +11,8 @@ def get_fid_model(cfg):
 
     def compute_fid(generated_imgs, real_images):
         if cfg.dataset.name == "mnist":
-            generated_imgs = np.stack((generated_imgs,) * 3, axis=-1)
-            real_images = np.stack((real_images,) * 3, axis=-1)
+            generated_imgs = np.stack((generated_imgs,) * 3, axis=-1).astype(np.uint8)
+            real_images = np.stack((real_images,) * 3, axis=-1).astype(np.uint8)
         generated_imgs = torch.from_numpy(generated_imgs)
         real_images = torch.from_numpy(real_images)
 
