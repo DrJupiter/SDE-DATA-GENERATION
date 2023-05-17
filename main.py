@@ -218,11 +218,7 @@ def run_experiment(cfg):
     elif cfg.train_and_test.mode == "validation":
         all_labels, all_embeddings = get_all_labels(test_dataset)
         all_data = get_all_data(test_dataset)
-        import numpy as np
-        generated_imgs = all_data[:15]
-        datashape = jnp.array(cfg.dataset.shape)+jnp.array([0,cfg.dataset.padding*2,cfg.dataset.padding*2,0]) 
-        np.stack((generated_imgs.reshape(datashape),) * 3, axis=-1).astype(np.uint8).transpose(0, -1, 1, 2)
-        sys.exit(0)
+
         drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
         diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
         get_sample = lambda t, key1, key0, xt, text_embedding: sample(1e-5, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else all_data[0], key0], xt, key1) 
