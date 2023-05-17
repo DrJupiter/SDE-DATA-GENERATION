@@ -243,8 +243,10 @@ def run_experiment(cfg):
 
         display_images(cfg, all_generated_imgs[:15], all_labels.reshape(-1)[:15], log_title="Perturbed 0 -> x(0)")
         fid = fid_model(all_generated_imgs, all_data)
-        wandb.log({"FID": fid})
-        print(fid)
+        wandb.log({"FID GEN x DATA": fid})
+        # sanity check
+        fid_data = fid_model(all_data, all_data)
+        wandb.log({"FID DATA x DATA": fid})
         
         
 
