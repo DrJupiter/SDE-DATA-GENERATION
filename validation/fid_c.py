@@ -52,7 +52,7 @@ def get_fid_model(cfg):
 
             return all_pool_3, all_logits
 
-        def compute_fid(generated_imgs, true_images, force_recompute=False):
+        def compute_fid(generated_imgs, true_images, force_recompute=True):
 
             # Get the shape to reshape the data into
             datashape = np.array(jnp.array(cfg.dataset.shape)+jnp.array([0,cfg.dataset.padding*2,cfg.dataset.padding*2,0]))
