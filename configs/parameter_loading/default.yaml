@@ -8,8 +8,7 @@ model_shard: False
 
 # Load test data
 test_data: True
-test_data_path: "./saved-data" # Directory only
-
 # Load test statistics 
 test_statistics: True # Only makes sense, when loading test_data too
 test_data_path: "./saved-data" # Directory only
+
