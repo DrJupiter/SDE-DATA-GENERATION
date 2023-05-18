@@ -5,3 +5,11 @@ optimizer_shard: False
 model: True
 model_path: "./saved-parameters/combined/yangguide/medium" # Directory or exact file, if directory chosen is cfg.model.name-parameters.pickle else loads file
 model_shard: False
+
+# Load test data
+test_data: True
+test_data_path: "./saved-data" # Directory only
+
+# Load test statistics 
+test_statistics: True # Only makes sense, when loading test_data too
+test_data_path: "./saved-data" # Directory only

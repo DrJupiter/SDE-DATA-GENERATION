@@ -7,6 +7,9 @@ import tensorflow_hub
 import tensorflow_gan as tf_gan
 import tensorflow as tf
 
+from utils.utils import get_save_path_names
+import os
+
 def get_fid_model(cfg):
     """
         # TODO: Make sure the values for the images are within [0;255]
@@ -31,41 +34,62 @@ def get_fid_model(cfg):
             res = tf_gan.eval.run_classifier_fn(images, num_batches=1, classifier_fn=_classifier_fn, dtypes=_DEFAULT_DTYPES)
             return res["pool_3"], res["logits"]
 
+        def compute_statistic(images):
+
+            split_factor = cfg.train_and_test.test.split_factor 
+            images = tf.convert_to_tensor(images)
+            images = tf.split(images, split_factor, axis=0)
+
+            all_pool_3 = []  
+            all_logits = []
+
+            for img_batch in images:
+                pool_3, logits = compute_pool3_logit(img_batch)
+                all_pool_3.append(pool_3), all_logits.append(logits)
+
+            all_pool_3 = tf.concat(all_pool_3, axis = 0)
+            all_logits = tf.concat(all_logits, axis = 0)
+
+            return all_pool_3, all_logits
+
         def compute_fid(generated_imgs, true_images):
+
+            # Get the shape to reshape the data into
             datashape = np.array(jnp.array(cfg.dataset.shape)+jnp.array([0,cfg.dataset.padding*2,cfg.dataset.padding*2,0]))
             datashape[0] = len(generated_imgs)
             datashape[-1] = -1
 
+
+            # Handle data format
             if cfg.dataset.name == "mnist":
                 generated_imgs = np.stack((np.clip(generated_imgs, 0, 255),) * 3, axis=-1).reshape(datashape).astype(np.uint8) # .transpose(0, -1, 1, 2)
                 true_images = np.stack((true_images,) * 3, axis=-1).reshape(datashape).astype(np.uint8) # .transpose(0, -1, 1, 2)
 
-            generated_imgs = tf.convert_to_tensor(generated_imgs)
-            true_images = tf.convert_to_tensor(true_images)
+            gen_pool3, gen_logits = compute_statistic(generated_imgs) 
 
-            all_gen_pool_3 = []  
-            all_gen_logits = []
-            all_true_pool_3 = []
-            all_true_logits = []
+            # Handle ground truth images
+            if cfg.parameter_loading.test_statistics:
+                file_name = get_save_path_names(cfg)["test_data_statistics"]
+                name = os.path.join(cfg.parameter_loading.test_data_path, file_name)
+                if os.path.isfile(name):
+                    with open(name, "rb") as f:
+                        stats = jnp.load(f)
+                    true_pool3, true_logits = stats["pool3"], stats["logit"]
 
-            split_factor = cfg.train_and_test.test.split_factor 
-            generated_imgs = tf.split(generated_imgs, split_factor, axis=0)
-            true_images = tf.split(true_images, split_factor, axis=0)
-            for img_batch in generated_imgs:
-                gen_pool_3, gen_logits = compute_pool3_logit(img_batch)
-                all_gen_pool_3.append(gen_pool_3), all_gen_logits.append(gen_logits)
-            for img_batch in true_images:
-                true_pool_3, true_logits = compute_pool3_logit(img_batch)
-                all_true_pool_3.append(true_pool_3), all_true_logits.append(true_logits)
-            all_gen_pool_3 = tf.concat(all_true_pool_3, axis = 0)
-            all_true_pool_3 = tf.concat(all_gen_pool_3, axis = 0)
+                else:
+                    print(f"Unable to find {name}, creating and saving statistics instead")
 
-            # TODO: Have this save in the config
-            with open("./tmp/results.npz", "wb") as f:
-                np.savez_compressed(f , gen_pool_3=all_gen_pool_3, all_pool_3 = all_true_pool_3)
+                    true_pool3, true_logits = compute_statistic(true_images) 
 
+                    with open(name, "wb") as f:
+                        np.savez_compressed(f , pool3=true_pool3, logit=true_logits)
+                    print(f"Saved statistics @ {name}") 
+            else:
+                    true_pool3, true_logits = compute_statistic(true_images) 
+            
             #inception_score = None # TODO: Potentially do this later
-            fid = tf_gan.eval.frechet_classifier_distance_from_activations(gen_pool_3, true_pool_3)
+
+            fid = tf_gan.eval.frechet_classifier_distance_from_activations(gen_pool3, true_pool3)
             return fid
         return compute_fid
         

@@ -23,7 +23,7 @@ import jax.numpy as jnp
 #jax.config.update('jax_platform_name', 'cpu')
 
 # Data
-from data.dataload import dataload, get_data_mean, get_all_data, get_all_labels
+from data.dataload import dataload, get_data_mean, get_all_test_data
 
 # TODO: Discuss this design choice in terms of the optimizer
 # maybe make this a seperate module
@@ -216,8 +216,8 @@ def run_experiment(cfg):
                               pickle.dump((epoch*len(train_dataset) + i, optim_parameters), f, pickle.HIGHEST_PROTOCOL)
                             #wandb.save(file_name["optimizer"])
     elif cfg.train_and_test.mode == "validation":
-        all_labels, all_embeddings = get_all_labels(cfg, test_dataset)
-        all_data = get_all_data(cfg, test_dataset)
+
+        all_data, all_labels, all_embeddings = get_all_test_data(cfg, test_dataset)
 
         drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
         diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
@@ -235,15 +235,14 @@ def run_experiment(cfg):
 
         all_generated_imgs = []
         for i in range(len(all_data)//split_factor):
-          break
           arg = [x[i*split_factor:(i+1)*split_factor] for x in args]
           generated_imgs = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*arg)
           all_generated_imgs += list(generated_imgs)
         all_generated_imgs = jnp.array(all_generated_imgs)
 
-        #display_images(cfg, all_generated_imgs[:10], all_labels.reshape(-1)[:10], log_title="Perturbed 0 -> x(0)")
-        #fid = fid_model(all_generated_imgs, all_data)
-        #wandb.log({"FID GEN x DATA": fid})
+        display_images(cfg, all_generated_imgs[:10], all_labels.reshape(-1)[:10], log_title="Perturbed 0 -> x(0)")
+        fid = fid_model(all_generated_imgs, all_data)
+        wandb.log({"FID GEN x DATA": fid})
         # sanity check
         fid_data = fid_model(jax.random.shuffle(key, all_data[:1000], axis=0), all_data[:1000])
         wandb.log({"FID DATA x DATA": fid_data})

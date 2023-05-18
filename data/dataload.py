@@ -5,6 +5,7 @@ from torch import flatten as t_flatten
 from torchvision.datasets import MNIST, CIFAR10
 import multiprocessing as mp
 from utils.text_embedding import get_label_embeddings
+from utils.utils import get_save_path_names
 
 import jax.numpy as jnp
 
@@ -89,6 +90,32 @@ def dataload(cfg):
     
     # TODO: ASK PAUL how to do this in a hydra friendly way
     raise ValueError(f"The dataset with name {name} doesn't exist")
+
+def get_all_test_data(cfg, dataset):
+  file_name = get_save_path_names(cfg)["test_data"]
+  name = os.path.join(cfg.parameter_loading.test_data_path, file_name)
+  if cfg.parameter_loading.test_data:
+    if os.path.isfile(name):
+
+      with open(name, "rb") as f:
+        file = jnp.load(f) 
+
+      data = file["data"]
+      labels = file["labels"]
+      embeddings = file["embeddings"]
+      print("Loaded test dataset, labels, embeddings")
+      return data, labels, embeddings
+    else:
+      print(f"{name} not found, instead")
+  
+      print(f"Saving test data @ {name}")
+      labels, embeddings = get_all_labels(cfg, dataset)
+      data = get_all_data(cfg, dataset)
+      with open(name, "wb") as f:
+        jnp.savez_compressed(f, data=data, labels=labels, embeddings=embeddings)
+  
+  return data, labels, embeddings  
+
 
 def get_all_data(cfg, dataloader):
    gen = iter(dataloader)  
