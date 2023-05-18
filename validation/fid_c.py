@@ -42,8 +42,27 @@ def get_fid_model(cfg):
 
             generated_imgs = tf.convert_to_tensor(generated_imgs)
             true_images = tf.convert_to_tensor(true_images)
-            gen_pool_3, gen_logits = compute_pool3_logit(generated_imgs)
-            true_pool_3, true_logits = compute_pool3_logit(true_images)
+
+            all_gen_pool_3 = []  
+            all_gen_logits = []
+            all_true_pool_3 = []
+            all_true_logits = []
+
+            split_factor = cfg.train_and_test.test.split_factor 
+            generated_imgs = tf.split(generated_imgs, split_factor, axis=0)
+            true_images = tf.split(true_images, split_factor, axis=0)
+            for img_batch in generated_imgs:
+                gen_pool_3, gen_logits = compute_pool3_logit(img_batch)
+                all_gen_pool_3.append(gen_pool_3), all_gen_logits.append(gen_logits)
+            for img_batch in true_images:
+                true_pool_3, true_logits = compute_pool3_logit(img_batch)
+                all_true_pool_3.append(true_pool_3), all_true_logits.append(true_logits)
+            all_gen_pool_3 = tf.concat(all_true_pool_3, axis = 0)
+            all_true_pool_3 = tf.concat(all_gen_pool_3, axis = 0)
+
+            # TODO: Have this save in the config
+            np.savez_compressed("./tmp/results.npz", gen_pool_3=all_gen_pool_3, all_pool_3 = all_true_pool_3)
+
             #inception_score = None # TODO: Potentially do this later
             fid = tf_gan.eval.frechet_classifier_distance_from_activations(gen_pool_3, true_pool_3)
             return fid
