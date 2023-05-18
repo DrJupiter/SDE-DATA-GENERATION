@@ -61,7 +61,8 @@ def get_fid_model(cfg):
             all_true_pool_3 = tf.concat(all_gen_pool_3, axis = 0)
 
             # TODO: Have this save in the config
-            np.savez_compressed("./tmp/results.npz", gen_pool_3=all_gen_pool_3, all_pool_3 = all_true_pool_3)
+            with open("./tmp/results.npz", "wb") as f:
+                np.savez_compressed(f , gen_pool_3=all_gen_pool_3, all_pool_3 = all_true_pool_3)
 
             #inception_score = None # TODO: Potentially do this later
             fid = tf_gan.eval.frechet_classifier_distance_from_activations(gen_pool_3, true_pool_3)
