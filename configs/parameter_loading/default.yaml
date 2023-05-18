@@ -9,6 +9,6 @@ model_shard: False
 # Load test data
 test_data: True
 # Load test statistics 
-test_statistics: False # Only makes sense, when loading test_data too
+test_statistics: True # Only makes sense, when loading test_data too
 test_data_path: "./saved-data" # Directory only
 
