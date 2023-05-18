@@ -119,10 +119,11 @@ if __name__ == "__main__":
 #    training_generator = NumpyLoader(mnist_dataset, batch_size=1, num_workers=mp.cpu_count())
 
     from utils.utils import get_hydra_config
-    cfg = get_hydra_config(overrides=['dataset=cifar10', "visualization.visualize_img=true","wandb.log.img=false"])
+    cfg = get_hydra_config(overrides=['dataset=mnist', "visualization.visualize_img=true","wandb.log.img=false"])
     from visualization.visualize import display_images
     training_generator, test_generator = dataload(cfg)
     mean = get_data_mean(training_generator)
+    print(jnp.max(mean))
     display_images(cfg, [mean], ["datamean"])
     import sys
     sys.exit(0)

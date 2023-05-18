@@ -1,12 +1,12 @@
-mode: validation # validation
+mode: validation # validation, train
 train:
    batch_size: 20
    epochs: 100
    shuffle: true
 test:
    batch_size: 10
-   split_factor: 100
+   split_factor: 10
    shuffle: true
    img_save_loc: "gen_imgs/"
    fid_features: 64 # 64, 192, 768, 2048
-   
+   fid_model_type: tensorflow
