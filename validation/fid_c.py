@@ -73,7 +73,8 @@ def get_fid_model(cfg):
                 name = os.path.join(cfg.parameter_loading.test_data_path, file_name)
                 if os.path.isfile(name):
                     with open(name, "rb") as f:
-                        stats = jnp.load(f)
+                        stats = np.load(f)
+                        f.close()
                     true_pool3, true_logits = stats["pool3"], stats["logit"]
 
                 else:

@@ -211,9 +211,11 @@ def run_experiment(cfg):
                             file_name = get_save_path_names(cfg)
                             with open(os.path.join(wandb.run.dir, file_name["model"]), 'wb') as f:
                               pickle.dump((epoch*len(train_dataset) + i, model_parameters), f, pickle.HIGHEST_PROTOCOL)
+                              f.close()
                             #wandb.save(file_name["model"])
                             with open(os.path.join(wandb.run.dir, file_name["optimizer"]), 'wb') as f:
                               pickle.dump((epoch*len(train_dataset) + i, optim_parameters), f, pickle.HIGHEST_PROTOCOL)
+                              f.close()
                             #wandb.save(file_name["optimizer"])
     elif cfg.train_and_test.mode == "validation":
 
@@ -245,7 +247,7 @@ def run_experiment(cfg):
         fid = fid_model(all_generated_imgs, all_data[:len(all_generated_imgs)])
         wandb.log({"FID GEN x DATA": fid})
         # sanity check
-        fid_data = fid_model(jax.random.shuffle(key, all_data[:1000], axis=0), all_data[:1000])
+        fid_data = fid_model(jax.random.permutation(key, all_data[:1000], axis=0, independent=True), all_data[:1000])
         wandb.log({"FID DATA x DATA": fid_data})
         
         

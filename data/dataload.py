@@ -114,7 +114,7 @@ def get_all_test_data(cfg, dataset):
       data = get_all_data(cfg, dataset)
       with open(name, "wb") as f:
         np.savez_compressed(f, data=data, labels=labels, embeddings=embeddings)
-  
+        f.close() 
   return data, labels, embeddings  
 
 
