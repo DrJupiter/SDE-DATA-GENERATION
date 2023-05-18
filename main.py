@@ -245,7 +245,7 @@ def run_experiment(cfg):
         fid = fid_model(all_generated_imgs[:split_factor], all_data[:split_factor])
         wandb.log({"FID GEN x DATA": fid})
         # sanity check
-        fid_data = fid_model(all_data[:split_factor], all_data[:split_factor])
+        fid_data = fid_model(all_data, all_data)
         wandb.log({"FID DATA x DATA": fid})
         
         
