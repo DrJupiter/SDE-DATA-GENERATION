@@ -6,6 +6,7 @@ from torchvision.datasets import MNIST, CIFAR10
 import multiprocessing as mp
 from utils.text_embedding import get_label_embeddings
 from utils.utils import get_save_path_names
+import os
 
 import jax.numpy as jnp
 
