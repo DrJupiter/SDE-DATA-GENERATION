@@ -234,14 +234,15 @@ def run_experiment(cfg):
         assert len(all_data) % split_factor == 0, f"split factor {split_factor} doesn't divide the length of the data {len(all_data)}"
 
         all_generated_imgs = []
-        for i in range(len(all_data)//split_factor):
+        #for i in range(len(all_data)//split_factor):
+        for i in range(2):
           arg = [x[i*split_factor:(i+1)*split_factor] for x in args]
           generated_imgs = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*arg)
           all_generated_imgs += list(generated_imgs)
         all_generated_imgs = jnp.array(all_generated_imgs)
 
         display_images(cfg, all_generated_imgs[:10], all_labels.reshape(-1)[:10], log_title="Perturbed 0 -> x(0)")
-        fid = fid_model(all_generated_imgs, all_data)
+        fid = fid_model(all_generated_imgs, all_data[:len(all_generated_imgs)])
         wandb.log({"FID GEN x DATA": fid})
         # sanity check
         fid_data = fid_model(jax.random.shuffle(key, all_data[:1000], axis=0), all_data[:1000])
