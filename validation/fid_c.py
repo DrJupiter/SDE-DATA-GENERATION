@@ -74,8 +74,8 @@ def get_fid_model(cfg):
                 if os.path.isfile(name):
                     with open(name, "rb") as f:
                         stats = np.load(f)
+                        true_pool3, true_logits = stats["pool3"], stats["logit"]
                         f.close()
-                    true_pool3, true_logits = stats["pool3"], stats["logit"]
 
                 else:
                     print(f"Unable to find {name}, creating and saving statistics instead")

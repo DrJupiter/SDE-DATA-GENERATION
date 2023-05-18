@@ -101,9 +101,9 @@ def get_all_test_data(cfg, dataset):
       with open(name, "rb") as f:
         file = np.load(f) 
 
-      data = jnp.array(file["data"])
-      labels = jnp.array(file["labels"])
-      embeddings = jnp.array(file["embeddings"])
+        data = jnp.array(file["data"])
+        labels = jnp.array(file["labels"])
+        embeddings = jnp.array(file["embeddings"])
       print("Loaded test dataset, labels, embeddings")
       return data, labels, embeddings
     else:
