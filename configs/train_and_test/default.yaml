@@ -5,7 +5,7 @@ train:
    shuffle: true
 test:
    batch_size: 10
-   split_factor: 10
+   split_factor: 200
    shuffle: true
    img_save_loc: "gen_imgs/"
    fid_features: 64 # 64, 192, 768, 2048
