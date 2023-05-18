@@ -246,7 +246,7 @@ def run_experiment(cfg):
         wandb.log({"FID GEN x DATA": fid})
         # sanity check
         fid_data = fid_model(all_data[:1000], all_data[:1000])
-        wandb.log({"FID DATA x DATA": fid})
+        wandb.log({"FID DATA x DATA": fid_data})
         
         
 
