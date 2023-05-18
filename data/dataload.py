@@ -99,11 +99,11 @@ def get_all_test_data(cfg, dataset):
     if os.path.isfile(name):
 
       with open(name, "rb") as f:
-        file = jnp.load(f) 
+        file = np.load(f) 
 
-      data = file["data"]
-      labels = file["labels"]
-      embeddings = file["embeddings"]
+      data = jnp.array(file["data"])
+      labels = jnp.array(file["labels"])
+      embeddings = jnp.array(file["embeddings"])
       print("Loaded test dataset, labels, embeddings")
       return data, labels, embeddings
     else:
@@ -113,7 +113,7 @@ def get_all_test_data(cfg, dataset):
       labels, embeddings = get_all_labels(cfg, dataset)
       data = get_all_data(cfg, dataset)
       with open(name, "wb") as f:
-        jnp.savez_compressed(f, data=data, labels=labels, embeddings=embeddings)
+        np.savez_compressed(f, data=data, labels=labels, embeddings=embeddings)
   
   return data, labels, embeddings  
 
