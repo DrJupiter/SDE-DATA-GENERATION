@@ -107,7 +107,8 @@ def load_optimizer_paramters(cfg, optimizer_paramters):
     return optimizer_paramters
 
 from models.dummy.shard import shard_parameters
-from models.ddpm.shard_parameters import shard_ddpm_unet
+from models.ddpm.shard_parameters import shard_ddpm_unet as shard_score_ddpm_unet
+from models.ddpm_classifier.shard_parameters import shard_ddpm_unet as shard_classifier_ddpm_unet
 import numpy as np
 
 def split_tuple(array, split_factor):
@@ -126,13 +127,22 @@ def get_model_sharding(cfg):
     if cfg.model.name == "dummy_jax":
         return shard_parameters 
     elif cfg.model.name == "ddpm_unet":
-        return shard_ddpm_unet
+        if cfg.model.type == "score":
+
+            return shard_score_ddpm_unet
+        elif cfg.model.type == "classifier":
+            return shard_classifier_ddpm_unet 
+        
     raise NotImplementedError(f"Sharding not implemented for {cfg.model.name}")
 
 def get_wandb_input(cfg):
     args = {}
     args["entity"] = cfg.wandb.setup.entity
     args["project"] = cfg.wandb.setup.project
+
+    # Sanity check for type of the model
+    assert cfg.model.type == cfg.loss.type, f"The model type {cfg.model.type} != {cfg.loss.type}, make sure to choose ones which match or change the model type"
+        
 
     tags = [cfg.wandb.setup.experiment, cfg.loss.name, cfg.model.name, cfg.sde.name, cfg.dataset.name]
     if cfg.wandb.setup.experiment == "train":

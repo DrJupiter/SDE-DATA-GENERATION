@@ -10,14 +10,22 @@ import jax
 
 from models.dummy import dummy_jax
 from models.ddpm.ddpm_functional import get_ddpm_unet as get_ddpm_unet_new
+from models.ddpm_classifier.ddpm_functional import get_ddpm_unet as get_ddpm_unet_classifier
 
 
 def get_model(cfg, key):
     if cfg.model.name == "dummy_jax":
         return dummy_jax.get_parameters(cfg), dummy_jax.get_dummy_train(cfg), dummy_jax.get_dummy_train(cfg)
     elif cfg.model.name == "ddpm_unet":
-        params, ddpm_unet, inf_ddpm_unet = get_ddpm_unet_new(cfg, key)
-        return params, ddpm_unet, inf_ddpm_unet
+
+        if cfg.model.type == "score":
+
+            params, ddpm_unet, inf_ddpm_unet = get_ddpm_unet_new(cfg, key)
+            return params, ddpm_unet, inf_ddpm_unet
+        elif cfg.model.type == "classifier":
+
+            params, ddpm_unet, inf_ddpm_unet = get_ddpm_unet_classifier(cfg, key)
+            return params, ddpm_unet, inf_ddpm_unet
 
     elif cfg.model.name == "sde": 
         from sde.sde import get_sde

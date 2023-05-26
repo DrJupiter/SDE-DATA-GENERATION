@@ -120,8 +120,8 @@ def run_experiment(cfg):
               # Check if we should terminate early, so we can properly log Wandb before being killed.
               if cfg.time.time_termination and (time()-START_TIME >= cfg.time.time_of_termination_h*60*60): # convert hours into seconds.
                   TIME_EXCEEDED = True
-                  break
-
+                  #break
+              
               # split key to keep randomness "random" for each training batch
               key, *subkey = jax.random.split(key, 4)
 
