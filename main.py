@@ -161,8 +161,13 @@ def run_experiment(cfg):
                     if cfg.wandb.log.loss:
                       loss = loss_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, z, text_embeddings, subkey[2])
                       wandb.log({"loss": loss})
+
+                    if cfg.wandb.log.accuracy and i % 1000 and cfg.model.type == "classification":
+                        predicted_classes = jnp.argmax(inference_model(data, scaled_timesteps, text_embeddings, model_parameters, key), axis=1)
+                        correct_classes = jnp.argmax(text_embeddings, axis=1)
+                        wandb.log({"accuracy": jnp.mean(predicted_classes == correct_classes)})
                       # wandb.log({"loss": loss_value})
-                    if cfg.wandb.log.img and i % 100 == 0:
+                    if cfg.wandb.log.img and i % 100 == 0 and cfg.model.type == "score":
                       # reverse sde sampling
                       drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
                       diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
