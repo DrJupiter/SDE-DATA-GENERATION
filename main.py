@@ -162,7 +162,7 @@ def run_experiment(cfg):
                       loss = loss_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, z, text_embeddings, subkey[2])
                       wandb.log({"loss": loss})
 
-                    if cfg.wandb.log.accuracy and i % 1000 and cfg.model.type == "classification":
+                    if cfg.wandb.log.accuracy and i % 1000 and cfg.model.type == "classifier":
                         predicted_classes = jnp.argmax(inference_model(data, scaled_timesteps, text_embeddings, model_parameters, key), axis=1)
                         correct_classes = jnp.argmax(text_embeddings, axis=1)
                         wandb.log({"accuracy": jnp.mean(predicted_classes == correct_classes)})
