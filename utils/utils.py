@@ -42,7 +42,7 @@ def get_save_path_names(cfg):
     file_name["test_data_statistics"] = f"{cfg.train_and_test.test.fid_model_type}-{cfg.dataset.name}-{cfg.model.name}-{cfg.loss.name}-test-statistics.npz"
     return file_name 
 
-from models import get_model
+#from models import get_model
 def get_classifier(cfg):
 
     # ! DON'T DO THIS UNLESS YOU KNOW WHAT YOU'RE DOING, IT WILL MESS THINGS UP OTHERWISE
