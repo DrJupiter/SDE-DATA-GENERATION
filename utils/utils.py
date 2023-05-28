@@ -1,7 +1,6 @@
 
 from hydra import compose, initialize
 import hydra
-from omegaconf import OmegaConf
 
 def get_hydra_config(config_path='../configs', job_name='test', version_base='1.3', config='defaults.yaml', overrides=[], reload=True):
     """
@@ -20,8 +19,7 @@ def get_hydra_config(config_path='../configs', job_name='test', version_base='1.
     return cfg
 
 import jax.numpy as jnp
-from jax import vmap, jit, pmap
-from jax.nn import sigmoid
+from jax import vmap
 
 batch_matmul = vmap(lambda a,b: jnp.matmul(a.T, b), (0, 0) , 0)
 """
@@ -32,29 +30,6 @@ batch_matmul = vmap(lambda a,b: jnp.matmul(a.T, b), (0, 0) , 0)
 
     return: B x L1 x L2 | B  
 """
-
-#### Rescaling x to logits or img ####
-
-def logit(p):
-    """logit function using the natrual log"""
-    return jnp.log(p/(1-p))
-
-def rescale_to_logit(cfg,x):
-    """Transforms x to logit space\n
-    CITE: 4.3 in https://arxiv.org/pdf/1705.07057.pdf """
-    lamb = float(cfg.dataset.lamb)
-    return logit(lamb + (1-2*lamb)*x)
-
-def rescale_logit_to_img(cfg,z):
-    """Transforms logit into [0,256]\n
-    CITE: E2 in https://arxiv.org/pdf/1705.07057.pdf"""
-    lamb = float(cfg.dataset.lamb)
-    return logit(lamb + (1-2*lamb)*(z/256))
-
-def rescale_sigmoid_img(x):
-    factor = 0.05 # -500;500 -> 0;10
-    max_val = 255
-    return max_val/(1+jnp.exp(-1,factor))
 
 import pickle
 import os
@@ -130,18 +105,6 @@ from models.dummy.shard import shard_parameters
 from models.ddpm.shard_parameters import shard_ddpm_unet as shard_score_ddpm_unet
 from models.ddpm_classifier.shard_parameters import shard_ddpm_unet as shard_classifier_ddpm_unet
 import numpy as np
-
-def split_tuple(array, split_factor):
-    assert len(array[0]) % split_factor == 0, f"Split factor {split_factor} doesn't divide the length of the elements {len(array[0])}"
-    split = [jnp.array(np.split(x, split_factor)) for x in array]
-    final = []
-    for i in range(len(array[0])//split_factor):
-        final.append([x[i] for x in split])
-    #split = vmap(lambda *args: [a for a in args], [0]*len(split))(split)
-    #vmap(lambda *args: tuple(a for a in args), (tuple(0 for _ in range(len(split))),))(split)
-    #split = split.reshape(len(split), -1, len(split))
-    
-    return final 
 
 def get_model_sharding(cfg):
     if cfg.model.name == "dummy_jax":

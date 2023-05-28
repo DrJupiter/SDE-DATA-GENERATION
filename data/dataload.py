@@ -1,13 +1,12 @@
 import numpy as np
 from torch.utils import data
 import torchvision.transforms as transforms
-from torch import flatten as t_flatten
 from torchvision.datasets import MNIST, CIFAR10
 import multiprocessing as mp
-from utils.text_embedding import get_label_embeddings
-from utils.utils import get_save_path_names
-#from text_embedding import get_label_embeddings
-#from utils import get_save_path_names
+
+#from utils.text_embedding import get_label_embeddings
+#from utils.utils import get_save_path_names
+from utils import get_label_embeddings, get_save_path_names
 
 import os
 
@@ -149,7 +148,7 @@ if __name__ == "__main__":
 #    import multiprocessing as mp
 #    training_generator = NumpyLoader(mnist_dataset, batch_size=1, num_workers=mp.cpu_count())
 
-    from utils.utils import get_hydra_config
+    from utils import get_hydra_config
     cfg = get_hydra_config(overrides=['dataset=mnist', "visualization.visualize_img=true","wandb.log.img=false"])
     from visualization.visualize import display_images
     training_generator, test_generator = dataload(cfg)
