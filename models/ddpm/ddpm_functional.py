@@ -11,7 +11,7 @@ from jax import lax
 import jax
 
 # sharding
-from utils.utils import get_model_sharding
+from utils import get_model_sharding
 from jax.experimental import mesh_utils
 from jax.sharding import PositionalSharding
 
