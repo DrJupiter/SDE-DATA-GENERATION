@@ -2,7 +2,7 @@
 from jax import vmap, jacrev 
 import jax.numpy as jnp
 from jax import random as jrandom
-from utils.utils import batch_matmul
+from utils import batch_matmul
 
 # sharding
 from jax.experimental import mesh_utils

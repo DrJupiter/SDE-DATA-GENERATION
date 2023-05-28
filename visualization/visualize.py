@@ -1,10 +1,8 @@
 import matplotlib as mpl
 import matplotlib.pylab as plt
-import matplotlib.dates as mdates
 import seaborn as sns
 import wandb
 import jax
-from torchvision.utils import make_grid
 import numpy as np
 
 def setup_plot():
@@ -75,7 +73,7 @@ if __name__ == "__main__":
     DATA_PATH = './datasets'
 
 
-    from utils.utils import get_hydra_config
+    from utils import get_hydra_config
     if False:
         cfg = get_hydra_config(overrides=['dataset=mnist', "visualization.visualize_img=true","wandb.log.img=false"])
         mnist_dataset = MNIST(DATA_PATH, download=True, transform=FlattenAndCast())

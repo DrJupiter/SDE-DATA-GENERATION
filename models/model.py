@@ -7,10 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 # SHARDING
 import jax
 
-
-from models.dummy import dummy_jax
-from models.ddpm.ddpm_functional import get_ddpm_unet as get_ddpm_unet_new
-from models.ddpm_classifier.ddpm_functional import get_ddpm_unet as get_ddpm_unet_classifier
+from models import get_ddpm_unet_new, dummy_jax, get_ddpm_unet_classifier
 
 
 def get_model(cfg, key):
