@@ -26,11 +26,7 @@ def get_image_text_classifier(cfg):
         model, _preprocess_train, _preprocess_val = open_clip.create_model_and_transforms('hf-hub:laion/CLIP-ViT-H-14-laion2B-s32B-b79K')
         tokenizer = open_clip.get_tokenizer('hf-hub:laion/CLIP-ViT-H-14-laion2B-s32B-b79K')
 
-        def text_embedding(tokens):
-            with torch.no_grad(), torch.cuda.amp.autocast():
-                text_embeddings = model.encode_text(tokens).cpu().numpy() 
-                
-            return jnp.array(text_embeddings, dtype=jnp.float32)
+
         #return text_embedding, tokenizer
         text_embeddings_table = get_label_embeddings(cfg)
         with torch.no_grad():

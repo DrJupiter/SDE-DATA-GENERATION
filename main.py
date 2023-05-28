@@ -6,8 +6,6 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 # Saving and loading
 import pickle
 
-# convret to torch for FID
-import torch
 
 ## Jax
 
@@ -65,7 +63,7 @@ from time import time
 
 
 # Paramter loading
-from utils.utils import load_model_paramters, load_optimizer_paramters, get_wandb_input, min_max_rescale, get_save_path_names, split_tuple
+from utils.utils import load_model_paramters, load_optimizer_paramters, get_wandb_input, min_max_rescale, get_save_path_names, get_classifier
 
 ### Train loop:
 
@@ -104,7 +102,8 @@ def run_experiment(cfg):
       grad_fn = jax.grad(loss_fn,1) # TODO: try to JIT function partial(jax.jit,static_argnums=0)(jax.grad(loss_fn,1))
       grad_fn = jax.jit(grad_fn, static_argnums=0)
     elif cfg.train_and_test.mode == "validation":
-        fid_model = get_fid_model(cfg) 
+        if cfg.model.type == "score":
+          fid_model = get_fid_model(cfg) 
 
 
 
@@ -162,7 +161,7 @@ def run_experiment(cfg):
                       loss = loss_fn(model_call, model_parameters, data, perturbed_data, scaled_timesteps, z, text_embeddings, subkey[2])
                       wandb.log({"loss": loss})
 
-                    if cfg.wandb.log.accuracy and i % 1000 and cfg.model.type == "classifier":
+                    if (cfg.wandb.log.accuracy and i % 1000) and cfg.model.type == "classifier":
                         predicted_classes = jnp.argmax(inference_model(data, scaled_timesteps, text_embeddings, model_parameters, key), axis=1)
                         correct_classes = jnp.argmax(text_embeddings, axis=1)
                         wandb.log({"accuracy": jnp.mean(predicted_classes == correct_classes)})
@@ -224,36 +223,62 @@ def run_experiment(cfg):
                             #wandb.save(file_name["optimizer"])
     elif cfg.train_and_test.mode == "validation":
 
+        # TODO SHARD TEST DATA
         all_data, all_labels, all_embeddings = get_all_test_data(cfg, test_dataset)
-
-        drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
-        diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
-        get_sample = lambda t, key1, key0, xt, text_embedding: sample(1e-5, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else all_data[0], key0], xt, key1) 
-
-        key, *subkey = jax.random.split(key, len(all_data) * 2 + 1)
-
-        timesteps = jnp.ones((all_data.shape[0],))
-        Z_0, _ = SDE.sample(timesteps, jnp.zeros_like(all_data), subkey[0])
-
-
-        args = (timesteps.reshape(-1, 1), jnp.array(subkey[:len(subkey)//2]), jnp.array(subkey[len(subkey)//2:]), Z_0, all_embeddings)
         split_factor = cfg.train_and_test.test.split_factor 
         assert len(all_data) % split_factor == 0, f"split factor {split_factor} doesn't divide the length of the data {len(all_data)}"
 
-        all_generated_imgs = []
-        for i in range(len(all_data)//split_factor):
-          arg = [x[i*split_factor:(i+1)*split_factor] for x in args]
-          generated_imgs = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*arg)
-          all_generated_imgs += list(generated_imgs)
-        all_generated_imgs = jnp.array(all_generated_imgs)
+    
+           
+        if cfg.model.type == "score":
+          
 
-        display_images(cfg, all_generated_imgs[:10], all_labels.reshape(-1)[:10], log_title="Perturbed 0 -> x(0)")
-        fid = fid_model(all_generated_imgs, all_data[:len(all_generated_imgs)])
-        wandb.log({"FID GEN x DATA": fid})
-        # sanity check
-        fid_data = fid_model(jax.random.permutation(key, all_data[:1000], axis=0, independent=False), all_data[:1000], force_recompute=True)
-        wandb.log({"FID DATA x DATA": fid_data})
-        
+          drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
+          diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
+          get_sample = lambda t, key1, key0, xt, text_embedding: sample(1e-5, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else all_data[0], key0], xt, key1) 
+
+          key, *subkey = jax.random.split(key, len(all_data) * 2 + 1)
+
+          timesteps = jnp.ones((all_data.shape[0],))
+          Z_0, _ = SDE.sample(timesteps, jnp.zeros_like(all_data), subkey[0])
+
+
+          args = (timesteps.reshape(-1, 1), jnp.array(subkey[:len(subkey)//2]), jnp.array(subkey[len(subkey)//2:]), Z_0, all_embeddings)
+
+          all_generated_imgs = []
+          for i in range(len(all_data)//split_factor):
+            arg = [x[i*split_factor:(i+1)*split_factor] for x in args]
+            generated_imgs = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*arg)
+            all_generated_imgs += list(generated_imgs)
+          all_generated_imgs = jnp.array(all_generated_imgs)
+
+          display_images(cfg, all_generated_imgs[:10], all_labels.reshape(-1)[:10], log_title="Perturbed 0 -> x(0)")
+          fid = fid_model(all_generated_imgs, all_data[:len(all_generated_imgs)])
+          wandb.log({"FID GEN x DATA": fid})
+          # sanity check
+
+          if cfg.wandb.log.accuracy:
+            classifier_parameters, classifier = get_classifier(cfg)
+            all_predicted_classes = []
+            for i in range(len(all_data)//split_factor):
+              all_predicted_classes += jnp.argmax(classifier(all_generated_imgs[i*split_factor:(i+1)*split_factor], None, None, classifier_parameters, key), axis=1)
+
+            all_predicted_classes = jnp.array(all_predicted_classes) 
+            
+            wandb.log({"accuracy on test": jnp.mean(all_labels == all_predicted_classes)})
+
+
+
+          fid_data = fid_model(jax.random.permutation(key, all_data[:1000], axis=0, independent=False), all_data[:1000], force_recompute=True)
+          wandb.log({"FID DATA x DATA": fid_data})
+
+        elif cfg.model.type == "classifier":
+          all_correct_classes = jnp.argmax(all_embeddings, axis=1)
+          all_predicted_classes = []
+          for i in range(len(all_data)//split_factor):
+            all_predicted_classes += jnp.argmax(inference_model(all_data[i*split_factor:(i+1)*split_factor], None, None, model_parameters, key), axis=1)
+          all_predicted_classes = jnp.array(all_predicted_classes) 
+          wandb.log({"accuracy on test": jnp.mean(all_correct_classes == all_predicted_classes)})
         
 
 if __name__ == "__main__":

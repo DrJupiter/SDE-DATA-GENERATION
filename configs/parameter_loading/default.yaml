@@ -12,3 +12,5 @@ test_data: True
 test_statistics: True # Only makes sense, when loading test_data too
 test_data_path: "./saved-data" # Directory only
 
+# If loaded it is required to be present, thus if this fails, a classifier must be trained and provided, but the code allows for this
+classifier_path: "./saved-parameters/classifier"

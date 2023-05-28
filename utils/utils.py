@@ -63,9 +63,29 @@ def get_save_path_names(cfg):
     file_name = {}
     file_name['model'] = f"{cfg.dataset.name}-{cfg.model.name}-parameters.pickle"
     file_name['optimizer'] = f"{cfg.dataset.name}-{cfg.model.name}-{cfg.optimizer.name}-parameters.pickle"
-    file_name["test_data"] = f"{cfg.dataset.name}-test.npz"
+    file_name["test_data"] = f"{cfg.dataset.name}-{cfg.model.type}-test.npz"
     file_name["test_data_statistics"] = f"{cfg.train_and_test.test.fid_model_type}-{cfg.dataset.name}-{cfg.model.name}-{cfg.loss.name}-test-statistics.npz"
     return file_name 
+
+from models.model import get_model
+def get_classifier(cfg):
+
+    # ! DON'T DO THIS UNLESS YOU KNOW WHAT YOU'RE DOING, IT WILL MESS THINGS UP OTHERWISE
+        # Modify the config
+    cfg = get_hydra_config(overrides=['model=ddpm_simple', "model.type=classifier", "parameter_loading.model=True", f"parameter_loading.model_path={cfg.parameter_loading.classifier_path}"])
+
+    # get model
+    parameters, _, classifier = get_model(cfg)
+    # load parameters
+    parameters = load_model_paramters(cfg, parameters)
+
+    # Reset the config
+    get_hydra_config()
+
+    return parameters, classifier
+
+    
+
 
 
 def load_model_paramters(cfg, model_paramters):
