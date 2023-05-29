@@ -78,7 +78,9 @@ def get_fid_model(cfg):
                         stats = np.load(f)
                         true_pool3, true_logits = stats["pool3"], stats["logit"]
                         f.close()
-
+                    print(f"Loaded saved test pool3 and logits @ {name}")
+                    print(f"\t len(pool3), len(logits) = {len(true_pool3)}, {len(true_logits)}")
+                    print(f"\t len(pool3 from score model) = {len(gen_pool3)}")
                 else:
                     print(f"Unable to find {name}, creating and saving statistics instead")
 
