@@ -141,7 +141,7 @@ def get_wandb_input(cfg):
             assert batch_remainder == 0, f"Train Batch Size {cfg.train_and_test.train.batch_size} mod {n} = {batch_remainder} !=0, Thus sharding will fail" 
 
         if cfg.wandb.log.img:
-            assert cfg.wand.log.n_images % n == 0, f"Producing Images will fail due to incombatible sharding and image amounts: {cfg.wandb.log.n_images} mod {n} = {cfg.wandb.log.n_images % n} != 0"
+            assert cfg.wandb.log.n_images % n == 0, f"Producing Images will fail due to incombatible sharding and image amounts: {cfg.wandb.log.n_images} mod {n} = {cfg.wandb.log.n_images % n} != 0"
         
 
     tags = [cfg.wandb.setup.experiment, cfg.loss.name, cfg.model.name, cfg.sde.name, cfg.dataset.name]
