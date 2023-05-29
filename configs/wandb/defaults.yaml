@@ -4,7 +4,7 @@ setup:
         experiment: "model_size" # train #"batch_size"
 log:
         loss: true
-        img: false
+        img: true
         accuracy: true
         n_images: 10
         frequency: 1
