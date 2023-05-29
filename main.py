@@ -132,12 +132,12 @@ def run_experiment(cfg):
               timesteps = jax.random.uniform(subkey[0], (data.shape[0],), minval=1e-5, maxval=1)
        
               # TODO: Potentially not memory efficient in terms of how this replication is done
-              #timesteps = jax.device_put(timesteps, sharding.reshape(-1).replicate(0))
+              #timesteps = jax.device_put(timesteps, sharding.reshape(-1))
 
               # Perturb the data with the timesteps through sampling sde trick (for speed, see paper for explanation)
               perturbed_data, z = SDE.sample(timesteps, data, subkey[1])
             
-              #perturbed_data = jax.device_put(perturbed_data,sharding.reshape((1,len(jax.devices()))))
+              perturbed_data = jax.device_put(perturbed_data,sharding.reshape((len(jax.devices(),1)))) # sharding over batch on data
 
 
               # scale timesteps for more significance
