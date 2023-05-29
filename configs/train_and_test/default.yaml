@@ -1,6 +1,6 @@
 mode: train # validation, train
 train:
-   batch_size: 40
+   batch_size: 128
    epochs: 1000
    shuffle: true
 test:
