@@ -272,6 +272,7 @@ def run_experiment(cfg):
 
         elif cfg.model.type == "classifier":
           all_correct_classes = jnp.argmax(all_embeddings, axis=1)
+          print(all_embeddings)
           all_predicted_classes = []
           print(all_labels)
           for i in range(len(all_data)//split_factor):
@@ -281,7 +282,7 @@ def run_experiment(cfg):
           print(all_correct_classes.shape, all_predicted_classes.shape) 
           print(all_correct_classes)
           print(all_predicted_classes)
-          wandb.log({"accuracy on test": jnp.mean(all_labels == all_predicted_classes)})
+          wandb.log({"accuracy on test": jnp.mean(all_labels.reshape(-1) == all_predicted_classes)})
         
 
 if __name__ == "__main__":
