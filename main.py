@@ -273,8 +273,10 @@ def run_experiment(cfg):
         elif cfg.model.type == "classifier":
           all_correct_classes = jnp.argmax(all_embeddings, axis=1)
           all_predicted_classes = []
+          print(all_labels)
           for i in range(len(all_data)//split_factor):
             all_predicted_classes += list(jnp.argmax(inference_model(all_data[i*split_factor:(i+1)*split_factor], None, None, model_parameters, key), axis=1))
+            
           all_predicted_classes = jnp.array(all_predicted_classes) 
           print(all_correct_classes.shape, all_predicted_classes.shape) 
           print(all_correct_classes)
