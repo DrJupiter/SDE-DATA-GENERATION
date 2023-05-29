@@ -7,6 +7,7 @@ import models
 
 import jax.numpy as jnp
 from jax import vmap
+import jax
 
 import pickle
 import os
@@ -53,9 +54,10 @@ def get_classifier(cfg):
     # ! DON'T DO THIS UNLESS YOU KNOW WHAT YOU'RE DOING, IT WILL MESS THINGS UP OTHERWISE
         # Modify the config
     cfg = get_hydra_config(overrides=['model=ddpm_simple', "model.type=classifier", "parameter_loading.model=True", f"parameter_loading.model_path={cfg.parameter_loading.classifier_path}"])
-
+    key = jax.random.PRNGKey(cfg.model.key)
+    key, subkey = jax.random.split(key)
     # get model
-    parameters, _, classifier = models.get_model(cfg)
+    parameters, _, classifier = models.get_model(cfg, subkey)
     # load parameters
     parameters = load_model_paramters(cfg, parameters)
 
