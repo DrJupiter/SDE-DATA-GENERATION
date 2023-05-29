@@ -6,7 +6,7 @@ log:
         loss: true
         img: true
         accuracy: true
-        n_images: 10
+        n_images: 4
         frequency: 1
         FID: false
         epoch_frequency: 1

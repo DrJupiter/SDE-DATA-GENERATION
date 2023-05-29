@@ -6,6 +6,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 # Saving and loading
 import pickle
 
+import functools as ft
 
 ## Jax
 
@@ -58,7 +59,8 @@ from sde.sample import sample
 
 # sharding
 from jax.experimental import mesh_utils
-from jax.sharding import PositionalSharding
+from jax.sharding import PositionalSharding, Mesh, PartitionSpec, NamedSharding
+from jax.experimental.shard_map import shard_map
 
 # time the process so we cant stop before termination with the goal of allowing WANDB to save our weights
 from time import time
@@ -66,7 +68,6 @@ from time import time
 
 # Paramter loading
 import utils.utility as utility
-import utils.text_embedding as text_embedding
 
 ### Train loop:
 
@@ -112,7 +113,10 @@ def run_experiment(cfg):
 
 
     # get shard
-    sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
+    mesh = Mesh(mesh_utils.create_device_mesh((len(jax.devices()), 1)), ["B", "D"])
+    #named_sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
+    spec = PartitionSpec(('B', 'D'))
+    named_sharding = NamedSharding(mesh, spec)
 
     # start training for each epoch
     if cfg.train_and_test.mode == "train":
@@ -127,7 +131,8 @@ def run_experiment(cfg):
               # split key to keep randomness "random" for each training batch
               key, *subkey = jax.random.split(key, 4)
 
-              data = jax.device_put(data ,sharding.reshape((len(jax.devices()), 1)))
+              #data = jax.device_put(data ,named_sharding.reshape((len(jax.devices()), 1)))
+              data = jax.device_put(data, named_sharding)
 
               # get timesteps given random key for this batch and data shape
               # TODO: Strictly this changes from sde to sde
@@ -170,7 +175,15 @@ def run_experiment(cfg):
                       # reverse sde sampling
                       drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
                       diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
-                      get_sample = lambda t, key1, key0, xt, text_embedding: sample(1e-5, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1) 
+                      
+
+                      @jax.jit
+                      @ft.partial(shard_map, mesh=mesh, in_specs=spec, out_specs=spec, check_rep=False)
+                      @jax.vmap
+                      def get_sample(t, key1, key0, xt, text_embedding):
+                        return sample(1e-5, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1) 
+
+                      #get_sample = lambda t, key1, key0, xt, text_embedding: sample(1e-5, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1) 
                                       # dt0 = - 1/N
 
                       n = len(perturbed_data) 
@@ -180,23 +193,27 @@ def run_experiment(cfg):
                       key, *subkey = jax.random.split(key, len(perturbed_data)*2 + 1)
 
                       args = (timesteps.reshape(-1,1)[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], perturbed_data[:n], text_embeddings[:n])
-                      images = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
+                      #images = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
+                      images = get_sample(*args)
                  
                     
                       Z = (jax.random.normal(key, data.shape)*255)[:n]
                       args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], Z, text_embeddings[:n])
-                      normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
+                      #normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
+                      normal_distribution = get_sample(*args)
 
                       inference_out = inference_model(perturbed_data[:n], timesteps[:n], text_embeddings[:n],model_parameters if cfg.model.name != "sde" else data[:n], key)
                      
                       Z_T, _ = SDE.sample(jnp.ones_like(timesteps[:n]), jnp.zeros_like(data[:n]) + TRAIN_MEAN, subkey[0])
                     
                       args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], Z_T, text_embeddings[:n])
-                      mean_normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
+                      #mean_normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
+                      mean_normal_distribution = get_sample(*args)
 
                       Z_0, _ = SDE.sample(jnp.ones_like(timesteps[:n]), jnp.zeros_like(data[:n]), subkey[0])
                       args = (jnp.ones_like(timesteps.reshape(-1,1))[:n], jnp.array(subkey[:len(subkey)//2])[:n], jnp.array(subkey[len(subkey)//2:])[:n], Z_0, text_embeddings[:n])
-                      zero_normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
+                      #zero_normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
+                      zero_normal_distribution = get_sample(*args)
 
                       display_images(cfg, images, labels[:n], log_title="Reverse Sample x(t) -> x(0)")
                       display_images(cfg, perturbed_data[:n], labels[:n], log_title="Perturbed images")

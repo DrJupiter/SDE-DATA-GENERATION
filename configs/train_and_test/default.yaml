@@ -1,4 +1,4 @@
-mode: validation # validation, train
+mode: train # validation, train
 train:
    batch_size: 128
    epochs: 1000

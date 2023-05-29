@@ -53,7 +53,7 @@ def get_classifier(cfg):
 
     # ! DON'T DO THIS UNLESS YOU KNOW WHAT YOU'RE DOING, IT WILL MESS THINGS UP OTHERWISE
         # Modify the config
-    cfg = get_hydra_config(overrides=['model=ddpm_simple', "model.type=classifier", "parameter_loading.model=True", f"parameter_loading.model_path={cfg.parameter_loading.classifier_path}"])
+    cfg = get_hydra_config(overrides=[f'model={cfg.parameter_loading.classifier_name}', "model.type=classifier", "parameter_loading.model=True", f"parameter_loading.model_path={cfg.parameter_loading.classifier_path}"])
 
     # Generate key as in main
     key = jax.random.PRNGKey(cfg.model.key)
@@ -132,6 +132,16 @@ def get_wandb_input(cfg):
 
     # Sanity check for type of the model
     assert cfg.model.type == cfg.loss.type, f"The model type {cfg.model.type} != {cfg.loss.type}, make sure to choose ones which match or change the model type"
+
+    if cfg.model.sharding:
+        n = jax.device_count()        
+
+        if cfg.train_and_test.mode == "train":
+            batch_remainder = cfg.train_and_test.train.batch_size % n
+            assert batch_remainder == 0, f"Train Batch Size {cfg.train_and_test.train.batch_size} mod {n} = {batch_remainder} !=0, Thus sharding will fail" 
+
+        if cfg.wandb.log.img:
+            assert cfg.wand.log.n_images % n == 0, f"Producing Images will fail due to incombatible sharding and image amounts: {cfg.wandb.log.n_images} mod {n} = {cfg.wandb.log.n_images % n} != 0"
         
 
     tags = [cfg.wandb.setup.experiment, cfg.loss.name, cfg.model.name, cfg.sde.name, cfg.dataset.name]
