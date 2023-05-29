@@ -52,7 +52,7 @@ def get_fid_model(cfg):
 
             return all_pool_3, all_logits
 
-        def compute_fid(generated_imgs, true_images, force_recompute=True):
+        def compute_fid(generated_imgs, true_images, force_recompute=False):
 
             # Get the shape to reshape the data into
             datashape = np.array(jnp.array(cfg.dataset.shape)+jnp.array([0,cfg.dataset.padding*2,cfg.dataset.padding*2,0]))
@@ -70,7 +70,7 @@ def get_fid_model(cfg):
             # TODO: ADD ASSERT FOR SHAPES BEING THE SAME
 
             # Handle ground truth images
-            if cfg.parameter_loading.test_statistics and not force_recompute:
+            if cfg.parameter_loading.test_statistics and (not force_recompute):
                 file_name = utils.utility.get_save_path_names(cfg)["test_data_statistics"]
                 name = os.path.join(cfg.parameter_loading.test_data_path, file_name)
                 if os.path.isfile(name):

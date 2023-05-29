@@ -250,12 +250,15 @@ def run_experiment(cfg):
             arg = [x[i*split_factor:(i+1)*split_factor] for x in args]
             generated_imgs = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*arg)
             all_generated_imgs += list(generated_imgs)
+            break
           all_generated_imgs = jnp.array(all_generated_imgs)
 
           display_images(cfg, all_generated_imgs[:10], all_labels.reshape(-1)[:10], log_title="Perturbed 0 -> x(0)")
+          display_images(cfg, all_data[:10], all_labels.reshape(-1)[:10], log_title="Test Data: Image with Labels")
           fid = fid_model(all_generated_imgs, all_data[:len(all_generated_imgs)])
           wandb.log({"FID GEN x DATA": fid})
           # sanity check
+          fid_data = fid_model(jax.random.permutation(key, all_data[:1000], axis=0, independent=False), all_data[:1000], force_recompute=True)
 
           if cfg.wandb.log.accuracy:
             classifier_parameters, classifier = utility.get_classifier(cfg)
@@ -269,19 +272,13 @@ def run_experiment(cfg):
 
 
 
-          fid_data = fid_model(jax.random.permutation(key, all_data[:1000], axis=0, independent=False), all_data[:1000], force_recompute=True)
           wandb.log({"FID DATA x DATA": fid_data})
 
         elif cfg.model.type == "classifier":
-          all_correct_classes = np.argmax(all_embeddings, axis=1)
           all_predicted_classes = []
-          display_images(cfg, all_data[:10], all_labels.reshape(-1)[:10], log_title="Image label test") 
           for i in range(len(all_data)//split_factor):
             all_predicted_classes += list(np.argmax(inference_model(all_data[i*split_factor:(i+1)*split_factor], None, None, model_parameters, key), axis=1))
           all_predicted_classes = np.array(all_predicted_classes) 
-          print(all_predicted_classes)
-          print(all_correct_classes)
-          print(all_labels.reshape(-1))
           wandb.log({"accuracy on test": np.mean(all_labels.reshape(-1) == all_predicted_classes)})
         
 
