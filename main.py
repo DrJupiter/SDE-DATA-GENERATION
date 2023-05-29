@@ -259,20 +259,24 @@ def run_experiment(cfg):
           wandb.log({"FID GEN x DATA": fid})
           # sanity check
           fid_data = fid_model(jax.random.permutation(key, all_data[:1000], axis=0, independent=False), all_data[:1000], force_recompute=True)
+          wandb.log({"FID DATA x DATA": fid_data})
 
           if cfg.wandb.log.accuracy:
             classifier_parameters, classifier = utility.get_classifier(cfg)
             all_predicted_classes = []
             for i in range(len(all_data)//split_factor):
-              all_predicted_classes += list(jnp.argmax(classifier(all_generated_imgs[i*split_factor:(i+1)*split_factor], None, None, classifier_parameters, key), axis=1))
+              all_predicted_classes += list(np.argmax(classifier(all_generated_imgs[i*split_factor:(i+1)*split_factor], None, None, classifier_parameters, key), axis=1))
+              break
+            all_predicted_classes = np.array(all_predicted_classes) 
 
-            all_predicted_classes = jnp.array(all_predicted_classes) 
+            print(all_predicted_classes)
+            print(all_labels.reshape(-1))
+
             
-            wandb.log({"accuracy on test": jnp.mean(all_labels == all_predicted_classes)})
+            wandb.log({"accuracy on test": np.mean(all_labels.reshape(-1)[:len(all_predicted_classes)] == all_predicted_classes)})
 
 
 
-          wandb.log({"FID DATA x DATA": fid_data})
 
         elif cfg.model.type == "classifier":
           all_predicted_classes = []
