@@ -281,7 +281,7 @@ def run_experiment(cfg):
           print(all_correct_classes.shape, all_predicted_classes.shape) 
           print(all_correct_classes)
           print(all_predicted_classes)
-          wandb.log({"accuracy on test": jnp.mean(all_correct_classes == all_predicted_classes)})
+          wandb.log({"accuracy on test": jnp.mean(all_labels == all_predicted_classes)})
         
 
 if __name__ == "__main__":
