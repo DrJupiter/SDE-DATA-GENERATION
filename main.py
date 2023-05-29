@@ -259,7 +259,7 @@ def run_experiment(cfg):
             classifier_parameters, classifier = utility.get_classifier(cfg)
             all_predicted_classes = []
             for i in range(len(all_data)//split_factor):
-              all_predicted_classes += jnp.argmax(classifier(all_generated_imgs[i*split_factor:(i+1)*split_factor], None, None, classifier_parameters, key), axis=1)
+              all_predicted_classes += list(jnp.argmax(classifier(all_generated_imgs[i*split_factor:(i+1)*split_factor], None, None, classifier_parameters, key), axis=1))
 
             all_predicted_classes = jnp.array(all_predicted_classes) 
             
