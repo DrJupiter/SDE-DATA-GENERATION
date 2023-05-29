@@ -20,6 +20,8 @@ import jax
 import jax.numpy as jnp
 #jax.config.update('jax_platform_name', 'cpu')
 
+import numpy as np
+
 # Data
 from data.dataload import dataload, get_data_mean, get_all_test_data
 
@@ -271,18 +273,18 @@ def run_experiment(cfg):
           wandb.log({"FID DATA x DATA": fid_data})
 
         elif cfg.model.type == "classifier":
-          all_correct_classes = jnp.argmax(all_embeddings, axis=1)
+          all_correct_classes = np.argmax(all_embeddings, axis=1)
           print(all_embeddings)
           all_predicted_classes = []
-          print(all_labels)
+          print(all_labels.reshape(-1))
           for i in range(len(all_data)//split_factor):
-            all_predicted_classes += list(jnp.argmax(inference_model(all_data[i*split_factor:(i+1)*split_factor], None, None, model_parameters, key), axis=1))
+            all_predicted_classes += list(np.argmax(inference_model(all_data[i*split_factor:(i+1)*split_factor], None, None, model_parameters, key), axis=1))
             
-          all_predicted_classes = jnp.array(all_predicted_classes) 
+          all_predicted_classes = np.array(all_predicted_classes) 
           print(all_correct_classes.shape, all_predicted_classes.shape) 
           print(all_correct_classes)
           print(all_predicted_classes)
-          wandb.log({"accuracy on test": jnp.mean(all_labels.reshape(-1) == all_predicted_classes)})
+          wandb.log({"accuracy on test": np.mean(all_labels.reshape(-1) == all_predicted_classes)})
         
 
 if __name__ == "__main__":
