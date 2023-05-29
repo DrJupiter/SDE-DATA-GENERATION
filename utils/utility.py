@@ -83,7 +83,8 @@ def load_model_paramters(cfg, model_paramters):
 
         if cfg.model.sharding:
             model_paramters = get_model_sharding(cfg)(model_paramters)
-        print(f"Loaded model: {cfg.model.name} paramters @ checkpoint iteration {iteration}")
+        print(f"Loaded model: {cfg.model.name}-{cfg.model.type} paramters @ checkpoint iteration {iteration}")
+        print(f"\t Model path: {file_name['model']}")
     return model_paramters
 
 def load_optimizer_paramters(cfg, optimizer_paramters):
