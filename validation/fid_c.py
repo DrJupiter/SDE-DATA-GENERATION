@@ -7,7 +7,7 @@ import tensorflow_hub
 import tensorflow_gan as tf_gan
 import tensorflow as tf
 
-from utils.utils import get_save_path_names
+import utils.utility
 import os
 
 def get_fid_model(cfg):
@@ -71,7 +71,7 @@ def get_fid_model(cfg):
 
             # Handle ground truth images
             if cfg.parameter_loading.test_statistics and not force_recompute:
-                file_name = get_save_path_names(cfg)["test_data_statistics"]
+                file_name = utils.utility.get_save_path_names(cfg)["test_data_statistics"]
                 name = os.path.join(cfg.parameter_loading.test_data_path, file_name)
                 if os.path.isfile(name):
                     with open(name, "rb") as f:

@@ -27,7 +27,7 @@ from models.ddpm.building_blocks.ddpm_func_new import get_resnet_ff, get_attenti
 
 from time import sleep
 
-from utils.utils import get_hydra_config
+from utils.utility import get_hydra_config
     
 from loss.loss import get_loss
 

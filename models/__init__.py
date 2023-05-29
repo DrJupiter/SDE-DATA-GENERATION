@@ -1,4 +1,4 @@
 from .model import get_model
-from .ddpm.ddpm_functional import get_ddpm_unet as get_ddpm_unet_new
-from .dummy import dummy_jax
-from .ddpm_classifier.ddpm_functional import get_ddpm_unet as get_ddpm_unet_classifier
+from .dummy.shard import shard_parameters as shard_dummy
+from .ddpm.shard_parameters import shard_ddpm_unet as shard_score_ddpm_unet
+from .ddpm_classifier.shard_parameters import shard_ddpm_unet as shard_classifier_ddpm_unet

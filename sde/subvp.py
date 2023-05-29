@@ -79,7 +79,7 @@ class SUBVPSDE(SDE):
 if __name__ == "__main__":
     import os
     os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
-    from utils.utils import get_hydra_config
+    from utils.utility import get_hydra_config
     from visualization.visualize import display_images
     import sys
     config = get_hydra_config(overrides=["visualization.visualize_img=true","wandb.log.img=false"]) 

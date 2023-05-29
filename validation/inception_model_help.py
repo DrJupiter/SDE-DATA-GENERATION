@@ -1,7 +1,6 @@
 
 import torch
 from torch import nn
-import numpy as np
 from PIL import Image
 import glob
 from torchvision import transforms
@@ -87,7 +86,7 @@ def inceptionv3(x = None,path_to_imgs = None, pre_transformed = False) -> torch.
 if __name__ == "__main__":
     import torchvision.datasets as datasets
     # from time import perf_counter
-    from utils.utils import get_hydra_config
+    from utils import get_hydra_config
     cfg = get_hydra_config()
 
     cifar10_testset = datasets.CIFAR10(root=cfg.dataset.path, train=False, download=True, transform=preprocess)

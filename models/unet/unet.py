@@ -185,7 +185,7 @@ if __name__ == "__main__":
     sys.path.append("/media/sf_Bsc-Diffusion")
     # need ends
 
-    from utils.utils import get_hydra_config
+    from utils.utility import get_hydra_config
     cfg = get_hydra_config()
     # print(cfg.model)
 

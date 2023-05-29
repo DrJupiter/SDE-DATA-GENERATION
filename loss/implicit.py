@@ -2,7 +2,7 @@
 from jax import vmap, jacrev 
 import jax.numpy as jnp
 from jax import random as jrandom
-from utils import batch_matmul
+from utils.utility import batch_matmul
 
 # sharding
 from jax.experimental import mesh_utils
@@ -60,7 +60,7 @@ if __name__ == "__main__":
         print(f"The timesteps: {timesteps}")
         
         return a*x**2 
-    from utils.utils import get_hydra_config
+    from utils.utility import get_hydra_config
     config = get_hydra_config(overrides=["loss=implicit_sm"]) 
     implicit_score_matching = get_implicit_score_matching(config)
     from data.dataload import dataload

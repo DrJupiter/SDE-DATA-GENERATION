@@ -21,7 +21,7 @@ if __name__ == "__main__":
     import os
     os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
     from sde import get_sde
-    from utils.utils import get_hydra_config
+    from utils import get_hydra_config
     config = get_hydra_config(overrides=["visualization.visualize_img=true","wandb.log.img=false"]) 
     sde = get_sde(config)
     from data.dataload import dataload

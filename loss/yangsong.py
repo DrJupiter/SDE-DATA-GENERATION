@@ -1,5 +1,5 @@
 
-from utils import batch_matmul
+from utils.utility import batch_matmul
 from jax import numpy as jnp
 from sde.sde import get_sde
 from sde.subvp import SUBVPSDE

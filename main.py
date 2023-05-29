@@ -27,7 +27,7 @@ from data.dataload import dataload, get_data_mean, get_all_test_data
 # maybe make this a seperate module
 
 # Model and optimizer
-from models.model import get_model 
+from models import get_model 
 from optimizer.optimizers import get_optim
 
 # Loss
@@ -63,7 +63,8 @@ from time import time
 
 
 # Paramter loading
-from utils.utils import load_model_paramters, load_optimizer_paramters, get_wandb_input, min_max_rescale, get_save_path_names, get_classifier
+import utils.utility as utility
+import utils.text_embedding as text_embedding
 
 ### Train loop:
 
@@ -75,7 +76,7 @@ def run_experiment(cfg):
     # initialize Weights and Biases
     print(cfg)
     print(jax.devices())
-    wandb.init(**get_wandb_input(cfg))
+    wandb.init(**utility.get_wandb_input(cfg))
 
     # Get randomness key
     key = jax.random.PRNGKey(cfg.model.key)
@@ -87,7 +88,7 @@ def run_experiment(cfg):
     TRAIN_MEAN = get_data_mean(cfg, train_dataset)
     # Get model forward call and its parameters
     model_parameters, model_call, inference_model = get_model(cfg, key = subkey) 
-    model_parameters = load_model_paramters(cfg, model_parameters)
+    model_parameters = utility.load_model_paramters(cfg, model_parameters)
 
     # get sde
     SDE = get_sde(cfg)
@@ -98,7 +99,7 @@ def run_experiment(cfg):
     if cfg.train_and_test.mode == "train":
     # Get optimizer and its parameters
       optimizer, optim_parameters = get_optim(cfg, model_parameters)
-      optim_parameters = load_optimizer_paramters(cfg, optim_parameters)
+      optim_parameters = utility.load_optimizer_paramters(cfg, optim_parameters)
       grad_fn = jax.grad(loss_fn,1) # TODO: try to JIT function partial(jax.jit,static_argnums=0)(jax.grad(loss_fn,1))
       grad_fn = jax.jit(grad_fn, static_argnums=0)
     elif cfg.train_and_test.mode == "validation":
@@ -200,19 +201,19 @@ def run_experiment(cfg):
 
                       display_images(cfg, images, labels[:n], log_title="Reverse Sample x(t) -> x(0)")
                       display_images(cfg, perturbed_data[:n], labels[:n], log_title="Perturbed images")
-                      display_images(cfg, min_max_rescale(perturbed_data[:n]), labels[:n], log_title="Min-Max Rescaled")
+                      display_images(cfg, utility.min_max_rescale(perturbed_data[:n]), labels[:n], log_title="Min-Max Rescaled")
                       display_images(cfg, normal_distribution, labels[:n], log_title="N(0,I) -> x(0)")
-                      display_images(cfg, min_max_rescale(normal_distribution), labels[:n], log_title="N(0,I) -> x(0), min-max rescaled")
+                      display_images(cfg, utility.min_max_rescale(normal_distribution), labels[:n], log_title="N(0,I) -> x(0), min-max rescaled")
                       display_images(cfg, Z_0, labels[:n], log_title="Pertrubed 0")
                       display_images(cfg, zero_normal_distribution, labels[:n], log_title="Perturbed 0 -> x(0)")
                       display_images(cfg, Z_T, labels[:n], log_title="Pertrubed TRAIN MEAN + N(0,I)")
                       display_images(cfg, mean_normal_distribution, labels[:n], log_title="Perturbed TRAIN MEAN + N(0,I) -> x(0)")
                       display_images(cfg, Z, labels[:n], log_title="N(0,I)")
                       display_images(cfg, data[:n], labels[:n], log_title="Original Images: x(0)")
-                      display_images(cfg, min_max_rescale(inference_out), labels[:n], log_title="Model output, min-max rescaled")
+                      display_images(cfg, utility.min_max_rescale(inference_out), labels[:n], log_title="Model output, min-max rescaled")
 
                     if (cfg.wandb.log.parameters and i % 1000 == 0):
-                            file_name = get_save_path_names(cfg)
+                            file_name = utility.get_save_path_names(cfg)
                             with open(os.path.join(wandb.run.dir, file_name["model"]), 'wb') as f:
                               pickle.dump((epoch*len(train_dataset) + i, model_parameters), f, pickle.HIGHEST_PROTOCOL)
                               f.close()
@@ -258,7 +259,7 @@ def run_experiment(cfg):
           # sanity check
 
           if cfg.wandb.log.accuracy:
-            classifier_parameters, classifier = get_classifier(cfg)
+            classifier_parameters, classifier = utility.get_classifier(cfg)
             all_predicted_classes = []
             for i in range(len(all_data)//split_factor):
               all_predicted_classes += jnp.argmax(classifier(all_generated_imgs[i*split_factor:(i+1)*split_factor], None, None, classifier_parameters, key), axis=1)

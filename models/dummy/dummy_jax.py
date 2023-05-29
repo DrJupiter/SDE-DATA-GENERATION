@@ -5,7 +5,8 @@ from jax import random
 from jax import nn
 
 
-from utils import get_model_sharding
+#from utils import get_model_sharding
+import utils.utility
 
 
 # %%
@@ -32,7 +33,7 @@ def get_parameters(cfg):
         parameters.append(parameter)
      
     if cfg.model.sharding:
-        parameters = get_model_sharding(cfg)(parameters)
+        parameters = utils.utility.get_model_sharding(cfg)(parameters)
     return parameters
 
 def get_dummy_train(cfg):
@@ -116,7 +117,7 @@ if __name__ == "__main__":
     # end
     import os
     os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
-    from utils.utils import get_hydra_config
+    from utils.utility import get_hydra_config
     cfg = get_hydra_config(overrides=['model=dummy', 'wandb.log.loss=false', 'wandb.log.img=false', 'visualization.visualize_img=true'])
     print(cfg)
     from models.model import get_model 

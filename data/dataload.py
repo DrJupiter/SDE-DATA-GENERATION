@@ -4,9 +4,9 @@ import torchvision.transforms as transforms
 from torchvision.datasets import MNIST, CIFAR10
 import multiprocessing as mp
 
-#from utils.text_embedding import get_label_embeddings
-#from utils.utils import get_save_path_names
-from utils import get_label_embeddings, get_save_path_names
+import utils.utility
+import utils.text_embedding
+
 
 import os
 
@@ -62,7 +62,7 @@ def dataload(cfg):
     """
     name = cfg.dataset.name
 
-    text_embedding_table = get_label_embeddings(cfg)
+    text_embedding_table = utils.text_embedding.get_label_embeddings(cfg)
      
     if name == 'mnist':
         if cfg.dataset.padding > 0:
@@ -95,7 +95,7 @@ def dataload(cfg):
     raise ValueError(f"The dataset with name {name} doesn't exist")
 
 def get_all_test_data(cfg, dataset):
-  file_name = get_save_path_names(cfg)["test_data"]
+  file_name = utils.utility.get_save_path_names(cfg)["test_data"]
   name = os.path.join(cfg.parameter_loading.test_data_path, file_name)
   if cfg.parameter_loading.test_data:
     if os.path.isfile(name):
@@ -148,11 +148,10 @@ if __name__ == "__main__":
 #    import multiprocessing as mp
 #    training_generator = NumpyLoader(mnist_dataset, batch_size=1, num_workers=mp.cpu_count())
 
-    from utils import get_hydra_config
-    cfg = get_hydra_config(overrides=['dataset=mnist', "visualization.visualize_img=true","wandb.log.img=false"])
+    cfg = utils.utility.get_hydra_config(overrides=['dataset=mnist', "visualization.visualize_img=true","wandb.log.img=false"])
     from visualization.visualize import display_images
     training_generator, test_generator = dataload(cfg)
-    mean = get_data_mean(training_generator)
+    mean = get_data_mean(cfg, training_generator)
     print(jnp.max(mean))
     display_images(cfg, [mean], ["datamean"])
     import sys

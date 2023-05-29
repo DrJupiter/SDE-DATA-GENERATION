@@ -39,7 +39,7 @@ if __name__ == "__main__":
     x2 = "./validation/imgs/gen/*.jpg"
 
     # print(FID_score(x1,x2))
-    from utils.utils import get_hydra_config
+    from utils import get_hydra_config
     cfg = get_hydra_config()
     print(cfg)
     from data.dataload import dataload 

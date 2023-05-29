@@ -11,7 +11,7 @@ from jax import lax
 import jax
 
 # sharding
-from utils import get_model_sharding
+import utils.utility
 from jax.experimental import mesh_utils
 from jax.sharding import PositionalSharding
 
@@ -75,7 +75,7 @@ def get_ddpm_unet(cfg, key, inference=False):
 
     if cfg.model.sharding:
         print("Sharding")
-        params = get_model_sharding(cfg)(params)
+        params = utils.utility.get_model_sharding(cfg)(params)
 
     data_shape = [cfg.dataset.shape[0], cfg.dataset.shape[1]+cfg.dataset.padding*2, cfg.dataset.shape[2]+cfg.dataset.padding*2, cfg.dataset.shape[-1]]
     
