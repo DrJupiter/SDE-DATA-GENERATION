@@ -83,17 +83,18 @@ def get_ddpm_unet(cfg, key, inference=False):
         x_in_shape = x_in.shape
 
         # apply text guidance embedding
-        x_in = apply_text_embedding_data(x_in, text_embedding, params["p_text_embed_data"])
-        #data_shape = jnp.array(cfg.dataset.shape)+jnp.array([0,cfg.dataset.padding*2,cfg.dataset.padding*2,0])
+        if cfg.model.guidance:
+            x_in = apply_text_embedding_data(x_in, text_embedding, params["p_text_embed_data"])
+        
         # Transform input into the image shape
         x_in = x_in.reshape(data_shape)
 
         # Split key to preserve randomness
-        key, *subkey = random.split(key,12) # TODO: change 2 to 29 and add a * in front of subkey
+        key, *subkey = random.split(key,12)
 
         # Create the embedding given the timesteps
         embed = apply_timestep_embedding(timesteps*999, params["p_embed"])
-        text_embed = apply_text_embedding(text_embedding, params["p_text_embed"])
+        text_embed = 0. if not cfg.model.guidance else apply_text_embedding(text_embedding, params["p_text_embed"])
         embed = embed + text_embed
 
         # Apply model
@@ -130,18 +131,20 @@ def get_ddpm_unet(cfg, key, inference=False):
         x_in_shape = x_in.shape
 
         # apply text guidance embedding
-        x_in = apply_text_embedding_data(x_in, text_embedding, params["p_text_embed_data"])
-
-        #data_shape = jnp.array(cfg.dataset.shape)+jnp.array([0,cfg.dataset.padding*2,cfg.dataset.padding*2,0])
+        if cfg.model.guidance:
+            x_in = apply_text_embedding_data(x_in, text_embedding, params["p_text_embed_data"])
+        
         # Transform input into the image shape
         x_in = x_in.reshape(data_shape)
 
         # Split key to preserve randomness
-        key, *subkey = random.split(key,12) # TODO: change 2 to 29 and add a * in front of subkey
+        key, *subkey = random.split(key,12) 
 
         # Create the embedding given the timesteps
         embed = apply_timestep_embedding(timesteps*999, params["p_embed"])
-        text_embed = apply_text_embedding(text_embedding, params["p_text_embed"])
+
+        text_embed = 0. if not cfg.model.guidance else apply_text_embedding(text_embedding, params["p_text_embed"])
+
         embed = embed + text_embed
 
         # Apply model
