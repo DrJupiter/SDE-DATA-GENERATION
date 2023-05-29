@@ -112,13 +112,22 @@ def get_all_test_data(cfg, dataset):
       print(f"{name} not found, instead")
   
       print(f"Saving test data @ {name}")
-      labels, embeddings = get_all_labels(cfg, dataset)
-      data = get_all_data(cfg, dataset)
+      data, labels, embeddings = get_all_data_labels(cfg, dataset)
       with open(name, "wb") as f:
         np.savez_compressed(f, data=data, labels=labels, embeddings=embeddings)
         f.close() 
   return data, labels, embeddings  
 
+def get_all_data_labels(cfg, dataloader):
+   gen = iter(dataloader)
+   x = []
+   label = []
+   embedding = []
+   for (data, (labels, embeddings)) in gen:
+      x += list(data)
+      label += list(labels)
+      embedding += list(embeddings)
+   return jnp.vstack(x), jnp.vstack(label), jnp.vstack(embedding)
 
 def get_all_data(cfg, dataloader):
    gen = iter(dataloader)  
