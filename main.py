@@ -277,9 +277,10 @@ def run_experiment(cfg):
           print(all_embeddings)
           all_predicted_classes = []
           print(all_labels.reshape(-1))
+          display_images(cfg, all_data[:10], all_labels.reshape(-1)[:10], log_title="Image label test") 
+          sys.exit(0)
           for i in range(len(all_data)//split_factor):
             all_predicted_classes += list(np.argmax(inference_model(all_data[i*split_factor:(i+1)*split_factor], None, None, model_parameters, key), axis=1))
-            
           all_predicted_classes = np.array(all_predicted_classes) 
           print(all_correct_classes.shape, all_predicted_classes.shape) 
           print(all_correct_classes)
