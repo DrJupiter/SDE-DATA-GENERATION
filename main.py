@@ -15,11 +15,11 @@ import os
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 #os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION']='0.5'
 #os.environ['XLA_PYTHON_CLIENT_ALLOCATOR']='platform'
-#os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
+os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
 
 import jax
 import jax.numpy as jnp
-#jax.config.update('jax_platform_name', 'cpu')
+jax.config.update('jax_platform_name', 'cpu')
 
 import numpy as np
 
@@ -114,7 +114,7 @@ def run_experiment(cfg):
 
     # get shard
     #mesh = Mesh(mesh_utils.create_device_mesh((len(jax.devices()), 1)), ["B", "D"])
-    mesh = Mesh(mesh_utils.create_device_mesh((len(jax.devices()),)), ["B"])
+    mesh = Mesh(mesh_utils.create_device_mesh((len(jax.devices()),1,1,1)), ["B", 'H', 'W', 'C'])
     #named_sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
     spec = PartitionSpec(('B',))
     named_sharding = NamedSharding(mesh, spec)
