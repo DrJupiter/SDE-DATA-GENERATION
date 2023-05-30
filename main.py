@@ -19,7 +19,7 @@ os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 
 import jax
 import jax.numpy as jnp
-#jax.config.update('jax_platform_name', 'cpu')
+jax.config.update('jax_platform_name', 'cpu')
 
 import numpy as np
 
