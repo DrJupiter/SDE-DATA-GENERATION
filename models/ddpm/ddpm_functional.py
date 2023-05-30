@@ -95,6 +95,7 @@ def get_ddpm_unet(cfg, key, inference=False):
         # Create the embedding given the timesteps
         embed = apply_timestep_embedding(timesteps*999, params["p_embed"])
         text_embed = 0. if not cfg.model.guidance else apply_text_embedding(text_embedding, params["p_text_embed"])
+        print(text_embed)
         embed = embed + text_embed
 
         # Apply model
@@ -123,7 +124,7 @@ def get_ddpm_unet(cfg, key, inference=False):
         return x_out
 
     def inf_ddpm_unet(x_in, timesteps, text_embedding, params, key):
-        print("Inference")
+
         # Keep this the first line to ensure correct shapes for the SDE solver
         x_in_shape = x_in.shape
 
