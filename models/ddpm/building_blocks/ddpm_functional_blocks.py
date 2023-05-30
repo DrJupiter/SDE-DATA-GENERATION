@@ -398,7 +398,7 @@ def get_resnet_ff(cfg, key, in_C, out_C):
         x = x  + x_skip
 
         # Enforce sharding shape to avoid ret_check failure when returning
-        x = jax.lax.with_sharding_constraint(x, sharding)
+        #x = jax.lax.with_sharding_constraint(x, sharding)
 
         return x
 
@@ -429,7 +429,7 @@ def get_resnet_ff(cfg, key, in_C, out_C):
         x = x  + x_skip
 
         # Enforce sharding shape to avoid ret_check failure when returning
-        #x = jax.lax.with_sharding_constraint(x, sharding)
+        x = jax.lax.with_sharding_constraint(x, sharding)
 
         return x
 
