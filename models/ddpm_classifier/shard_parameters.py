@@ -149,7 +149,7 @@ def shard_ddpm_unet(params):
 
     # if cfg.model.hyperparameters.sharding:
     n_devices = len(jax.devices())
-    sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,1)))
+    sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,1))) # TODO: change sharding to named sharding, not essential but nice
 
     # get time embedding func and params
     params["p_softmax"] = shard_lin(params["p_softmax"], sharding)

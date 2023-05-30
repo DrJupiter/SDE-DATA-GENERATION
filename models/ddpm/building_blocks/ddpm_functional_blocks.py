@@ -314,7 +314,6 @@ def get_conv(cfg, key, in_C, out_C,first=False):
     n_devices = len(jax.devices())
     sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(n_devices,1,1,1)
 
-
     # if first:
     #     sharding = sharding.reshape(1,1,1,-1)
     # else:
