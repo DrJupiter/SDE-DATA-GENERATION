@@ -175,10 +175,12 @@ x = jax.random.normal(key1, (8192, 8192))
 w = jax.random.normal(key2, (8192, 8192))
 # and use jax.device_put to distribute it across devices:
 xs = jax.device_put(x, sharding)
-ws = jax.device_put(x, sharding)
+ws = jax.device_put(x, sharding.rehsape(-1,1))
 
 jax.debug.visualize_array_sharding(xs)
 jax.debug.visualize_array_sharding(ws)
+
+
 
 #%%
 jax.numpy.matmul(x,w)
@@ -214,3 +216,49 @@ w = jax.device_put(w,sharding)
 # perform some computation
 y = jax.numpy.matmul(x,w)
 jax.debug.visualize_array_sharding(x)
+
+#%%
+import jax
+import os
+os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
+# os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
+n_devices = len(jax.devices())
+print("n: ",n_devices)
+
+from jax.experimental import mesh_utils
+from jax.sharding import PositionalSharding
+
+sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(n_devices,1)
+
+key = jax.random.PRNGKey(0)
+key1, key2 = jax.random.split(key,2)
+
+C = 8192
+
+x = jax.device_put(jax.random.normal(key1, (C, C)), sharding)
+w = jax.device_put(jax.random.normal(key2, (C, C)), sharding.reshape(1,-1))
+
+jax.debug.visualize_array_sharding(x)
+jax.debug.visualize_array_sharding(w)
+
+# %%
+
+import jax
+import os
+os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
+os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
+print(jax.devices())
+
+from jax.experimental import mesh_utils
+from jax.sharding import PositionalSharding
+import jax.numpy as jnp
+
+sharding = PositionalSharding(mesh_utils.create_device_mesh((4,))).reshape(1,4)
+
+x = jax.device_put(jnp.ones((4,16*16*32)),sharding)
+
+print(x.sharding)
+
+x = x.reshape(4,16,16,32)
+
+print(x.sharding)
