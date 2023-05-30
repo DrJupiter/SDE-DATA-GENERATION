@@ -117,6 +117,7 @@ def run_experiment(cfg):
     mesh = Mesh(mesh_utils.create_device_mesh((len(jax.devices()),1,1,1)), ["B", 'H', 'W', 'C'])
     #named_sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
     spec = PartitionSpec(('B',))
+    out_spec = PartitionSpec(('B', None, None, None))
     named_sharding = NamedSharding(mesh, spec)
 
     # start training for each epoch
