@@ -115,10 +115,10 @@ def run_experiment(cfg):
     # get shard
     #mesh = Mesh(mesh_utils.create_device_mesh((len(jax.devices()), 1)), ["B", "D"])
     #mesh = Mesh(mesh_utils.create_device_mesh((1,len(jax.devices()))), ['B', 'D'])
-    mesh = Mesh(mesh_utils.create_device_mesh((len(jax.devices()),)), ['B'])
+    mesh = Mesh(mesh_utils.create_device_mesh((len(jax.devices()),1)), ['B', 'D'])
     #named_sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
     #spec = PartitionSpec(('B','D'))
-    spec = PartitionSpec(('B'))
+    spec = PartitionSpec(('B', 'D'))
     out_spec = PartitionSpec(('B', None, None, None))
     named_sharding = NamedSharding(mesh, spec)
 
