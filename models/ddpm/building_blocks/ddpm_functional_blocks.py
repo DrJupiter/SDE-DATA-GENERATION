@@ -312,8 +312,9 @@ def get_conv(cfg, key, in_C, out_C,first=False):
     params = abf * initilizer(key, ((kernel_size, kernel_size, in_C, out_C)), dtype=jnp.float32)
     #params = abf*random.normal(key, ((kernel_size, kernel_size, in_C, out_C)), dtype=jnp.float32)
     n_devices = len(jax.devices())
-    sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(n_devices,1,1,1)
 
+    #sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(n_devices,1,1,1)
+    sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(1,n_devices,1,1)
 
     # if first:
     #     sharding = sharding.reshape(1,1,1,-1)
@@ -366,7 +367,8 @@ def get_resnet_ff(cfg, key, in_C, out_C):
     dropout, _ = get_dropout(cfg, key, in_C, out_C)
 
     n_devices = len(jax.devices())
-    sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(n_devices,1,1,1)
+    #sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(n_devices,1,1,1)
+    sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(1,n_devices,1,1)
 
 
     @jit
@@ -471,7 +473,8 @@ def get_attention(cfg, key, in_C, out_C):
     # batchnorm, params["btchN1"] = get_batchnorm(cfg, key, in_C, out_C)
 
     n_devices = len(jax.devices())
-    sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(n_devices,1,1,1)
+    #sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(n_devices,1,1,1)
+    sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(1,n_devices,1,1)
 
 
     @jit
@@ -518,7 +521,8 @@ def get_down(cfg, key, in_C, out_C, factor):
     params = {"r1":params1, "r2": params2}
 
     n_devices = len(jax.devices())
-    sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(n_devices,1,1,1)
+    #sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(n_devices,1,1,1)
+    sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(1,n_devices,1,1)
 
 
     factor = factor
@@ -584,7 +588,8 @@ def get_up(cfg, key, in_C, out_C, residual_C: list, factor):
     params = {"r1":params1, "r2": params2,"r3": params3}
 
     n_devices = len(jax.devices())
-    sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(n_devices,1,1,1)
+    #sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(n_devices,1,1,1)
+    sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(1,n_devices,1,1)
 
     factor = factor
 
@@ -628,8 +633,6 @@ def get_up_attn(cfg, key, in_C, out_C, residual_C: list, factor):
     attn3, params_a3, inf_attn3 = get_attention(cfg, key, out_C, out_C)
 
     params = {"r1":params1, "r2": params2,"r3": params3,"a1": params_a1,"a2": params_a2,"a3": params_a3}
-
-    factor = factor
 
     def up_attn(x, x_res1, x_res2, x_res3, embedding, params, subkey):
         x = resnet1(jnp.concatenate([x,x_res1],-1), embedding, params["r1"], subkey)

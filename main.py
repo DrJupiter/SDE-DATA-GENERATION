@@ -104,7 +104,7 @@ def run_experiment(cfg):
       optimizer, optim_parameters = get_optim(cfg, model_parameters)
       optim_parameters = utility.load_optimizer_paramters(cfg, optim_parameters)
       grad_fn = jax.grad(loss_fn,1) # TODO: try to JIT function partial(jax.jit,static_argnums=0)(jax.grad(loss_fn,1))
-      grad_fn = jax.jit(grad_fn, static_argnums=0)
+      #grad_fn = jax.jit(grad_fn, static_argnums=0)
     elif cfg.train_and_test.mode == "validation":
         if cfg.model.type == "score":
           fid_model = get_fid_model(cfg) 
@@ -114,7 +114,7 @@ def run_experiment(cfg):
 
     # get shard
     #mesh = Mesh(mesh_utils.create_device_mesh((len(jax.devices()), 1)), ["B", "D"])
-    mesh = Mesh(mesh_utils.create_device_mesh((len(jax.devices()),1,1,1)), ["B", 'H', 'W', 'C'])
+    mesh = Mesh(mesh_utils.create_device_mesh((len(jax.devices()),)), ['B'])
     #named_sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
     spec = PartitionSpec(('B',))
     out_spec = PartitionSpec(('B', None, None, None))

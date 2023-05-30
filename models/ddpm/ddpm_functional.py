@@ -109,8 +109,6 @@ def get_ddpm_unet(cfg, key, inference=False):
         x = a1(x, embed, params["p_ma2"], subkey[5])
         x = r2(x, embed, params["p_mr3"], subkey[6])
 
-        # x = jax.lax.with_sharding_constraint(x, sharding)
-
         x = up1(x, x_4_2, x_4_1, x_4_0, embed, params["p_u1"], subkey[7]) 
         x = up2(x, x_8_2, x_8_1, x_8_0, embed, params["p_u2"], subkey[8])
         x = up_attn3(x, x_16_2, x_16_1, x_16_0, embed, params["p_ua3"], subkey[9]) 
@@ -118,7 +116,6 @@ def get_ddpm_unet(cfg, key, inference=False):
 
         x = conv2(x, params["p_c2"])
 
-        # x = jax.lax.with_sharding_constraint(x, sharding.reshape(1,1,n_devices,1))
 
         # return to shape loss can take (input shape)
         x_out = x.reshape(x_in_shape) 
@@ -126,7 +123,7 @@ def get_ddpm_unet(cfg, key, inference=False):
         return x_out
 
     def inf_ddpm_unet(x_in, timesteps, text_embedding, params, key):
-
+        print("Inference")
         # Keep this the first line to ensure correct shapes for the SDE solver
         x_in_shape = x_in.shape
 
@@ -159,16 +156,12 @@ def get_ddpm_unet(cfg, key, inference=False):
         x = inf_a1(x, embed, params["p_ma2"], subkey[5])
         x = inf_r2(x, embed, params["p_mr3"], subkey[6])
 
-        # x = jax.lax.with_sharding_constraint(x, sharding)
-
         x = inf_up1(x, x_4_2, x_4_1, x_4_0, embed, params["p_u1"], subkey[7])
         x = inf_up2(x, x_8_2, x_8_1, x_8_0, embed, params["p_u2"], subkey[8]) 
         x = inf_up_attn3(x, x_16_2, x_16_1, x_16_0, embed, params["p_ua3"], subkey[9]) 
         x = inf_up4(x, x_32_2, x_32_1, x_32_0, embed, params["p_u4"], subkey[10])
 
         x = inf_conv2(x, params["p_c2"])
-
-        # x = jax.lax.with_sharding_constraint(x, sharding.reshape(1,1,n_devices,1))
 
         # return to shape loss can take (input shape)
         x_out = x.reshape(x_in_shape) 
