@@ -2,6 +2,8 @@ import jax
 from jax.experimental import mesh_utils
 from jax.sharding import PositionalSharding
 
+# TODO: change sharding to named sharding, not essential but nice
+
 def shard_timestep_embedding(params, sharding):
 
     ## 2x Linear
