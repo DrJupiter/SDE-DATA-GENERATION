@@ -324,7 +324,7 @@ def get_conv(cfg, key, in_C, out_C,first=False):
     @jit
     def j_conv2d(x,w):
         out = conv2d(x,w)
-        out = jax.lax.with_sharding_constraint(out, sharding)
+        #out = jax.lax.with_sharding_constraint(out, sharding)
         return out
 
     return j_conv2d, params, j_conv2d
@@ -378,7 +378,7 @@ def get_resnet_ff(cfg, key, in_C, out_C):
             # x = batchnorm(x_in, embedding, params["btchN1"], subkey)
         x = nonlin(x_in)
         x = conv2d(x, params["conv1_w"])
-        x = jax.lax.with_sharding_constraint(x, sharding)
+        #x = jax.lax.with_sharding_constraint(x, sharding)
 
         x = nonlin(x)
         x = x + (jnp.einsum('wc,cC->wC',nonlin(embedding),params["time_w"])+params["time_b"])[:,None,None,:]
@@ -388,7 +388,7 @@ def get_resnet_ff(cfg, key, in_C, out_C):
         x = dropout(x, embedding, None, subkey)
 
         # Enforce sharding shape to avoid ret_check failure when returning
-        x = jax.lax.with_sharding_constraint(x, sharding)
+        #x = jax.lax.with_sharding_constraint(x, sharding)
         x = conv2d(x, w = params["conv2_w"])
 
         # perform skip connection
@@ -398,7 +398,7 @@ def get_resnet_ff(cfg, key, in_C, out_C):
         x = x  + x_skip
 
         # Enforce sharding shape to avoid ret_check failure when returning
-        x = jax.lax.with_sharding_constraint(x, sharding)
+        #x = jax.lax.with_sharding_constraint(x, sharding)
 
         return x
 
@@ -409,7 +409,7 @@ def get_resnet_ff(cfg, key, in_C, out_C):
             # x = batchnorm(x_in, embedding, params["btchN1"], subkey)
         x = nonlin(x_in)
         x = conv2d(x, params["conv1_w"])
-        x = jax.lax.with_sharding_constraint(x, sharding)
+        #x = jax.lax.with_sharding_constraint(x, sharding)
 
         x = nonlin(x)
         x = x + (jnp.einsum('wc,cC->wC',nonlin(embedding),params["time_w"])+params["time_b"])[:,None,None,:]
@@ -419,7 +419,7 @@ def get_resnet_ff(cfg, key, in_C, out_C):
         # x = dropout(x, embedding, None, subkey)
 
         # Enforce sharding shape to avoid ret_check failure when returning
-        x = jax.lax.with_sharding_constraint(x, sharding)
+        #x = jax.lax.with_sharding_constraint(x, sharding)
         x = conv2d(x, w = params["conv2_w"])
 
         # perform skip connection
@@ -429,7 +429,7 @@ def get_resnet_ff(cfg, key, in_C, out_C):
         x = x  + x_skip
 
         # Enforce sharding shape to avoid ret_check failure when returning
-        x = jax.lax.with_sharding_constraint(x, sharding)
+        #x = jax.lax.with_sharding_constraint(x, sharding)
 
         return x
 
@@ -503,7 +503,7 @@ def get_attention(cfg, key, in_C, out_C):
 
         # sum and return
         x = x + x_in
-        x = jax.lax.with_sharding_constraint(x, sharding)
+        #x = jax.lax.with_sharding_constraint(x, sharding)
 
         return x
 
@@ -529,7 +529,7 @@ def get_down(cfg, key, in_C, out_C, factor):
 
     @jit #@partial(jax.jit, static_argnames=['factor'])
     def down(x_in, embedding, params, subkey):
-        x_in = jax.lax.with_sharding_constraint(x_in, sharding)
+        #x_in = jax.lax.with_sharding_constraint(x_in, sharding)
         x0 = resnet1(x_in, embedding, params["r1"], subkey)
         x1 = resnet2(x0, embedding, params["r2"], subkey)
         x2 = naive_downsample_2d(x1, factor=factor)
@@ -538,7 +538,7 @@ def get_down(cfg, key, in_C, out_C, factor):
 
     @jit #@partial(jax.jit, static_argnames=['factor'])
     def inf_down(x_in, embedding, params, subkey):
-        x_in = jax.lax.with_sharding_constraint(x_in, sharding)
+        #x_in = jax.lax.with_sharding_constraint(x_in, sharding)
         x0 = inf_resnet1(x_in, embedding, params["r1"], subkey)
         x1 = inf_resnet2(x0, embedding, params["r2"], subkey)
         x2 = naive_downsample_2d(x1, factor=factor)
@@ -595,10 +595,10 @@ def get_up(cfg, key, in_C, out_C, residual_C: list, factor):
 
     @jit #@partial(jax.jit, static_argnames=['factor'])
     def up(x, x_res1, x_res2, x_res3, embedding, params, subkey):
-        x = jax.lax.with_sharding_constraint(x, sharding)
-        x_res1 = jax.lax.with_sharding_constraint(x_res1, sharding)
-        x_res2 = jax.lax.with_sharding_constraint(x_res2, sharding)
-        x_res3 = jax.lax.with_sharding_constraint(x_res3, sharding)
+        #x = jax.lax.with_sharding_constraint(x, sharding)
+        #x_res1 = jax.lax.with_sharding_constraint(x_res1, sharding)
+        #x_res2 = jax.lax.with_sharding_constraint(x_res2, sharding)
+        #x_res3 = jax.lax.with_sharding_constraint(x_res3, sharding)
 
         x = resnet1(jnp.concatenate([x,x_res1],-1), embedding, params["r1"], subkey)
         x = resnet2(jnp.concatenate([x,x_res2],-1), embedding, params["r2"], subkey)
@@ -609,10 +609,10 @@ def get_up(cfg, key, in_C, out_C, residual_C: list, factor):
     
     @jit #@partial(jax.jit, static_argnames=['factor'])
     def inf_up(x, x_res1, x_res2, x_res3, embedding, params, subkey):
-        x = jax.lax.with_sharding_constraint(x, sharding)
-        x_res1 = jax.lax.with_sharding_constraint(x_res1, sharding)
-        x_res2 = jax.lax.with_sharding_constraint(x_res2, sharding)
-        x_res3 = jax.lax.with_sharding_constraint(x_res3, sharding)
+        #x = jax.lax.with_sharding_constraint(x, sharding)
+        #x_res1 = jax.lax.with_sharding_constraint(x_res1, sharding)
+        #x_res2 = jax.lax.with_sharding_constraint(x_res2, sharding)
+        #x_res3 = jax.lax.with_sharding_constraint(x_res3, sharding)
 
         x = inf_resnet1(jnp.concatenate([x,x_res1],-1), embedding, params["r1"], subkey)
         x = inf_resnet2(jnp.concatenate([x,x_res2],-1), embedding, params["r2"], subkey)
