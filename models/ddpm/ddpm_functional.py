@@ -94,7 +94,7 @@ def get_ddpm_unet(cfg, key, inference=False):
 
         # Create the embedding given the timesteps
         embed = apply_timestep_embedding(timesteps*999, params["p_embed"])
-        text_embed = 0. if not cfg.model.guidance else apply_text_embedding(text_embedding, params["p_text_embed"])
+        text_embed = apply_text_embedding(text_embedding, params["p_text_embed"]) * float(cfg.model.guidance)
         
         embed = embed + text_embed
 
@@ -141,7 +141,7 @@ def get_ddpm_unet(cfg, key, inference=False):
         # Create the embedding given the timesteps
         embed = apply_timestep_embedding(timesteps*999, params["p_embed"])
 
-        text_embed = 0. if not cfg.model.guidance else apply_text_embedding(text_embedding, params["p_text_embed"])
+        text_embed = apply_text_embedding(text_embedding, params["p_text_embed"]) * float(cfg.model.guidance)
 
         embed = embed + text_embed
 
