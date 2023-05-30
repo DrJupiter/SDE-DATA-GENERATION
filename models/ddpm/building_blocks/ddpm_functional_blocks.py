@@ -324,7 +324,7 @@ def get_conv(cfg, key, in_C, out_C,first=False):
     @jit
     def j_conv2d(x,w):
         out = conv2d(x,w)
-        #out = jax.lax.with_sharding_constraint(out, sharding)
+        out = jax.lax.with_sharding_constraint(out, sharding)
         return out
 
     return j_conv2d, params, j_conv2d
