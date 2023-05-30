@@ -87,7 +87,7 @@ def load_model_paramters(cfg, model_paramters):
             raise FileNotFoundError(f"Unable to find {cfg.parameter_loading.model_path}")
 
         if cfg.model.sharding:
-            model_paramters = get_model_sharding(cfg)(model_paramters)
+            model_paramters = get_model_sharding(cfg)(cfg,model_paramters)
         print(f"Loaded model: {cfg.model.name}-{cfg.model.type} paramters @ checkpoint iteration {iteration}")
         print(f"\t Model path: {file_name['model']}")
     return model_paramters
@@ -118,7 +118,6 @@ def get_model_sharding(cfg):
         return models.shard_dummy 
     elif cfg.model.name == "ddpm_unet":
         if cfg.model.type == "score":
-
             return models.shard_score_ddpm_unet
         elif cfg.model.type == "classifier":
             return models.shard_classifier_ddpm_unet 

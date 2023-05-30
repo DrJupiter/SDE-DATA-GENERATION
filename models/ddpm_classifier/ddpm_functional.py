@@ -75,7 +75,7 @@ def get_ddpm_unet(cfg, key, inference=False):
 
     if cfg.model.sharding:
         print("Sharding")
-        params = utils.utility.get_model_sharding(cfg)(params)
+        params = utils.utility.get_model_sharding(cfg)(cfg,params)
 
     data_shape = [cfg.dataset.shape[0], cfg.dataset.shape[1]+cfg.dataset.padding*2, cfg.dataset.shape[2]+cfg.dataset.padding*2, cfg.dataset.shape[-1]]
     

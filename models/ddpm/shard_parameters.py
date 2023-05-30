@@ -138,11 +138,14 @@ def shard_up_attn(params, sharding):
 
 ###### FULL MODEL ######
 
-def shard_ddpm_unet(params):
+import utils.sharding as shard
+
+def shard_ddpm_unet(cfg,params):
 
     # if cfg.model.hyperparameters.sharding:
     n_devices = len(jax.devices())
-    sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,1)))
+    shard_names, mesh = shard.get_sharding(cfg)#  PositionalSharding(mesh_utils.create_device_mesh((n_devices,1))) # TODO: replace with func
+    sharding = (shard_names, mesh)
 
     # get time embedding func and params
     params["p_embed"] = shard_timestep_embedding(params["p_embed"], sharding)
@@ -150,7 +153,7 @@ def shard_ddpm_unet(params):
     params["p_text_embed"] = shard_text_embedding(params["p_text_embed"], sharding)
 
     # get model funcs and params
-    params["p_c1"] =       shard_conv(params["p_c1"], sharding.reshape(1,1,1,n_devices))
+    params["p_c1"] =       shard_conv(params["p_c1"], sharding.reshape(1,1,1,n_devices)) # NamedSharding(mesh, P(shard_names[:2]))
 
     params["p_d1"] =       shard_down(params["p_d1"], sharding)
     params["p_da2"] = shard_down_attn(params["p_da2"], sharding)

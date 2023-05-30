@@ -33,7 +33,7 @@ def get_parameters(cfg):
         parameters.append(parameter)
      
     if cfg.model.sharding:
-        parameters = utils.utility.get_model_sharding(cfg)(parameters)
+        parameters = utils.utility.get_model_sharding(cfg)(cfg,parameters)
     return parameters
 
 def get_dummy_train(cfg):

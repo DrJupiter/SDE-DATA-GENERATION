@@ -3,7 +3,7 @@ from jax.sharding import PositionalSharding
 from jax import device_count, device_put 
 import jax
 
-def shard_parameters(parameters):
+def shard_parameters(cfg,parameters):
     print("Sharding model")
     n = device_count()
     sharding = PositionalSharding(mesh_utils.create_device_mesh((n,)))

@@ -145,7 +145,7 @@ def shard_up_attn(params, sharding):
 
 ###### FULL MODEL ######
 
-def shard_ddpm_unet(params):
+def shard_ddpm_unet(cfg,params):
 
     # if cfg.model.hyperparameters.sharding:
     n_devices = len(jax.devices())
