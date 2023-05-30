@@ -39,7 +39,7 @@ def get_ddpm_unet(cfg, key, inference=False):
     apply_text_embedding, p_text_embed = get_text_embedding(cfg, key) 
 
     # Text embedding which is added to the data
-    apply_text_embedding_data, p_text_data =get_text_data_embedding(cfg, key)
+    apply_text_embedding_data, p_text_data = get_text_data_embedding(cfg, key)
 
     # get model funcs and params
     conv1, p_c1, inf_conv1 =       get_conv(cfg, key, data_c, c_s[0], first=True)
