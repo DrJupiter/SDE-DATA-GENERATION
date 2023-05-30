@@ -4,7 +4,7 @@ name: ddpm_unet
 type: score # classifier # score
 key: 42
 sharding: True
-guidance: True
+guidance: False
 hyperparameters: 
   momentum: 0.99
   eps: 0.00001
