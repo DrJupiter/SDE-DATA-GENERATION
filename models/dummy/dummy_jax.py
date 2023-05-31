@@ -3,6 +3,7 @@ import jax.numpy as jnp
 from jax import grad, jit, vmap
 from jax import random
 from jax import nn
+import jax
 
 
 #from utils import get_model_sharding
@@ -36,7 +37,12 @@ def get_parameters(cfg):
         parameters = utils.utility.get_model_sharding(cfg)(cfg,parameters)
     return parameters
 
+import utils.sharding
+from jax.sharding import PartitionSpec, NamedSharding
+
 def get_dummy_train(cfg):
+    (prime, rest), mesh = utils.sharding.get_sharding(cfg)
+    named_sharding = NamedSharding(mesh,PartitionSpec(prime, rest[0]))
 
     @jit
     def model_call(data, _time, text_embedding, parameters, _key):
@@ -53,7 +59,9 @@ def get_dummy_train(cfg):
             x = jnp.matmul(parameter, x.T).T
             x = nn.sigmoid(x)
         x = jnp.matmul(W[-1], x.T).T
+        x = jax.lax.with_sharding_constraint(x, named_sharding)
         x = x.reshape(in_shape) 
+
         return x
 
     return model_call
