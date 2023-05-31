@@ -59,7 +59,7 @@ def get_dummy_train(cfg):
             x = jnp.matmul(parameter, x.T).T
             x = nn.sigmoid(x)
         x = jnp.matmul(W[-1], x.T).T
-        x = jax.lax.with_sharding_constraint(x, named_sharding)
+        #x = jax.lax.with_sharding_constraint(x, named_sharding)
         x = x.reshape(in_shape) 
 
         return x
