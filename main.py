@@ -184,7 +184,7 @@ def run_experiment(cfg):
                          out = drift(t, y, args)
                          print(dir(out))
                          jax.debug.visualize_array_sharding(out)
-                         print(out.sharding)
+                         #print(out.sharding)
                          print("post drift")
                          return out
 
@@ -195,7 +195,7 @@ def run_experiment(cfg):
                          out = diffusion(t, y, args)
                          print(dir(out))
                          jax.debug.visualize_array_sharding(out)
-                         print(out.sharding)
+                         #print(out.sharding)
                          print("post diffusion")
                          return out
 
