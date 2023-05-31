@@ -121,7 +121,8 @@ def run_experiment(cfg):
       generation_spec = PartitionSpec(_[0])
     else:
        spec = PartitionSpec(primary_index)
-       generation_spec = spec
+       #generation_spec = spec
+       generation_spec = PartitionSpec(_[0])
 
     named_sharding = NamedSharding(mesh, spec)
 
