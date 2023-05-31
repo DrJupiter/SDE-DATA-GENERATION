@@ -113,16 +113,17 @@ def run_experiment(cfg):
           fid_model = get_fid_model(cfg) 
 
     # Data sharding
-    (primary_index, _), mesh = utils.sharding.get_sharding(cfg) 
+    (primary_index, rest_index), mesh = utils.sharding.get_sharding(cfg) 
 
     if cfg.loss.name == "implicit_score_matching":
       # shard over the second dimension instead
-      spec = PartitionSpec(_[0], primary_index)
-      generation_spec = PartitionSpec(_[0])
+      spec = PartitionSpec(rest_index[0], primary_index)
+      generation_spec = PartitionSpec(rest_index[0])
     else:
        spec = PartitionSpec(primary_index)
        generation_spec = spec
-       #generation_spec = PartitionSpec(_[0])
+
+       #generation_spec = PartitionSpec(rest_index[0])
 
     named_sharding = NamedSharding(mesh, spec)
 
@@ -194,8 +195,9 @@ def run_experiment(cfg):
 
 
                       diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
-                      I = jnp.ones((1024,1024), dtype=jnp.float32)  
-                      I = jax.device_put(I, named_sharding)
+                      test_named_sharding = NamedSharding(mesh,PartitionSpec(rest_index[0], rest_index[1], primary_index) )
+                      I = jnp.ones((1,1024,1024), dtype=jnp.float32)  
+                      I = jax.device_put(I, test_named_sharding)
                       def diffusion_test(t, y, args):
                         print(y.shape, t.shape) 
                         return I @ (0.1 * t * y)
