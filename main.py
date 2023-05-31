@@ -194,7 +194,7 @@ def run_experiment(cfg):
 
 
                       diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
-                      I = jnp.ones(1028,1028)  
+                      I = jnp.ones((1028,1028), dtype=jnp.float32)  
                       I = jax.device_put(I, named_sharding)
                       def diffusion_test(t, y, args):
                         print(y.shape, t.shape) 
