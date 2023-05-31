@@ -15,11 +15,11 @@ import os
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 #os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION']='0.5'
 #os.environ['XLA_PYTHON_CLIENT_ALLOCATOR']='platform'
-os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
+#os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
 
 import jax
 import jax.numpy as jnp
-jax.config.update('jax_platform_name', 'cpu')
+#jax.config.update('jax_platform_name', 'cpu')
 
 import numpy as np
 
@@ -182,7 +182,7 @@ def run_experiment(cfg):
                       
 
                       @jax.jit
-                      @ft.partial(shard_map, mesh=mesh, in_specs=generation_spec, out_specs=generation_spec, check_rep=False)
+                      @ft.partial(shard_map, mesh=mesh, in_specs=generation_spec, out_specs=generation_spec, check_rep=True)
                       @jax.vmap
                       def get_sample(t, key1, key0, xt, text_embedding):
                         return sample(1e-5, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1) 
