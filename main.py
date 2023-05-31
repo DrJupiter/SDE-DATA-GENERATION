@@ -182,7 +182,7 @@ def run_experiment(cfg):
                       
 
                       @jax.jit
-                      @ft.partial(shard_map, mesh=mesh, in_specs=generation_spec, out_specs=generation_spec, check_rep=True)
+                      @ft.partial(shard_map, mesh=mesh, in_specs=generation_spec, out_specs=generation_spec, check_rep=False)
                       @jax.vmap
                       def get_sample(t, key1, key0, xt, text_embedding):
                         return sample(1e-5, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1) 
