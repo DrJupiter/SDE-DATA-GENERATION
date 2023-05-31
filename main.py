@@ -183,11 +183,10 @@ def run_experiment(cfg):
 
                       def drift_test(t, y, args):
                         print(y.shape) 
-                        return -y
+                        #return -y
                         print("pre drift")
                         out = drift(t, y, args)
-                        print(dir(out))
-                        jax.debug.visualize_array_sharding(out)
+                        print(out.shape)
                         #print(out.sharding)
                         print(out)
                         print("post drift")
@@ -199,7 +198,7 @@ def run_experiment(cfg):
                       I = jnp.ones((1,1024,1024), dtype=jnp.float32)  
                       I = jax.device_put(I, test_named_sharding)
                       def diffusion_test(t, y, args):
-                        #print(y.shape, t.shape) 
+                        print(y.shape, t.shape) 
                         print("pre diffusion") 
                         out = diffusion(t, y, args)
                         print(out)
