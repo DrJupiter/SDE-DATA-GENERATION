@@ -5,7 +5,7 @@ type: score
 text_embedding: 1024
 parameter_sizes:
   - [512, 0] # 0 will automatically be configured to the size of the data
-  - [256, 512]
-  - [256, 256]
-  - [512, 256]
+#  - [256, 512]
+#  - [256, 256]
+#  - [512, 256]
   - [0, 512] # 0 will automatically be configured to the size of the data
