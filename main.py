@@ -179,6 +179,7 @@ def run_experiment(cfg):
                     if cfg.wandb.log.img and i % 100 == 0 and cfg.model.type == "score":
                       # reverse sde sampling
                       drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
+                      @jax.jit
                       def drift_test(t, y, args):
                          print("pre drift")
                          out = drift(t, y, args)
@@ -191,6 +192,7 @@ def run_experiment(cfg):
 
 
                       diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
+                      @jax.jit
                       def diffusion_test(t, y, args):
                          print("pre diffusion") 
                          out = diffusion(t, y, args)
