@@ -207,7 +207,7 @@ def run_experiment(cfg):
                       @ft.partial(shard_map, mesh=mesh, in_specs=generation_spec, out_specs=generation_spec, check_rep=False)
                       @jax.vmap
                       def get_sample(t, key1, key0, xt, text_embedding):
-                        return sample(1e-5, 0, t.astype(float)[0], -1/1000, drift_test, diffusion_test, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1) 
+                        return sample(1e-5, 0, t.astype(float)[0], -1/1000, drift_test, diffusion_test, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1, named_sharding) 
 
                       #get_sample = lambda t, key1, key0, xt, text_embedding: sample(1e-5, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1) 
                                       # dt0 = - 1/N
