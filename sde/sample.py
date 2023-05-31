@@ -13,7 +13,7 @@ def sample(t, t0, t1, dt0, drift, diffusion, args, y0, key, shardings, tol=1e-3,
 
     if reverse:
         sol = diffeqsolve(terms, solver, t1, t0, dt0=dt0, y0=y0, saveat=saveat, args=args)
-        return jax.lax.with_sharding_constraint(sol.evaluate(t), shardings=shardings)
+        return jax.lax.with_sharding_constraint(sol.evaluate(t), shardings)
     
     sol = diffeqsolve(terms, solver, t0, t1, dt0=dt0, y0=y0, saveat=saveat, args=args)
     return sol.evaluate(t)
