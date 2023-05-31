@@ -198,7 +198,7 @@ def run_experiment(cfg):
                       I = jax.device_put(I, named_sharding)
                       def diffusion_test(t, y, args):
                         print(y.shape, t.shape) 
-                        return I @ 0.1 * t * y
+                        return I @ (0.1 * t * y)
                         print("pre diffusion") 
                         out = diffusion(t, y, args)
                         print(dir(out))
