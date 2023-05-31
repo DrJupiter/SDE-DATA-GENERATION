@@ -179,14 +179,25 @@ def run_experiment(cfg):
                     if cfg.wandb.log.img and i % 100 == 0 and cfg.model.type == "score":
                       # reverse sde sampling
                       drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
+                      def drift_test(t, y, args):
+                         print("pre drift")
+                         out = drift(t, y, args)
+                         print("post drift")
+                         return out
+
+
                       diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
-                      
+                      def diffusion_test(t, y, args):
+                         print("pre diffusion") 
+                         out = diffusion(t, y, args)
+                         print("post diffusion")
+                         return out
 
                       @jax.jit
                       @ft.partial(shard_map, mesh=mesh, in_specs=generation_spec, out_specs=generation_spec, check_rep=False)
                       @jax.vmap
                       def get_sample(t, key1, key0, xt, text_embedding):
-                        return sample(1e-5, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1) 
+                        return sample(1e-5, 0, t.astype(float)[0], -1/1000, drift_test, diffusion_test, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1) 
 
                       #get_sample = lambda t, key1, key0, xt, text_embedding: sample(1e-5, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1) 
                                       # dt0 = - 1/N
