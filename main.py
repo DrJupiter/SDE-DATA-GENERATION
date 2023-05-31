@@ -181,6 +181,7 @@ def run_experiment(cfg):
                       drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
                       
                       def drift_test(t, y, args):
+                         return -y
                          print("pre drift")
                          out = drift(t, y, args)
                          print(dir(out))
@@ -194,6 +195,7 @@ def run_experiment(cfg):
                       diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
                       
                       def diffusion_test(t, y, args):
+                         return 0.1 * t
                          print("pre diffusion") 
                          out = diffusion(t, y, args)
                          print(dir(out))
