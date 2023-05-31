@@ -51,16 +51,20 @@ def get_dummy_train(cfg):
         embedding_dim = x.shape[0] if len(x.shape) == 1 else x.shape[1]
         embedding_dim = int(embedding_dim)
         time_emb = get_timestep_embedding(_time*999, embedding_dim)
+        print("before embd")
         x = time_emb + x + jnp.matmul(parameters[-1], text_embedding.T).T
-
+        print("after embedding")
         W = parameters[:-1]
         for parameter in W[:-1]:
             # TODO: Reconsider ORDER in terms of shape representation
             x = jnp.matmul(parameter, x.T).T
             x = nn.sigmoid(x)
+            print("in loop")
         x = jnp.matmul(W[-1], x.T).T
+        print("last matmul")
         #x = jax.lax.with_sharding_constraint(x, named_sharding)
         x = x.reshape(in_shape) 
+        print("rehsape")
 
         return x
 
