@@ -120,7 +120,7 @@ def run_experiment(cfg):
       spec = PartitionSpec(_[0], primary_index)
       generation_spec = PartitionSpec(_[0])
     else:
-       spec = PartitionSpec(primary_index, _[0])
+       spec = PartitionSpec(primary_index)
        generation_spec = spec
        #generation_spec = PartitionSpec(_[0])
 
