@@ -182,6 +182,7 @@ def run_experiment(cfg):
                       def drift_test(t, y, args):
                          print("pre drift")
                          out = drift(t, y, args)
+                         print(out.sharding)
                          print("post drift")
                          return out
 
@@ -190,6 +191,7 @@ def run_experiment(cfg):
                       def diffusion_test(t, y, args):
                          print("pre diffusion") 
                          out = diffusion(t, y, args)
+                         print(out.sharding)
                          print("post diffusion")
                          return out
 
