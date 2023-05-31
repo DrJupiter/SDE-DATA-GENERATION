@@ -6,11 +6,10 @@ import utils.sharding
 
 def shard_parameters(cfg,parameters):
     print("Sharding model")
-    n = device_count()
-    shard_names, mesh = utils.sharding.get_sharding(cfg)
-    named_sharding = NamedSharding(mesh, PartitionSpec(shard_names))
-
-    #sharding = PositionalSharding(mesh_utils.create_device_mesh((n,)))
+    
+    (primary_index, rest_index), mesh = utils.sharding.get_sharding(cfg)
+    named_sharding =NamedSharding(mesh, PartitionSpec(primary_index, rest_index[0]))
+    
     for i in range(len(parameters)):
         parameters[i] = device_put(parameters[i], named_sharding)
         jax.debug.visualize_array_sharding(parameters[i])

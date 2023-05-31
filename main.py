@@ -15,11 +15,11 @@ import os
 os.environ['XLA_PYTHON_CLIENT_PREALLOCATE']='false'
 #os.environ['XLA_PYTHON_CLIENT_MEM_FRACTION']='0.5'
 #os.environ['XLA_PYTHON_CLIENT_ALLOCATOR']='platform'
-#os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
+os.environ['XLA_FLAGS'] = '--xla_force_host_platform_device_count=4'
 
 import jax
 import jax.numpy as jnp
-#jax.config.update('jax_platform_name', 'cpu')
+jax.config.update('jax_platform_name', 'cpu')
 
 import numpy as np
 
@@ -68,6 +68,7 @@ from time import time
 
 # Paramter loading
 import utils.utility as utility
+import utils.sharding
 
 ### Train loop:
 
@@ -80,6 +81,7 @@ def run_experiment(cfg):
     print(cfg)
     print(jax.devices())
     wandb.init(**utility.get_wandb_input(cfg))
+    
 
     # Get randomness key
     key = jax.random.PRNGKey(cfg.model.key)
@@ -104,33 +106,31 @@ def run_experiment(cfg):
       optimizer, optim_parameters = get_optim(cfg, model_parameters)
       optim_parameters = utility.load_optimizer_paramters(cfg, optim_parameters)
       grad_fn = jax.grad(loss_fn,1) # TODO: try to JIT function partial(jax.jit,static_argnums=0)(jax.grad(loss_fn,1))
-      grad_fn = jax.jit(grad_fn, static_argnums=0)
+      if cfg.loss.name != "implicit_score_matching":
+        grad_fn = jax.jit(grad_fn, static_argnums=0)
     elif cfg.train_and_test.mode == "validation":
         if cfg.model.type == "score":
           fid_model = get_fid_model(cfg) 
 
+    # Data sharding
+    (primary_index, _), mesh = utils.sharding.get_sharding(cfg) 
 
+    if cfg.loss.name == "implicit_score_matching":
+      # shard over the second dimension instead
+      spec = PartitionSpec(_[0], primary_index)
+      generation_spec = PartitionSpec(_[0])
+    else:
+       spec = PartitionSpec(primary_index)
+       generation_spec = spec
 
-
-    # get shard
-    #mesh = Mesh(mesh_utils.create_device_mesh((len(jax.devices()), 1)), ["B", "D"])
-    #mesh = Mesh(mesh_utils.create_device_mesh((1,len(jax.devices()))), ['B', 'D'])
-    mesh = Mesh(mesh_utils.create_device_mesh((len(jax.devices()),)), ['B'])
-    #named_sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
-    #spec = PartitionSpec(('B','D'))
-    spec = PartitionSpec(('B',))
-    out_spec = PartitionSpec(('B', None, None, None))
     named_sharding = NamedSharding(mesh, spec)
 
     # start training for each epoch
     if cfg.train_and_test.mode == "train":
 
       for epoch in range(cfg.train_and_test.train.epochs): 
-          for i, (data, (labels, text_embeddings)) in enumerate(train_dataset): # batch training
-              # Check if we should terminate early, so we can properly log Wandb before being killed.
-              if cfg.time.time_termination and (time()-START_TIME >= cfg.time.time_of_termination_h*60*60): # convert hours into seconds.
-                  TIME_EXCEEDED = True
-                  #break
+          for i, (data, (labels, text_embeddings)) in enumerate(train_dataset): 
+     
               
               # split key to keep randomness "random" for each training batch
               key, *subkey = jax.random.split(key, 4)
@@ -182,7 +182,7 @@ def run_experiment(cfg):
                       
 
                       @jax.jit
-                      @ft.partial(shard_map, mesh=mesh, in_specs=spec, out_specs=spec, check_rep=False)
+                      @ft.partial(shard_map, mesh=mesh, in_specs=generation_spec, out_specs=generation_spec, check_rep=False)
                       @jax.vmap
                       def get_sample(t, key1, key0, xt, text_embedding):
                         return sample(1e-5, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1) 

@@ -136,7 +136,9 @@ def get_wandb_input(cfg):
         n = jax.device_count()        
 
         if cfg.train_and_test.mode == "train":
+            #if cfg.loss.name !=
             batch_remainder = cfg.train_and_test.train.batch_size % n
+            
             assert batch_remainder == 0, f"Train Batch Size {cfg.train_and_test.train.batch_size} mod {n} = {batch_remainder} !=0, Thus sharding will fail" 
 
         if cfg.wandb.log.img:
