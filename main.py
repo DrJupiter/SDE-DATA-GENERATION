@@ -181,7 +181,6 @@ def run_experiment(cfg):
                       # reverse sde sampling
                       drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
 
-                      @jax.jit 
                       def drift_test(t, y, args):
                         print(y.shape) 
                         return -y
@@ -199,7 +198,6 @@ def run_experiment(cfg):
                       test_named_sharding = NamedSharding(mesh,PartitionSpec(rest_index[0], rest_index[1], primary_index) )
                       I = jnp.ones((1,1024,1024), dtype=jnp.float32)  
                       I = jax.device_put(I, test_named_sharding)
-                      @jax.jit
                       def diffusion_test(t, y, args):
                         #print(y.shape, t.shape) 
                         out = (I @ (0.1 * t * y)).reshape(-1)
