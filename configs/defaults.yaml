@@ -2,10 +2,10 @@ defaults:
         - wandb : defaults # results
         - dataset: mnist # cifar10 # mnist
         - train_and_test: default
-        - model : dummy #ddpm_simple # dummy 
+        - model : ddpm_simple #ddpm_simple # dummy 
         - visualization: local_visualization
         - optimizer: adam
         - sde: paper_subvp
-        - loss: none # cross_entropy # yangsong # combined_sm #denoise_sm #implicit_sm #none
+        - loss: yangsong # cross_entropy # yangsong # combined_sm #denoise_sm #implicit_sm #none
         - parameter_loading: default
         - text_embedding: vith14
