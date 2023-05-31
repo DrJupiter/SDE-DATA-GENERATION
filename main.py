@@ -195,7 +195,7 @@ def run_experiment(cfg):
                       diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
                       
                       def diffusion_test(t, y, args):
-                         return 0.1 * t
+                         return 0.1 * t * y
                          print("pre diffusion") 
                          out = diffusion(t, y, args)
                          print(dir(out))
