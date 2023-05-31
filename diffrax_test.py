@@ -11,7 +11,7 @@ from diffrax import diffeqsolve, ODETerm, Tsit5
 mesh = sharding.Mesh(mesh_utils.create_device_mesh((2,)), ["i"])
 spec = sharding.PartitionSpec('i')
 
-@jax.jit
+#@jax.jit
 @ft.partial(shard_map.shard_map, mesh=mesh, in_specs=spec, out_specs=spec, check_rep=False)
 @jax.vmap
 def run(y0):
