@@ -182,27 +182,27 @@ def run_experiment(cfg):
                       drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
 
                       def drift_test(t, y, args):
-                        print(y.shape) 
+                        #print(y.shape) 
                         #return -y
-                        print("pre drift")
+                        #print("pre drift")
                         out = drift(t, y, args)
-                        print(out.shape)
+                        #print(out.shape)
                         #print(out.sharding)
-                        print(out)
-                        print("post drift")
+                        #print(out)
+                        #print("post drift")
                         return out
 
 
                       diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
-                      test_named_sharding = NamedSharding(mesh,PartitionSpec(rest_index[0], rest_index[1], primary_index) )
-                      I = jnp.ones((1,1024,1024), dtype=jnp.float32)  
-                      I = jax.device_put(I, test_named_sharding)
+                      #test_named_sharding = NamedSharding(mesh,PartitionSpec(rest_index[0], rest_index[1], primary_index) )
+                      #I = jnp.ones((1,1024,1024), dtype=jnp.float32)  
+                      #I = jax.device_put(I, test_named_sharding)
                       def diffusion_test(t, y, args):
-                        print(y.shape, t.shape) 
-                        print("pre diffusion") 
+                        #print(y.shape, t.shape) 
+                        #print("pre diffusion") 
                         out = diffusion(t, y, args)
-                        print(out)
-                        print("post diffusion")
+                        #print(out)
+                        #print("post diffusion")
                         return out
 
                       #@jax.jit
@@ -279,8 +279,31 @@ def run_experiment(cfg):
           
 
           drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
+          def drift_test(t, y, args):
+            #print(y.shape) 
+            #return -y
+            #print("pre drift")
+            out = drift(t, y, args)
+            #print(out.shape)
+            #print(out.sharding)
+            #print(out)
+            #print("post drift")
+            return out
           diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
-          get_sample = lambda t, key1, key0, xt, text_embedding: sample(1e-5, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else all_data[0], key0], xt, key1) 
+          def diffusion_test(t, y, args):
+            #print(y.shape, t.shape) 
+            #print("pre diffusion") 
+            out = diffusion(t, y, args)
+            #print(out)
+            #print("post diffusion")
+            return out          
+
+          @ft.partial(shard_map, mesh=mesh, in_specs=generation_spec, out_specs=generation_spec, check_rep=False)
+          @jax.vmap
+          def get_sample(t, key1, key0, xt, text_embedding):
+            return sample(jnp.array(1e-5,dtype=jnp.float32), jnp.array(0,dtype=jnp.float32), t.astype(float)[0], jnp.array([-1/1000]).astype(float)[0], drift_test, diffusion_test, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1)
+
+          #get_sample = lambda t, key1, key0, xt, text_embedding: sample(1e-5, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else all_data[0], key0], xt, key1) 
 
           key, *subkey = jax.random.split(key, len(all_data) * 2 + 1)
 
@@ -293,7 +316,8 @@ def run_experiment(cfg):
           all_generated_imgs = []
           for i in range(len(all_data)//split_factor):
             arg = [x[i*split_factor:(i+1)*split_factor] for x in args]
-            generated_imgs = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*arg)
+            #generated_imgs = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*arg)
+            generated_imgs = get_sample(*arg) 
             all_generated_imgs += list(generated_imgs)
           all_generated_imgs = jnp.array(all_generated_imgs)
 
