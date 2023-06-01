@@ -1,0 +1,30 @@
+name: ddpm_unet
+#type: independent_func
+#size: big
+type: score # classifier # score
+key: 42
+sharding: True
+guidance: True
+hyperparameters: 
+  momentum: 0.99
+  eps: 0.00001
+  dropout_p: 0.1
+  upsampling_factor: 2
+  downsampling_factor: 2
+  time_embedding_dims: 512
+  time_embedding_inner_dim: 256
+  text_embedding_dims: 512
+  anti_blowup_factor: 0.01
+  kernel_size: 3
+  avg_length: 200
+  scaling_factors:
+    - 2
+    - 2
+    - 2
+    - 1
+parameters:
+  Channel_sizes:
+    - 256
+    - 512
+    - 512
+    - 512
