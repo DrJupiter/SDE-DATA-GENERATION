@@ -2,56 +2,49 @@ import jax
 from jax.experimental import mesh_utils
 from jax.sharding import PositionalSharding
 
-def shard_timestep_embedding(params, sharding):
+# TODO: change sharding to named sharding, not essential but nice
+
+def shard_timestep_embedding(params, linear_sharding, bias_sharding):
 
     ## 2x Linear
     # skip:
-    params["w0"] = jax.device_put(params["w0"], sharding)
-    params["b0"] = jax.device_put(params["b0"], sharding.reshape((1,len(jax.devices()))))
+    params["w0"] = jax.device_put(params["w0"], linear_sharding)
+    params["b0"] = jax.device_put(params["b0"], bias_sharding)
 
     # time:
-    params["w1"] = jax.device_put(params["w1"], sharding)
-    params["b1"] = jax.device_put(params["b1"], sharding.reshape((1,len(jax.devices()))))
+    params["w1"] = jax.device_put(params["w1"], linear_sharding)
+    params["b1"] = jax.device_put(params["b1"], bias_sharding)
 
     return params 
 
-def shard_text_embedding(params, sharding):
+def shard_text_embedding(params, linear_sharding, bias_sharding):
 
     ## 2x Linear
     # skip:
-    params["w0"] = jax.device_put(params["w0"], sharding)
-    params["b0"] = jax.device_put(params["b0"], sharding.reshape((1,len(jax.devices()))))
+    params["w0"] = jax.device_put(params["w0"], linear_sharding)
+    params["b0"] = jax.device_put(params["b0"], bias_sharding)
 
     # time:
-    params["w1"] = jax.device_put(params["w1"], sharding)
-    params["b1"] = jax.device_put(params["b1"], sharding.reshape((1,len(jax.devices()))))
+    params["w1"] = jax.device_put(params["w1"], linear_sharding)
+    params["b1"] = jax.device_put(params["b1"], bias_sharding)
 
     return params 
 
 
-def shard_text_data_embedding(params, sharding):
+def shard_lin(params, linear_sharding, bias_sharding):
 
     ## 2x Linear
     # skip:
-    params["w0"] = jax.device_put(params["w0"], sharding)
-    params["b0"] = jax.device_put(params["b0"], sharding.reshape((1,len(jax.devices()))))
+    params["w0"] = jax.device_put(params["w0"], linear_sharding)
+    params["b0"] = jax.device_put(params["b0"], bias_sharding)
 
     return params 
 
-def shard_lin(params, sharding):
-
-    ## 2x Linear
-    # skip:
-    params["w0"] = jax.device_put(params["w0"], sharding)
-    params["b0"] = jax.device_put(params["b0"], sharding.reshape((1,len(jax.devices()))))
-
-    return params 
-
-def shard_batchnorm(params, sharding):
+def shard_batchnorm(params, linear_sharding, bias_sharding):
 
     ## 1x Linear
-    params["l"] = jax.device_put(params["l"], sharding)
-    params["b"] = jax.device_put(params["b"], sharding.reshape((1,len(jax.devices()))))
+    params["l"] = jax.device_put(params["l"], linear_sharding)
+    params["b"] = jax.device_put(params["b"], bias_sharding) 
 
     return params
 
@@ -61,120 +54,132 @@ def shard_conv(params, sharding):
 
     return params
 
-def shard_resnet_ff(params, sharding):
+def shard_resnet_ff(params, linear_sharding, bias_sharding, convolution_sharding):
 
     ## 2x Linear
     # skip: 
-    params["skip_w"] = jax.device_put(params["skip_w"], sharding)
-    params["skip_b"] = jax.device_put(params["skip_b"], sharding.reshape((1,len(jax.devices()))))
+    params["skip_w"] = jax.device_put(params["skip_w"], linear_sharding)
+    params["skip_b"] = jax.device_put(params["skip_b"], bias_sharding)
 
     # time:
-    params["time_w"] = jax.device_put(params["time_w"], sharding)
-    params["time_b"] = jax.device_put(params["time_b"], sharding.reshape((1,len(jax.devices()))))
+    params["time_w"] = jax.device_put(params["time_w"], linear_sharding)
+    params["time_b"] = jax.device_put(params["time_b"], bias_sharding)
 
     # 2x Conv
-    params["conv1_w"] = jax.device_put(params["conv1_w"], sharding.reshape((1,1,1,len(jax.devices()))))
-    params["conv2_w"] = jax.device_put(params["conv2_w"], sharding.reshape((1,1,1,len(jax.devices()))))
+    params["conv1_w"] = jax.device_put(params["conv1_w"], convolution_sharding)
+    params["conv2_w"] = jax.device_put(params["conv2_w"], convolution_sharding)
 
     # params["btchN1"] = shard_batchnorm(params["btchN1"], sharding)
     # params["btchN2"] = shard_batchnorm(params["btchN2"], sharding)
 
     return params
 
-def shard_attention(params, sharding):
+def shard_attention(params, linear_sharding, bias_sharding):
 
     ## 4x Linear
     # q:
-    params["q_w"] = jax.device_put(params["q_w"], sharding)
-    params["q_b"] = jax.device_put(params["q_b"], sharding.reshape((1,len(jax.devices()))))
+    params["q_w"] = jax.device_put(params["q_w"], linear_sharding)
+    params["q_b"] = jax.device_put(params["q_b"], bias_sharding)
 
     # k:
-    params["k_w"] = jax.device_put(params["k_w"], sharding)
-    params["k_b"] = jax.device_put(params["k_b"], sharding.reshape((1,len(jax.devices()))))
+    params["k_w"] = jax.device_put(params["k_w"], linear_sharding)
+    params["k_b"] = jax.device_put(params["k_b"], bias_sharding)
 
     # v:
-    params["v_w"] = jax.device_put(params["v_w"], sharding)
-    params["v_b"] = jax.device_put(params["v_b"], sharding.reshape((1,len(jax.devices()))))
+    params["v_w"] = jax.device_put(params["v_w"], linear_sharding)
+    params["v_b"] = jax.device_put(params["v_b"], bias_sharding)
 
     # final
-    params["f_w"] = jax.device_put(params["f_w"], sharding)
-    params["f_b"] = jax.device_put(params["f_b"], sharding.reshape((1,len(jax.devices()))))
-
-    # params["btchN1"] = shard_batchnorm(params["btchN1"], sharding)
+    params["f_w"] = jax.device_put(params["f_w"], linear_sharding)
+    params["f_b"] = jax.device_put(params["f_b"], bias_sharding)
 
     return params
 
 ######################## Advanced building blocks ########################
 
-def shard_down(params, sharding):
+def shard_down(params, linear_sharding, bias_sharding, convolution_sharding):
 
-    params["r1"] = shard_resnet_ff(params["r1"], sharding)
-    params["r2"] = shard_resnet_ff(params["r2"] , sharding)
-
-    return params
-
-def shard_down_attn(params, sharding):
-
-    params["r1"] = shard_resnet_ff(params["r1"], sharding)
-    params["r2"] = shard_resnet_ff(params["r2"], sharding)
-
-    params["a1"] = shard_attention(params["a1"], sharding)
-    params["a2"] = shard_attention(params["a2"], sharding)
+    params["r1"] = shard_resnet_ff(params["r1"], linear_sharding, bias_sharding, convolution_sharding)
+    params["r2"] = shard_resnet_ff(params["r2"], linear_sharding, bias_sharding, convolution_sharding)
 
     return params
 
-def shard_up(params, sharding):
+def shard_down_attn(params, linear_sharding, bias_sharding, convolution_sharding):
 
-    params["r1"] = shard_resnet_ff(params["r1"], sharding)
-    params["r2"] = shard_resnet_ff(params["r2"], sharding)
-    params["r3"] = shard_resnet_ff(params["r3"], sharding)
+    params["r1"] = shard_resnet_ff(params["r1"], linear_sharding, bias_sharding, convolution_sharding)
+    params["r2"] = shard_resnet_ff(params["r2"], linear_sharding, bias_sharding, convolution_sharding)
+
+    params["a1"] = shard_attention(params["a1"], linear_sharding, bias_sharding)
+    params["a2"] = shard_attention(params["a2"], linear_sharding, bias_sharding)
 
     return params
 
-def shard_up_attn(params, sharding):
+def shard_up(params, linear_sharding, bias_sharding, convolution_sharding):
 
-    params["r1"] = shard_resnet_ff(params["r1"], sharding)
-    params["r2"] = shard_resnet_ff(params["r2"], sharding)
-    params["r3"] = shard_resnet_ff(params["r3"], sharding)
+    params["r1"] = shard_resnet_ff(params["r1"], linear_sharding, bias_sharding, convolution_sharding)
+    params["r2"] = shard_resnet_ff(params["r2"], linear_sharding, bias_sharding, convolution_sharding)
+    params["r3"] = shard_resnet_ff(params["r3"], linear_sharding, bias_sharding, convolution_sharding)
 
-    params["a1"] = shard_attention(params["a1"], sharding)
-    params["a2"] = shard_attention(params["a2"], sharding)
-    params["a3"] = shard_attention(params["a3"], sharding)
+    return params
+
+def shard_up_attn(params, linear_sharding, bias_sharding, convolution_sharding):
+
+    params["r1"] = shard_resnet_ff(params["r1"], linear_sharding, bias_sharding, convolution_sharding)
+    params["r2"] = shard_resnet_ff(params["r2"], linear_sharding, bias_sharding, convolution_sharding)
+    params["r3"] = shard_resnet_ff(params["r3"], linear_sharding, bias_sharding, convolution_sharding)
+
+    params["a1"] = shard_attention(params["a1"], linear_sharding, bias_sharding)
+    params["a2"] = shard_attention(params["a2"], linear_sharding, bias_sharding)
+    params["a3"] = shard_attention(params["a3"], linear_sharding, bias_sharding)
 
     return params
 
 ###### FULL MODEL ######
 
+import utils.sharding
+from jax.sharding import NamedSharding, PartitionSpec
+
 def shard_ddpm_unet(cfg,params):
 
+
+
+
     # if cfg.model.hyperparameters.sharding:
-    n_devices = len(jax.devices())
-    sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,1))) # TODO: change sharding to named sharding, not essential but nice
+    
+    (primary, secondary), mesh = utils.sharding.get_sharding(cfg) 
+
+
+    linear_sharding = NamedSharding(mesh,PartitionSpec(primary, secondary[0]))
+    bias_sharding = NamedSharding(mesh,PartitionSpec(secondary[0],primary))
+
+    convolution_sharding = NamedSharding(mesh, PartitionSpec(*secondary, primary))
+    last_convolution_sharding = NamedSharding(mesh, PartitionSpec(*secondary[:-1], primary, secondary[-1]))
+
 
     # get time embedding func and params
-    params["p_softmax"] = shard_lin(params["p_softmax"], sharding)
-    #params["p_embed"] = shard_timestep_embedding(params["p_embed"], sharding)
-    #params["p_text_embed_data"] = shard_text_data_embedding(params["p_text_embed_data"], sharding)
-    #params["p_text_embed"] = shard_text_embedding(params["p_text_embed"], sharding)
+    #params["p_embed"] = shard_timestep_embedding(params["p_embed"], linear_sharding, bias_sharding)
+    #params["p_text_embed_data"] = shard_text_data_embedding(params["p_text_embed_data"], linear_sharding, bias_sharding)
+    #params["p_text_embed"] = shard_text_embedding(params["p_text_embed"], linear_sharding, bias_sharding)
+    params["p_softmax"] = shard_lin(params["p_softmax", linear_sharding, bias_sharding])
 
     # get model funcs and params
-    params["p_c1"] =       shard_conv(params["p_c1"], sharding.reshape(1,1,1,n_devices))
+    params["p_c1"] =       shard_conv(params["p_c1"],convolution_sharding)
 
-    params["p_d1"] =       shard_down(params["p_d1"], sharding)
-    params["p_da2"] = shard_down_attn(params["p_da2"], sharding)
-    params["p_d3"] =       shard_down(params["p_d3"], sharding)
-    params["p_d4"] =       shard_down(params["p_d4"], sharding)
+    params["p_d1"] =       shard_down(params["p_d1"], linear_sharding, bias_sharding, convolution_sharding)
+    params["p_da2"] = shard_down_attn(params["p_da2"], linear_sharding, bias_sharding, convolution_sharding)
+    params["p_d3"] =       shard_down(params["p_d3"], linear_sharding, bias_sharding, convolution_sharding)
+    params["p_d4"] =       shard_down(params["p_d4"], linear_sharding, bias_sharding, convolution_sharding)
 
-    params["p_mr1"] = shard_resnet_ff(params["p_mr1"], sharding)
-    params["p_ma2"] = shard_attention(params["p_ma2"], sharding)
-    params["p_mr3"] = shard_resnet_ff(params["p_mr3"], sharding)
+    params["p_mr1"] = shard_resnet_ff(params["p_mr1"], linear_sharding, bias_sharding, convolution_sharding)
+    params["p_ma2"] = shard_attention(params["p_ma2"], linear_sharding, bias_sharding)
+    params["p_mr3"] = shard_resnet_ff(params["p_mr3"], linear_sharding, bias_sharding, convolution_sharding)
 
-    params["p_u1"] =         shard_up(params["p_u1"], sharding)
-    params["p_u2"] =         shard_up(params["p_u2"], sharding)
-    params["p_ua3"] =   shard_up_attn(params["p_ua3"], sharding)
-    params["p_u4"] =         shard_up(params["p_u4"], sharding)
+    params["p_u1"] =         shard_up(params["p_u1"], linear_sharding, bias_sharding, convolution_sharding)
+    params["p_u2"] =         shard_up(params["p_u2"], linear_sharding, bias_sharding, convolution_sharding)
+    params["p_ua3"] =   shard_up_attn(params["p_ua3"], linear_sharding, bias_sharding, convolution_sharding)
+    params["p_u4"] =         shard_up(params["p_u4"], linear_sharding, bias_sharding, convolution_sharding)
 
-    params["p_c2"] =       shard_conv(params["p_c2"], sharding.reshape(1,1,n_devices,1))
+    params["p_c2"] =       shard_conv(params["p_c2"],last_convolution_sharding) 
 
     # return func and parameters
     return params

@@ -68,6 +68,7 @@ from time import time
 
 # Paramter loading
 import utils.utility as utility
+import utils.sharding
 
 ### Train loop:
 
@@ -80,6 +81,7 @@ def run_experiment(cfg):
     print(cfg)
     print(jax.devices())
     wandb.init(**utility.get_wandb_input(cfg))
+    
 
     # Get randomness key
     key = jax.random.PRNGKey(cfg.model.key)
@@ -104,33 +106,33 @@ def run_experiment(cfg):
       optimizer, optim_parameters = get_optim(cfg, model_parameters)
       optim_parameters = utility.load_optimizer_paramters(cfg, optim_parameters)
       grad_fn = jax.grad(loss_fn,1) # TODO: try to JIT function partial(jax.jit,static_argnums=0)(jax.grad(loss_fn,1))
-      grad_fn = jax.jit(grad_fn, static_argnums=0)
+      if cfg.loss.name != "implicit_score_matching":
+        grad_fn = jax.jit(grad_fn, static_argnums=0)
     elif cfg.train_and_test.mode == "validation":
         if cfg.model.type == "score":
           fid_model = get_fid_model(cfg) 
 
+    # Data sharding
+    (primary_index, rest_index), mesh = utils.sharding.get_sharding(cfg) 
 
+    if cfg.loss.name == "implicit_score_matching":
+      # shard over the second dimension instead
+      spec = PartitionSpec(rest_index[0], primary_index)
+      generation_spec = PartitionSpec(rest_index[0])
+    else:
+       spec = PartitionSpec(primary_index)
+       generation_spec = spec
 
+       #generation_spec = PartitionSpec(rest_index[0])
 
-    # get shard
-    #mesh = Mesh(mesh_utils.create_device_mesh((len(jax.devices()), 1)), ["B", "D"])
-    #mesh = Mesh(mesh_utils.create_device_mesh((1,len(jax.devices()))), ['B', 'D'])
-    mesh = Mesh(mesh_utils.create_device_mesh((len(jax.devices()),)), ['B'])
-    #named_sharding = PositionalSharding(mesh_utils.create_device_mesh((len(jax.devices()),1)))
-    #spec = PartitionSpec(('B','D'))
-    spec = PartitionSpec(('B',))
-    out_spec = PartitionSpec(('B', None, None, None))
     named_sharding = NamedSharding(mesh, spec)
 
     # start training for each epoch
     if cfg.train_and_test.mode == "train":
 
       for epoch in range(cfg.train_and_test.train.epochs): 
-          for i, (data, (labels, text_embeddings)) in enumerate(train_dataset): # batch training
-              # Check if we should terminate early, so we can properly log Wandb before being killed.
-              if cfg.time.time_termination and (time()-START_TIME >= cfg.time.time_of_termination_h*60*60): # convert hours into seconds.
-                  TIME_EXCEEDED = True
-                  #break
+          for i, (data, (labels, text_embeddings)) in enumerate(train_dataset): 
+     
               
               # split key to keep randomness "random" for each training batch
               key, *subkey = jax.random.split(key, 4)
@@ -178,14 +180,36 @@ def run_experiment(cfg):
                     if cfg.wandb.log.img and i % 100 == 0 and cfg.model.type == "score":
                       # reverse sde sampling
                       drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
-                      diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
-                      
 
-                      @jax.jit
-                      @ft.partial(shard_map, mesh=mesh, in_specs=spec, out_specs=spec, check_rep=False)
+                      def drift_test(t, y, args):
+                        #print(y.shape) 
+                        #return -y
+                        #print("pre drift")
+                        out = drift(t, y, args)
+                        #print(out.shape)
+                        #print(out.sharding)
+                        #print(out)
+                        #print("post drift")
+                        return out
+
+
+                      diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
+                      #test_named_sharding = NamedSharding(mesh,PartitionSpec(rest_index[0], rest_index[1], primary_index) )
+                      #I = jnp.ones((1,1024,1024), dtype=jnp.float32)  
+                      #I = jax.device_put(I, test_named_sharding)
+                      def diffusion_test(t, y, args):
+                        #print(y.shape, t.shape) 
+                        #print("pre diffusion") 
+                        out = diffusion(t, y, args)
+                        #print(out)
+                        #print("post diffusion")
+                        return out
+
+                      #@jax.jit
+                      @ft.partial(shard_map, mesh=mesh, in_specs=generation_spec, out_specs=generation_spec, check_rep=False)
                       @jax.vmap
                       def get_sample(t, key1, key0, xt, text_embedding):
-                        return sample(1e-5, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1) 
+                        return sample(jnp.array(1e-5,dtype=jnp.float32), jnp.array(0,dtype=jnp.float32), t.astype(float)[0], jnp.array([-1/1000]).astype(float)[0], drift_test, diffusion_test, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1) 
 
                       #get_sample = lambda t, key1, key0, xt, text_embedding: sample(1e-5, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1) 
                                       # dt0 = - 1/N
@@ -255,8 +279,31 @@ def run_experiment(cfg):
           
 
           drift = lambda t,y, args: SDE.reverse_drift(y, jnp.array([t]), args)
+          def drift_test(t, y, args):
+            #print(y.shape) 
+            #return -y
+            #print("pre drift")
+            out = drift(t, y, args)
+            #print(out.shape)
+            #print(out.sharding)
+            #print(out)
+            #print("post drift")
+            return out
           diffusion = lambda t,y, args: SDE.reverse_diffusion(y, jnp.array([t]), args)
-          get_sample = lambda t, key1, key0, xt, text_embedding: sample(1e-5, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else all_data[0], key0], xt, key1) 
+          def diffusion_test(t, y, args):
+            #print(y.shape, t.shape) 
+            #print("pre diffusion") 
+            out = diffusion(t, y, args)
+            #print(out)
+            #print("post diffusion")
+            return out          
+
+          @ft.partial(shard_map, mesh=mesh, in_specs=generation_spec, out_specs=generation_spec, check_rep=False)
+          @jax.vmap
+          def get_sample(t, key1, key0, xt, text_embedding):
+            return sample(jnp.array(1e-5,dtype=jnp.float32), jnp.array(0,dtype=jnp.float32), t.astype(float)[0], jnp.array([-1/1000]).astype(float)[0], drift_test, diffusion_test, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else data[0], key0], xt, key1)
+
+          #get_sample = lambda t, key1, key0, xt, text_embedding: sample(1e-5, 0, t.astype(float)[0], -1/1000, drift, diffusion, [inference_model, text_embedding,model_parameters if cfg.model.name != "sde" else all_data[0], key0], xt, key1) 
 
           key, *subkey = jax.random.split(key, len(all_data) * 2 + 1)
 
@@ -269,7 +316,8 @@ def run_experiment(cfg):
           all_generated_imgs = []
           for i in range(len(all_data)//split_factor):
             arg = [x[i*split_factor:(i+1)*split_factor] for x in args]
-            generated_imgs = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*arg)
+            #generated_imgs = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*arg)
+            generated_imgs = get_sample(*arg) 
             all_generated_imgs += list(generated_imgs)
           all_generated_imgs = jnp.array(all_generated_imgs)
 
