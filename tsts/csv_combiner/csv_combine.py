@@ -4,7 +4,7 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 import numpy as np
 import pandas as pd
-import utils
+import utils.utility
 
 def combine_csv(paths):
     
@@ -19,7 +19,7 @@ def combine_csv(paths):
     return base
 import glob
 
-files = glob.glob("./tsts/csv_combiner/c*.csv")
+files = glob.glob("./tsts/csv_combiner/y*.csv")
 files.sort()
 print(files)
 df = combine_csv(files)
@@ -46,7 +46,10 @@ def setup_plot():
     
     print("Plot settings applied")
 #setup_plot()
+import wandb
+cfg = utils.utility.get_hydra_config()
+wandb.init(**utils.utility.get_wandb_input(cfg))
+for l in df["Loss"].to_numpy():
 
-utils.utility.get_hydra_config()
-plt.plot(df["Loss"])
-plt.show()
+    wandb.log({"loss": l})
+
