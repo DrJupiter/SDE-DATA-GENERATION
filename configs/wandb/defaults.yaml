@@ -5,7 +5,7 @@ setup:
 log:
         loss: true
         img: true
-        accuracy: false
+        accuracy: true
         n_images: 8
         frequency: 1
         FID: false
