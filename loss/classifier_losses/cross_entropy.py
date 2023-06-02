@@ -1,7 +1,5 @@
 from utils.text_embedding import get_label_embeddings
 import numpy as np
-from jax import vmap
-import jax.numpy as jnp
 
 
 def get_cross_entropy(cfg):
