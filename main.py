@@ -319,7 +319,6 @@ def run_experiment(cfg):
             #generated_imgs = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*arg)
             generated_imgs = get_sample(*arg) 
             all_generated_imgs += list(generated_imgs)
-            break
           all_generated_imgs = jnp.array(all_generated_imgs)
 
           display_images(cfg, all_generated_imgs[:10], all_labels.reshape(-1)[:10], log_title="Perturbed 0 -> x(0)")
@@ -335,7 +334,6 @@ def run_experiment(cfg):
             all_predicted_classes = []
             for i in range(len(all_data)//split_factor):
               all_predicted_classes += list(np.argmax(classifier(all_generated_imgs[i*split_factor:(i+1)*split_factor], None, None, classifier_parameters, key), axis=1))
-              break
             all_predicted_classes = np.array(all_predicted_classes) 
 
             print(all_predicted_classes)
