@@ -6,6 +6,6 @@ defaults:
         - visualization: local_visualization
         - optimizer: adam
         - sde: paper_subvp
-        - loss: combined_sm # cross_entropy # yangsong # combined_sm #denoise_sm #implicit_sm #none
+        - loss: yangsong # cross_entropy # yangsong # combined_sm #denoise_sm #implicit_sm #none
         - parameter_loading: default
         - text_embedding: vith14
