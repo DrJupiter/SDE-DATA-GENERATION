@@ -160,7 +160,7 @@ def shard_ddpm_unet(cfg,params):
     #params["p_embed"] = shard_timestep_embedding(params["p_embed"], linear_sharding, bias_sharding)
     #params["p_text_embed_data"] = shard_text_data_embedding(params["p_text_embed_data"], linear_sharding, bias_sharding)
     #params["p_text_embed"] = shard_text_embedding(params["p_text_embed"], linear_sharding, bias_sharding)
-    params["p_softmax"] = shard_lin(params["p_softmax", linear_sharding, bias_sharding])
+    params["p_softmax"] = shard_lin(params["p_softmax"], linear_sharding, bias_sharding)
 
     # get model funcs and params
     params["p_c1"] =       shard_conv(params["p_c1"],convolution_sharding)
