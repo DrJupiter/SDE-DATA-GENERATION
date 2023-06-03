@@ -319,7 +319,6 @@ def run_experiment(cfg):
             #generated_imgs = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*arg)
             generated_imgs = get_sample(*arg) 
             all_generated_imgs += list(generated_imgs)
-            break
           all_generated_imgs = jnp.array(all_generated_imgs)
 
           # Save images in case of crash
