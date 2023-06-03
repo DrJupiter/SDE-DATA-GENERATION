@@ -78,9 +78,9 @@ def run_experiment(cfg):
     START_TIME = time()
     TIME_EXCEEDED = False
     # initialize Weights and Biases
+    wandb.init(**utility.get_wandb_input(cfg))
     print(cfg)
     print(jax.devices())
-    wandb.init(**utility.get_wandb_input(cfg))
     
 
     # Get randomness key
