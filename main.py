@@ -274,7 +274,7 @@ def run_experiment(cfg):
         assert len(all_data) % split_factor == 0, f"split factor {split_factor} doesn't divide the length of the data {len(all_data)}"
 
     
-           
+        all_data, all_labels, all_embeddings = jax.device_put(all_data, named_sharding),jax.device_put(all_labels, named_sharding),jax.device_put(all_embeddings, named_sharding)
         if cfg.model.type == "score":
           
 
