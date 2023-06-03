@@ -322,6 +322,13 @@ def run_experiment(cfg):
             break
           all_generated_imgs = jnp.array(all_generated_imgs)
 
+          # Save images in case of crash
+          img_save_file = utility.get_save_path_names(cfg)["generated_images"]
+          file_path = os.path.join(cfg.parameter_loading.test_data_path, img_save_file)
+          with open(file_path, "wb") as f:
+            np.savez_compressed(f, images=all_generated_imgs)
+          print(f"Saved generated images @ {file_path}")
+
           display_images(cfg, all_generated_imgs[:10], all_labels.reshape(-1)[:10], log_title="Perturbed 0 -> x(0)")
           display_images(cfg, all_data[:10], all_labels.reshape(-1)[:10], log_title="Test Data: Image with Labels")
           fid = fid_model(all_generated_imgs, all_data[:len(all_generated_imgs)])

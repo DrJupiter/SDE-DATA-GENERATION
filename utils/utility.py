@@ -46,6 +46,7 @@ def get_save_path_names(cfg):
     file_name['optimizer'] = f"{cfg.dataset.name}-{cfg.model.name}-{cfg.optimizer.name}-parameters.pickle"
     file_name["test_data"] = f"{cfg.dataset.name}-{cfg.model.type}-test.npz"
     file_name["test_data_statistics"] = f"{cfg.train_and_test.test.fid_model_type}-{cfg.dataset.name}-{cfg.model.name}-{cfg.loss.name}-test-statistics.npz"
+    file_name["generated_images"] = f"{cfg.dataset.name}-{cfg.model.name}-{cfg.loss.name}-images.npz"
     return file_name 
 
 
