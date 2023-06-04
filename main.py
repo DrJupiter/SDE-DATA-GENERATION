@@ -268,13 +268,15 @@ def run_experiment(cfg):
                             #wandb.save(file_name["optimizer"])
     elif cfg.train_and_test.mode == "validation":
 
-        # TODO SHARD TEST DATA
         all_data, all_labels, all_embeddings = get_all_test_data(cfg, test_dataset)
         split_factor = cfg.train_and_test.test.split_factor 
         assert len(all_data) % split_factor == 0, f"split factor {split_factor} doesn't divide the length of the data {len(all_data)}"
 
     
         all_data, all_labels, all_embeddings = jax.device_put(all_data, named_sharding),jax.device_put(all_labels, named_sharding),jax.device_put(all_embeddings, named_sharding)
+
+
+
         if cfg.model.type == "score":
           
 
