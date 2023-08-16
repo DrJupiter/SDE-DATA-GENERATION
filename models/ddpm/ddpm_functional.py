@@ -172,7 +172,7 @@ def get_ddpm_unet(cfg, key, inference=False):
         
         # Addition test
         _mean, cov = SDE.parameters(timesteps.reshape(-1,1)*999, jnp.zeros_like(x_out).reshape(-1,len(x_out)))
-        return -1/cov * (x_in.reshape(x_out.shape)-x_out)
+        return (-1/cov * (x_in.reshape(x_out.shape)-x_out)).reshape(x_in_shape)
 
         return x_out
 
