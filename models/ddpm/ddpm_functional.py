@@ -171,7 +171,7 @@ def get_ddpm_unet(cfg, key, inference=False):
         x_out = x.reshape(x_in_shape) 
         
         # Addition test
-        _mean, cov = SDE.parameters(timesteps.reshape(-1, 1)*999, jnp.zeros_like(x_out))
+        _mean, cov = SDE.parameters(timesteps*999, jnp.zeros_like(x_out))
         return jnp.vmap(lambda a,b: a * b)(-1/cov , (x_in.reshape(x_out.shape)-x_out))
 
         return x_out
