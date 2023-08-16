@@ -21,9 +21,12 @@ from jax.sharding import PositionalSharding
 from models.ddpm.building_blocks.ddpm_functional_blocks import get_resnet_ff, get_attention, get_timestep_embedding, get_conv, get_down, get_down_attn, get_up, get_up_attn, get_text_embedding, get_text_data_embedding
 
 ######################## MODEL ########################
-
+from sde.sde import get_sde
 
 def get_ddpm_unet(cfg, key, inference=False):
+
+    # SDE: EXPERIMENT
+    SDE = get_sde(cfg) 
 
     data_c = cfg.dataset.shape[-1]
     c_s = cfg.model.parameters.Channel_sizes
@@ -166,6 +169,10 @@ def get_ddpm_unet(cfg, key, inference=False):
 
         # return to shape loss can take (input shape)
         x_out = x.reshape(x_in_shape) 
+        
+        # Addition test
+        _mean, cov = SDE.paramters(timesteps*999, jnp.zeros_like(x_out))
+        return jnp.vmap(lambda a,b: a * b)(-1/cov , (x_in.reshape(x_out.shape)-x_out))
 
         return x_out
 

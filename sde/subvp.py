@@ -24,7 +24,7 @@ class SUBVPSDE(SDE):
 
         # Get means for batch
         mean = jax.vmap(lambda a, b: a * b)(jnp.exp(exponents) , x0)
-        covar = (1-jnp.exp( 2. * exponents)) 
+        covar = (1-jnp.exp( 2. * exponents)) # TODO should be squared? 
         return mean, covar
     
     def p_xt_x0(self, xt, x0, t):
