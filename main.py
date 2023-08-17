@@ -230,7 +230,7 @@ def run_experiment(cfg):
                       #normal_distribution = jax.vmap(get_sample, (0, 0, 0, 0, 0))(*args)
                       normal_distribution = get_sample(*args)
 
-                      inference_out = inference_model(perturbed_data[:n], timesteps[:n], text_embeddings[:n],model_parameters if cfg.model.name != "sde" else data[:n], key)
+                      #inference_out = inference_model(perturbed_data[:n], timesteps[:n], text_embeddings[:n],model_parameters if cfg.model.name != "sde" else data[:n], key)
                      
                       Z_T, _ = SDE.sample(jnp.ones_like(timesteps[:n]), jnp.zeros_like(data[:n]) + TRAIN_MEAN, subkey[0])
                     
@@ -254,7 +254,7 @@ def run_experiment(cfg):
                       display_images(cfg, mean_normal_distribution, labels[:n], log_title="Perturbed TRAIN MEAN + N(0,I) -> x(0)")
                       display_images(cfg, Z, labels[:n], log_title="N(0,I)")
                       display_images(cfg, data[:n], labels[:n], log_title="Original Images: x(0)")
-                      display_images(cfg, utility.min_max_rescale(inference_out), labels[:n], log_title="Model output, min-max rescaled")
+                      #display_images(cfg, utility.min_max_rescale(inference_out), labels[:n], log_title="Model output, min-max rescaled")
 
                     if (cfg.wandb.log.parameters and i % 1000 == 0):
                             file_name = utility.get_save_path_names(cfg)
