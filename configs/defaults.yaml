@@ -5,7 +5,7 @@ defaults:
         - model : ddpm_simple #ddpm_simple # dummy 
         - visualization: local_visualization
         - optimizer: adam
-        - sde: denoise
+        - sde: paper_subvp
         - loss: mean_matching #combined_sm # cross_entropy # yangsong # combined_sm #denoise_sm #implicit_sm #none
         - parameter_loading: default
         - text_embedding: vith14
