@@ -1,1 +1,1 @@
-# Bsc-Diffusion
+# SDE DATA GENERATION
