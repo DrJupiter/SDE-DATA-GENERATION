@@ -17,9 +17,20 @@ def get_yang_song(cfg):
             #_mu, cov = sde.parameters(time, jnp.zeros_like(data))
             #score = jax.vmap(lambda a, b: a * b)(-score_model, 1. / cov)
             score = score_model
-            _mu, cov = sde.parameters(time, data)
-            loss = jnp.square(jax.vmap(lambda a, b: a * b)(score, cov) + z)
-            loss = 0.5 * jnp.sum(loss.reshape((loss.shape[0], -1)), axis=-1)
+
+            #mean = sde.mean(time, data)
+            std = sde.diffusion.decomposition(time)
+
+            if cfg.loss.likelihood_weighting and sde.diffusion.diagonal.form:
+                L = sde.diffusion(time)
+                lambda_scalar = L @ L.transpose()
+                loss = jnp.square(score + z * sde.diffusion.inv_decomposition(time))
+                loss = 0.5 * jnp.sum(loss.reshape((loss.shape[0], -1)), axis=-1) * lambda_scalar
+            # This one is the default
+            else:
+                loss = jnp.square(score*std + z)
+                loss = 0.5 * jnp.sum(loss.reshape((loss.shape[0], -1)), axis=-1)
+
             loss = jnp.mean(loss)
 
             return loss
