@@ -303,6 +303,38 @@ def get_batchnorm(cfg, key, in_C, out_C):
     else:
         return batchnorm, params
 
+def get_groupnorm(cfg, key, in_C, out_C):
+    """
+    Groupnorm, basically batchnorm, but without running mean etc, and where the statistics are taken over smaller groups. 
+    """
+    subkey = random.split(key,2)
+    abf = cfg.model.hyperparameters.anti_blowup_factor
+    G = cfg.model.hyperparameters.group_size
+    # avg_length = cfg.model.hyperparameters.avg_length
+
+    params = {}
+
+    ## 1x Linear
+    # correction: 
+    params["l"] = abf*random.normal(subkey[0], (in_C,out_C), dtype=jnp.float32)
+    params["b"] = abf*random.normal(subkey[1], (1,out_C), dtype=jnp.float32)
+
+    def groupnorm(x_in, embedding, params, subkey): 
+        # TODO split img into groups, for each gpu (maybe multiple)
+        # X_in.shape = 128,32,32,128 : B H W C
+        B,H,W,C = x_in.shape
+        xg = jnp.reshape(x_in,(B,H,W,G,C//G))
+        mu = jnp.mean(xg,-1)
+        var = jnp.var(xg,-1)
+        mu = jnp.repeat(jnp.expand_dims(mu,-1),C//G,-1)
+        var = jnp.repeat(jnp.expand_dims(var,-1),C//G,-1)
+        xg = (xg-mu)/(jnp.sqrt(var+1e-5))
+        xg = xg.reshape(B,H,W,C)
+
+        return linear(xg,params["l"],params["b"])
+
+    return groupnorm, params
+
 def get_conv(cfg, key, in_C, out_C,first=False):
     kernel_size = cfg.model.hyperparameters.kernel_size
     abf = cfg.model.hyperparameters.anti_blowup_factor
@@ -362,20 +394,19 @@ def get_resnet_ff(cfg, key, in_C, out_C):
     #params["conv1_w"] = abf*random.normal(subkey[4], ((kernel_size, kernel_size, in_C, out_C)), dtype=jnp.float32)
     #params["conv2_w"] = abf*random.normal(subkey[5], ((kernel_size, kernel_size, out_C, out_C)), dtype=jnp.float32)
 
-    # batchnorm, params["btchN1"] = get_batchnorm(cfg, key, in_C, in_C, inference)
-    # batchnorm2, params["btchN2"] = get_batchnorm(cfg, key, out_C, out_C, inference)
+    groupnorm, params["gN1"] = get_groupnorm(cfg, key, in_C, in_C)
+    groupnorm2, params["gN2"] = get_groupnorm(cfg, key, out_C, out_C)
     dropout, _ = get_dropout(cfg, key, in_C, out_C)
 
     n_devices = len(jax.devices())
     sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(n_devices,1,1,1)
     #sharding = PositionalSharding(mesh_utils.create_device_mesh((n_devices,))).reshape(1,n_devices,1,1)
 
-
     @jit
     def resnet(x_in, embedding, params, subkey):
 
         ### Apply the function to the input data
-            # x = batchnorm(x_in, embedding, params["btchN1"], subkey)
+        x = groupnorm(x_in, embedding, params["gN1"], subkey)
         x = nonlin(x_in)
         x = conv2d(x, params["conv1_w"])
         #x = jax.lax.with_sharding_constraint(x, sharding)
